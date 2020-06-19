@@ -42,7 +42,7 @@ func main() {
 	trader := currencytrader.New(provider)
 	trader.Start()
 
-	Get the currencies to use
+	// Get the currencies to use
 	btc, err := trader.WalletSvc().Currency("BTC")
 	if err != nil {
 		log.WithError(err).Fatal("could not get BTC")
