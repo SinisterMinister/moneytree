@@ -24,16 +24,16 @@ func main() {
 	// Setup a coinbase client
 	client := coinbasepro.NewClient()
 
-	// Connect to sandbox
+	// Connect to live
 	client.UpdateConfig(&coinbasepro.ClientConfig{
-		BaseURL:    "https://api-public.sandbox.pro.coinbase.com",
-		Key:        "db983743c2fa020a17502a111657b551",
+		BaseURL:    "https://api.pro.coinbase.com",
+		Key:        "7705b8bf56cb95c6e8957049e09c4b6d",
 		Passphrase: "throwback",
-		Secret:     "SrHvi/n9HAcEoe/JXsaZlfok4O/hXULiK4OhoANFN5GS0odp5ciho1w1jmMXlQ40Br8G8GU6WGRPClmbQnUyEQ==",
+		Secret:     "RQ8ml29SdZtjPBBwCbehRRQqZZaK8MSDlWeYJe5L2EJ3SaFU1U+Ter8agEeB7wsDC3oofcjgSWaEZ0dj0pweHw==",
 	})
 
 	// Setup sandbox websocket url
-	viper.Set("coinbase.websocket.url", "wss://ws-feed-public.sandbox.pro.coinbase.com")
+	viper.Set("coinbase.websocket.url", "wss://ws-feed.pro.coinbase.com")
 
 	// Start up a coinbase provider
 	provider := coinbase.New(killSwitch, client)
@@ -42,18 +42,38 @@ func main() {
 	trader := currencytrader.New(provider)
 	trader.Start()
 
-	// Get the currencies to use
+	Get the currencies to use
 	btc, err := trader.WalletSvc().Currency("BTC")
 	if err != nil {
 		log.WithError(err).Fatal("could not get BTC")
 	}
-	usdc, err := trader.WalletSvc().Currency("USD")
+	usd, err := trader.WalletSvc().Currency("USD")
 	if err != nil {
 		log.WithError(err).Fatal("could not get USD")
 	}
+	usdc, err := trader.WalletSvc().Currency("USDC")
+	if err != nil {
+		log.WithError(err).Fatal("could not get USDC")
+	}
+	eth, err := trader.WalletSvc().Currency("ETH")
+	if err != nil {
+		log.WithError(err).Fatal("could not get ETH")
+	}
+	ltc, err := trader.WalletSvc().Currency("LTC")
+	if err != nil {
+		log.WithError(err).Fatal("could not get LTC")
+	}
+	xrp, err := trader.WalletSvc().Currency("XRP")
+	if err != nil {
+		log.WithError(err).Fatal("could not get XRP")
+	}
 
 	// Start a new moneytree
-	moneytree.New(killSwitch, trader, btc, usdc)
+	moneytree.New(killSwitch, trader, btc, usd, usdc, eth, ltc, xrp)
+
+	// Watch all currencies
+	// currencies, _ := trader.WalletSvc().Currencies()
+	// moneytree.New(killSwitch, trader, currencies...)
 
 	// Intercept the interrupt signal and pass it along
 	interrupt := make(chan os.Signal, 1)
