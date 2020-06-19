@@ -4,6 +4,8 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/sinisterminister/moneytree/lib/moneytree"
+
 	"github.com/go-playground/log/v7"
 	"github.com/go-playground/log/v7/handlers/console"
 	"github.com/preichenberger/go-coinbasepro/v2"
@@ -40,26 +42,18 @@ func main() {
 	trader := currencytrader.New(provider)
 	trader.Start()
 
-	// Get the available markets
+	// Get the currencies to use
 	btc, err := trader.WalletSvc().Currency("BTC")
 	if err != nil {
 		log.WithError(err).Fatal("could not get BTC")
 	}
-	usdc, err := trader.WalletSvc().Currency("USDC")
+	usdc, err := trader.WalletSvc().Currency("USD")
 	if err != nil {
-		log.WithError(err).Fatal("could not get USDC")
-	}
-	markets, err := trader.MarketSvc().Market(btc, usdc)
-	if err != nil {
-		log.WithError(err).Fatal("could not get market BTC-USDC")
+		log.WithError(err).Fatal("could not get USD")
 	}
 
-	// Stream the tickers to output log
-	for _, mkt := range markets {
-		if mkt.Name() == "BTC-USD" {
-			go placeOrders(killSwitch, mkt)
-		}
-	}
+	// Start a new moneytree
+	moneytree.New(killSwitch, trader, btc, usdc)
 
 	// Intercept the interrupt signal and pass it along
 	interrupt := make(chan os.Signal, 1)
