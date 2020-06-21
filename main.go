@@ -10,6 +10,7 @@ import (
 	"github.com/go-playground/log/v7/handlers/console"
 	"github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/sinisterminister/currencytrader"
+	"github.com/sinisterminister/currencytrader/types"
 	"github.com/sinisterminister/currencytrader/types/provider/coinbase"
 	"github.com/spf13/viper"
 )
@@ -26,14 +27,11 @@ func main() {
 
 	// Connect to live
 	client.UpdateConfig(&coinbasepro.ClientConfig{
-		BaseURL:    "https://api.pro.coinbase.com",
-		Key:        "7705b8bf56cb95c6e8957049e09c4b6d",
-		Passphrase: "throwback",
-		Secret:     "RQ8ml29SdZtjPBBwCbehRRQqZZaK8MSDlWeYJe5L2EJ3SaFU1U+Ter8agEeB7wsDC3oofcjgSWaEZ0dj0pweHw==",
+		BaseURL:    viper.GetString("coinbaise.baseUrl"),
+		Key:        viper.GetString("coinbaise.key"),
+		Passphrase: viper.GetString("coinbaise.passphrase"),
+		Secret:     viper.GetString("coinbaise.secret"),
 	})
-
-	// Setup sandbox websocket url
-	viper.Set("coinbase.websocket.url", "wss://ws-feed.pro.coinbase.com")
 
 	// Start up a coinbase provider
 	provider := coinbase.New(killSwitch, client)
@@ -42,38 +40,22 @@ func main() {
 	trader := currencytrader.New(provider)
 	trader.Start()
 
-	// Get the currencies to use
-	btc, err := trader.WalletSvc().Currency("BTC")
-	if err != nil {
-		log.WithError(err).Fatal("could not get BTC")
-	}
-	usd, err := trader.WalletSvc().Currency("USD")
-	if err != nil {
-		log.WithError(err).Fatal("could not get USD")
-	}
-	usdc, err := trader.WalletSvc().Currency("USDC")
-	if err != nil {
-		log.WithError(err).Fatal("could not get USDC")
-	}
-	eth, err := trader.WalletSvc().Currency("ETH")
-	if err != nil {
-		log.WithError(err).Fatal("could not get ETH")
-	}
-	ltc, err := trader.WalletSvc().Currency("LTC")
-	if err != nil {
-		log.WithError(err).Fatal("could not get LTC")
-	}
-	xrp, err := trader.WalletSvc().Currency("XRP")
-	if err != nil {
-		log.WithError(err).Fatal("could not get XRP")
+	symbols := viper.GetStringSlice("symbols")
+	// Prepare the currencies
+	currencies := []types.Currency{}
+
+	// Load the currencies
+	for _, s := range symbols {
+		cur, err := trader.WalletSvc().Currency(s)
+		if err != nil {
+			log.WithError(err).Error("could not get %s", s)
+			continue
+		}
+		currencies = append(currencies, cur)
 	}
 
 	// Start a new moneytree
-	moneytree.New(killSwitch, trader, btc, usd, usdc, eth, ltc, xrp)
-
-	// Watch all currencies
-	// currencies, _ := trader.WalletSvc().Currencies()
-	// moneytree.New(killSwitch, trader, currencies...)
+	moneytree.New(killSwitch, trader, currencies...)
 
 	// Intercept the interrupt signal and pass it along
 	interrupt := make(chan os.Signal, 1)
