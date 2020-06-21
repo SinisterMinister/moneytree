@@ -1,8 +1,7 @@
 package main
 
 import (
-	"fmt"
-
+	"github.com/go-playground/log/v7"
 	"github.com/spf13/viper"
 )
 
@@ -14,6 +13,6 @@ func init() {
 	viper.AddConfigPath(".")
 	err := viper.ReadInConfig()
 	if err != nil {
-		panic(fmt.Errorf("Fatal error config file: %s \n", err))
+		log.WithError(err).Panic("fatal error loading config file")
 	}
 }
