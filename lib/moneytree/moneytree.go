@@ -3,6 +3,7 @@ package moneytree
 import (
 	"github.com/go-playground/log/v7"
 	"github.com/sinisterminister/currencytrader/types"
+	"github.com/sinisterminister/moneytree/lib/followtheleader"
 	"github.com/sinisterminister/moneytree/lib/marketwatcher"
 )
 
@@ -47,6 +48,6 @@ func (m *Moneytree) loadMarkets() {
 func (m *Moneytree) startMarketWatchers() {
 	// Start the MarketWatchers
 	for _, mkt := range m.markets {
-		marketwatcher.New(m.stop, mkt)
+		marketwatcher.New(m.stop, mkt, &followtheleader.Processor{})
 	}
 }

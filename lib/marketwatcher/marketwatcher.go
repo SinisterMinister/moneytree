@@ -1,46 +1,50 @@
 package marketwatcher
 
 import (
+	"time"
+
 	"github.com/go-playground/log/v7"
 	"github.com/sinisterminister/currencytrader/types"
+	"github.com/sinisterminister/moneytree/lib/marketprocessor"
 )
 
 type MarketWatcher struct {
-	stop   <-chan bool
-	market types.Market
+	stop      <-chan bool
+	market    types.Market
+	processor marketprocessor.Processor
 }
 
-func New(stop <-chan bool, mkt types.Market) MarketWatcher {
-	mw := MarketWatcher{stop, mkt}
-	go mw.start()
+func New(stop <-chan bool, mkt types.Market, processor marketprocessor.Processor) MarketWatcher {
+	mw := MarketWatcher{stop, mkt, processor}
+	go mw.watchMarket()
 	return mw
 }
 
-func (mw *MarketWatcher) start() {
-	// Get the ticker stream from the market
-	stream := mw.market.TickerStream(mw.stop)
-
-	// Watch the stream and log any data sent over it
+func (mw *MarketWatcher) watchMarket() {
+	// Make phat stacks
 	for {
-		// Bail out on stop
+		// Try receive op of stop to bail on close instead of random channel receive
 		select {
 		case <-mw.stop:
 			return
 		default:
 		}
 
+		done, err := mw.processor.ProcessMarket(mw.stop, mw.market)
+		if err != nil {
+			log.WithError(err).Error("error processing market")
+			return
+		}
+
+		// Wait for the processor to complete
 		select {
-		//Backup bailout
 		case <-mw.stop:
 			return
+		case <-done:
+			log.WithField("market", mw.market.Name()).Info("market process cycle complete")
 
-		// Data received
-		case data := <-stream:
-			if data != nil {
-				log.WithField("data", data.ToDTO()).Infof("stream data received for %s market", mw.market.Name())
-			} else {
-				log.Info("empty stream data received")
-			}
+			// Wait a sec
+			<-time.NewTicker(time.Second).C
 		}
 	}
 }

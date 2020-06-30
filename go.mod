@@ -1,6 +1,6 @@
 module github.com/sinisterminister/moneytree
 
-go 1.13
+go 1.14
 
 require (
 	github.com/go-playground/ansi v2.1.0+incompatible // indirect
