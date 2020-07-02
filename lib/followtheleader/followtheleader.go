@@ -30,6 +30,13 @@ func (p *Processor) ProcessMarket(stop <-chan bool, market types.Market) (done <
 	ma, osc := trix.GetTrixIndicator(prices)
 	log.WithFields(log.F("market", market.Name()), log.F("trix", ma), log.F("osc", osc)).Info("trix value computed")
 
+	// Get wallets
+
+	baseWallet := market.BaseCurrency().Wallet()
+	quoteWallet := market.QuoteCurrency().Wallet()
+
+	log.WithFields(log.F("total", baseWallet.Total()), log.F("available", baseWallet.Available())).Infof("wallet for %s", baseWallet.Currency().Name())
+	log.WithFields(log.F("total", quoteWallet.Total()), log.F("available", quoteWallet.Available())).Infof("wallet for %s", quoteWallet.Currency().Name())
 	// Build closed return channel
 	ret := make(chan bool)
 	close(ret)
