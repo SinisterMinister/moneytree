@@ -27,10 +27,10 @@ func main() {
 
 	// Connect to live
 	client.UpdateConfig(&coinbasepro.ClientConfig{
-		BaseURL:    viper.GetString("coinbaise.baseUrl"),
-		Key:        viper.GetString("coinbaise.key"),
-		Passphrase: viper.GetString("coinbaise.passphrase"),
-		Secret:     viper.GetString("coinbaise.secret"),
+		BaseURL:    viper.GetString("coinbase.baseUrl"),
+		Key:        viper.GetString("coinbase.key"),
+		Passphrase: viper.GetString("coinbase.passphrase"),
+		Secret:     viper.GetString("coinbase.secret"),
 	})
 
 	// Start up a coinbase provider
