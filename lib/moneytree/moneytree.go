@@ -48,6 +48,6 @@ func (m *Moneytree) loadMarkets() {
 func (m *Moneytree) startMarketWatchers() {
 	// Start the MarketWatchers
 	for _, mkt := range m.markets {
-		marketwatcher.New(m.stop, mkt, &followtheleader.Processor{})
+		marketwatcher.New(m.stop, mkt, followtheleader.New(m.trader))
 	}
 }

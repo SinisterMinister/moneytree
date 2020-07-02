@@ -12,6 +12,7 @@ import (
 	"github.com/sinisterminister/currencytrader"
 	"github.com/sinisterminister/currencytrader/types"
 	"github.com/sinisterminister/currencytrader/types/provider/coinbase"
+	coinbaseclient "github.com/sinisterminister/currencytrader/types/provider/coinbase/client"
 	"github.com/spf13/viper"
 )
 
@@ -23,7 +24,7 @@ func main() {
 	killSwitch := make(chan bool)
 
 	// Setup a coinbase client
-	client := coinbasepro.NewClient()
+	client := coinbaseclient.NewClient()
 
 	// Connect to live
 	client.UpdateConfig(&coinbasepro.ClientConfig{
@@ -46,7 +47,7 @@ func main() {
 
 	// Load the currencies
 	for _, s := range symbols {
-		cur, err := trader.WalletSvc().Currency(s)
+		cur, err := trader.AccountSvc().Currency(s)
 		if err != nil {
 			log.WithError(err).Error("could not get %s", s)
 			continue
