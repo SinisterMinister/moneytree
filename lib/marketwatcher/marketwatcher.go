@@ -30,7 +30,7 @@ func (mw *MarketWatcher) watchMarket() {
 		default:
 		}
 
-		done, err := mw.processor.ProcessMarket(mw.stop, mw.market)
+		done, err := mw.processor.Process(mw.stop)
 		if err != nil {
 			log.WithError(err).Error("error processing market")
 			return
@@ -44,7 +44,7 @@ func (mw *MarketWatcher) watchMarket() {
 			log.WithField("market", mw.market.Name()).Info("market process cycle complete")
 
 			// Wait a sec
-			<-time.NewTicker(time.Second).C
+			<-time.NewTicker(5 * time.Second).C
 		}
 	}
 }
