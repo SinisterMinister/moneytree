@@ -1,9 +1,13 @@
 package followtheleader
 
 import (
+	"time"
+
 	"github.com/go-playground/log/v7"
 	"github.com/shopspring/decimal"
 	"github.com/sinisterminister/currencytrader/types"
+	"github.com/sinisterminister/currencytrader/types/candle"
+	"github.com/sinisterminister/moneytree/lib/trix"
 )
 
 type Processor struct {
@@ -51,9 +55,15 @@ func (p *Processor) run(done chan<- bool) {
 		return
 	}
 
-	// Calculate spread
+	// Set the profit target
 	target := decimal.NewFromFloat(0.005)
-	spread := target.Add(fees.MakerRate()).Add(fees.TakerRate())
+
+	// Add the taker fees twice for the two orders
+	fees := fees.TakerRate().Add(fees.TakerRate())
+
+	// Calculate spread
+	spread := target.Add(fees)
+
 	log.WithFields(
 		log.F("maker", fees.MakerRate()),
 		log.F("taker", fees.TakerRate()),
@@ -72,4 +82,30 @@ func (p *Processor) run(done chan<- bool) {
 
 	// Store stuck orders
 	close(done)
+}
+
+func (p *Processor) isMarketUpwardTrending() (bool, error) {
+	// Get trix values
+	candles, err := p.market.Candles(candle.OneMinute, time.Now().Add(-60*time.Minute), time.Now())
+	if err != nil {
+		log.WithError(err).Error("unable to fetch candle data")
+		return false, err
+	}
+
+	// Build price slice
+	prices := []float64{}
+	for _, candle := range candles {
+		price, _ := candle.Close().Float64()
+		prices = append(prices, price)
+	}
+
+	// Get trix indicator
+	ma, osc := trix.GetTrixIndicator(prices)
+	log.WithFields(
+		log.F("market", p.market.Name()),
+		log.F("trix", ma),
+		log.F("osc", osc),
+	).Info("trix value computed")
+
+	return osc > 0, nil
 }
