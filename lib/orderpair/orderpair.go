@@ -99,7 +99,7 @@ func (o *OrderPair) validate() error {
 
 	// Make sure we're making money
 	if baseRes.LessThanOrEqual(baseFee) && quoteRes.LessThanOrEqual(quoteFee) {
-		return fmt.Errorf("losing money after fees, %w", &LosingPropositionError{o})
+		return fmt.Errorf("not making money after fees, %w", &LosingPropositionError{o})
 	}
 
 	return nil
