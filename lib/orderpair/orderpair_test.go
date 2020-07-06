@@ -107,6 +107,7 @@ func TestValidate_LosingProposition(t *testing.T) {
 	var tests = []testValidateHarness{
 		validate_LosingProposition_LossOfBaseCurrency(ctrl),
 		validate_LosingProposition_LossOfQuoteCurrency(ctrl),
+		validate_LosingProposition_LossOfBaseCurrencyFromFees(ctrl),
 	}
 
 	for _, tt := range tests {
@@ -163,6 +164,52 @@ func validate_LosingProposition_LossOfQuoteCurrency(ctrl *gomock.Controller) tes
 
 	second := types.OrderRequestDTO{
 		Price:    decimal.NewFromFloat(200),
+		Quantity: decimal.NewFromFloat(100),
+		Side:     order.Buy,
+		Type:     order.Limit,
+		Market:   types.MarketDTO{},
+	}
+
+	return testValidateHarness{scenario, trader, market, first, second}
+}
+
+func validate_LosingProposition_LossOfBaseCurrencyFromFees(ctrl *gomock.Controller) testValidateHarness {
+	scenario := "prevent losing quote currency"
+	trader, market := buildStubs(ctrl)
+
+	first := types.OrderRequestDTO{
+		Price:    decimal.NewFromFloat(200),
+		Quantity: decimal.NewFromFloat(100),
+		Side:     order.Sell,
+		Type:     order.Limit,
+		Market:   types.MarketDTO{},
+	}
+
+	second := types.OrderRequestDTO{
+		Price:    decimal.NewFromFloat(100),
+		Quantity: decimal.NewFromFloat(100),
+		Side:     order.Buy,
+		Type:     order.Limit,
+		Market:   types.MarketDTO{},
+	}
+
+	return testValidateHarness{scenario, trader, market, first, second}
+}
+
+func validate_LosingProposition_LossOfQuoteCurrencyFromFees(ctrl *gomock.Controller) testValidateHarness {
+	scenario := "prevent losing quote currency"
+	trader, market := buildStubs(ctrl)
+
+	first := types.OrderRequestDTO{
+		Price:    decimal.NewFromFloat(100),
+		Quantity: decimal.NewFromFloat(99),
+		Side:     order.Sell,
+		Type:     order.Limit,
+		Market:   types.MarketDTO{},
+	}
+
+	second := types.OrderRequestDTO{
+		Price:    decimal.NewFromFloat(100),
 		Quantity: decimal.NewFromFloat(100),
 		Side:     order.Buy,
 		Type:     order.Limit,
