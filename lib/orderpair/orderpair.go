@@ -67,8 +67,8 @@ func (o *OrderPair) validate() error {
 	}
 
 	// Figure out the net result of the trades against our currency balance
-	baseRes := decimal.Zero
-	quoteRes := decimal.Zero
+	var baseRes decimal.Decimal
+	var quoteRes decimal.Decimal
 	if o.firstRequest.Side == order.Buy {
 		baseRes = o.firstRequest.Quantity.Sub(o.secondRequest.Quantity)
 		quoteRes = o.secondRequest.Price.Mul(o.secondRequest.Quantity).Sub(o.firstRequest.Price.Mul(o.firstRequest.Quantity))
@@ -78,7 +78,7 @@ func (o *OrderPair) validate() error {
 	}
 
 	// Make sure we're not losing currency
-	if baseRes.LessThanOrEqual(decimal.Zero) && quoteRes.LessThanOrEqual(decimal.Zero) {
+	if baseRes.LessThanOrEqual(decimal.Zero) || quoteRes.LessThanOrEqual(decimal.Zero) {
 		return fmt.Errorf("not making more of both currencies, %w", &LosingPropositionError{o})
 	}
 
@@ -100,7 +100,7 @@ func (o *OrderPair) validate() error {
 	}
 
 	// Make sure we're making money
-	if baseRes.LessThanOrEqual(baseFee) && quoteRes.LessThanOrEqual(quoteFee) {
+	if baseRes.LessThanOrEqual(baseFee) || quoteRes.LessThanOrEqual(quoteFee) {
 		return fmt.Errorf("not making money after fees, %w", &LosingPropositionError{o})
 	}
 
