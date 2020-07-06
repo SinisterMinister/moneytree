@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/go-playground/log/v7"
 	"github.com/shopspring/decimal"
 	"github.com/sinisterminister/currencytrader/types"
 	"github.com/sinisterminister/currencytrader/types/order"
@@ -18,8 +19,9 @@ type OrderPair struct {
 	firstOrder    types.Order
 	secondRequest types.OrderRequestDTO
 	secondOrder   types.Order
-	done          chan bool
 	running       bool
+	done          chan bool
+	stop          chan bool
 }
 
 func New(trader types.Trader, market types.Market, first types.OrderRequestDTO, second types.OrderRequestDTO) (orderPair *OrderPair, err error) {
@@ -40,7 +42,7 @@ func New(trader types.Trader, market types.Market, first types.OrderRequestDTO, 
 	return orderPair, nil
 }
 
-func (o *OrderPair) Execute() <-chan bool {
+func (o *OrderPair) Execute(stop <-chan bool) <-chan bool {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
 
@@ -49,6 +51,7 @@ func (o *OrderPair) Execute() <-chan bool {
 		go o.executeWorkflow()
 	}
 	o.running = true
+	o.stop = stop
 
 	return o.done
 }
@@ -73,18 +76,34 @@ func (o *OrderPair) Cancel() error {
 
 func (o *OrderPair) executeWorkflow() {
 	// Place first order
+	first, err := o.trader.OrderSvc().AttemptOrder(o.market, o.firstRequest.Type, o.firstRequest.Side, o.firstRequest.Price, o.firstRequest.Quantity)
+	if err != nil {
+		log.WithError(err).Error("could not place first order")
+		close(o.done)
+		return
+	}
 
-	// Wait for order to complete, bailing if it misses
+	// TODO: Wait for order to complete, bailing if it misses
 
-	// If order missed, send false over done channel before closing
+	// Bail if fill amount is zero
+	if o.firstOrder.Filled().Equal(decimal.Zero) {
+		log.Warn("first order was not filled, skipping second")
+		close(o.done)
+		return
+	}
 
 	// Place second order
+	second, err := o.trader.OrderSvc().AttemptOrder(o.market, o.secondRequest.Type, o.secondRequest.Side, o.secondRequest.Price, o.secondRequest.Quantity)
+	if err != nil {
+		log.WithError(err).Error("could not place second order")
+		close(o.done)
+		return
+	}
 
-	// Wait for it to complete, timing out after a configured amount of time
+	// TODO: Wait for it to complete
 
-	// If timed out, send false over done channel before closing
-
-	// If successful, send true over done channel before closing
+	// Signal completion
+	close(o.done)
 }
 
 func (o *OrderPair) validate() error {
