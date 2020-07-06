@@ -9,6 +9,7 @@ import (
 )
 
 type OrderPair struct {
+	trader types.Trader
 	market types.Market
 
 	firstRequest types.OrderRequestDTO
@@ -20,8 +21,9 @@ type OrderPair struct {
 	done chan bool
 }
 
-func New(market types.Market, first types.OrderRequestDTO, second types.OrderRequestDTO) (orderPair *OrderPair, err error) {
+func New(trader types.Trader, market types.Market, first types.OrderRequestDTO, second types.OrderRequestDTO) (orderPair *OrderPair, err error) {
 	orderPair = &OrderPair{
+		trader:        trader,
 		market:        market,
 		done:          make(chan bool),
 		firstRequest:  first,
@@ -29,7 +31,7 @@ func New(market types.Market, first types.OrderRequestDTO, second types.OrderReq
 	}
 
 	// Validate DTOs
-	err := orderPair.validate()
+	err = orderPair.validate()
 	if err != nil {
 		return nil, err
 	}
@@ -41,8 +43,6 @@ func (o *OrderPair) Execute() <-chan bool {
 	go o.executeWorkflow()
 	return o.done
 }
-
-func (o *OrderPair) Direction() Direction { return o.direction }
 
 func (o *OrderPair) executeWorkflow() {
 	// Place first order
@@ -71,10 +71,10 @@ func (o *OrderPair) validate() error {
 	quoteRes := decimal.Zero
 	if o.firstRequest.Side == order.Buy {
 		baseRes = o.firstRequest.Quantity.Sub(o.secondRequest.Quantity)
-		quoteRes = o.secondRequest.Price.Mul(o.secondRequest.Quantity).Sub(o.firstRequest.Price.Mul(o.firstRequest.Quantity)
+		quoteRes = o.secondRequest.Price.Mul(o.secondRequest.Quantity).Sub(o.firstRequest.Price.Mul(o.firstRequest.Quantity))
 	} else {
 		baseRes = o.secondRequest.Quantity.Sub(o.firstRequest.Quantity)
-		quoteRes = o.firstRequest.Price.Mul(o.firstRequest.Quantity).Sub(o.secondRequest.Price.Mul(o.secondRequest.Quantity)
+		quoteRes = o.firstRequest.Price.Mul(o.firstRequest.Quantity).Sub(o.secondRequest.Price.Mul(o.secondRequest.Quantity))
 	}
 
 	// Make sure we're not losing currency
@@ -83,12 +83,14 @@ func (o *OrderPair) validate() error {
 	}
 
 	// Get the fee rates
-	rates, err := p.trader.AccountSvc().Fees()
+	rates, err := o.trader.AccountSvc().Fees()
 	if err != nil {
 		return err
 	}
 
 	// Determin the fees
+	var baseFee decimal.Decimal
+	var quoteFee decimal.Decimal
 	if o.firstRequest.Side == order.Buy {
 		baseFee = o.firstRequest.Quantity.Mul(rates.TakerRate())
 		quoteFee = o.secondRequest.Price.Mul(o.secondRequest.Quantity).Mul(rates.TakerRate())
