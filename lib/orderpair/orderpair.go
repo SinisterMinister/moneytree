@@ -2,6 +2,7 @@ package orderpair
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/shopspring/decimal"
 	"github.com/sinisterminister/currencytrader/types"
@@ -12,13 +13,13 @@ type OrderPair struct {
 	trader types.Trader
 	market types.Market
 
-	firstRequest types.OrderRequestDTO
-	firstOrder   types.Order
-
+	mutex         sync.Mutex
+	firstRequest  types.OrderRequestDTO
+	firstOrder    types.Order
 	secondRequest types.OrderRequestDTO
 	secondOrder   types.Order
-
-	done chan bool
+	done          chan bool
+	running       bool
 }
 
 func New(trader types.Trader, market types.Market, first types.OrderRequestDTO, second types.OrderRequestDTO) (orderPair *OrderPair, err error) {
@@ -40,8 +41,34 @@ func New(trader types.Trader, market types.Market, first types.OrderRequestDTO, 
 }
 
 func (o *OrderPair) Execute() <-chan bool {
-	go o.executeWorkflow()
+	o.mutex.Lock()
+	defer o.mutex.Unlock()
+
+	// Only launch routine if not running already
+	if !o.running {
+		go o.executeWorkflow()
+	}
+	o.running = true
+
 	return o.done
+}
+
+func (o *OrderPair) FirstOrder() types.Order {
+	o.mutex.Lock()
+	defer o.mutex.Unlock()
+	return o.firstOrder
+}
+
+func (o *OrderPair) SecondOrder() types.Order {
+	o.mutex.Lock()
+	defer o.mutex.Unlock()
+	return o.SecondOrder
+}
+
+func (o *OrderPair) Cancel() error {
+	o.mutex.Lock()
+	defer o.mutex.Unlock()
+	return o.trader.OrderSvc().CancelOrder(o.firstOrder)
 }
 
 func (o *OrderPair) executeWorkflow() {
