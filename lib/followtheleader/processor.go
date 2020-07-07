@@ -54,6 +54,7 @@ func (p *Processor) run(stop <-chan bool, done chan<- bool) {
 			return
 		}
 	}
+	log.WithFields(log.F("market", p.market.Name()), log.F("upward", upwardTrending)).Info("got market trend direction")
 
 	// Build the order pair
 	if upwardTrending {
@@ -67,84 +68,35 @@ func (p *Processor) run(stop <-chan bool, done chan<- bool) {
 		close(done)
 		return
 	}
+	log.WithFields(log.F("first", orderPair.FirstRequest().ToDTO()), log.F("second", orderPair.SecondRequest().ToDTO())).Debug("order pair created")
 
 	// Execute the order
 	orderDone := orderPair.Execute(stop)
 
 	// Create timer to bail on stale orders
-	timer := time.NewTimer(viper.GetDuration("followtheleader.markOrderStaleAfter"))
+	timer := time.NewTimer(viper.GetDuration("followtheleader.orderTTL"))
 
-	// Wait for orders to process or timeout
+	// If there's a leader, we wait for it to complete instead of the timer
+	if p.leader != nil && !p.leader.SecondOrder().IsDone() {
+		select {
+		case <-orderDone:
+			// Stop the timer
+			timer.Stop()
+
+			// Clear out the timer channel in case it's already fired
+			select {
+			case <-timer.C:
+			default:
+			}
+		case <-p.leader.SecondOrder().Done():
+		}
+	}
+
+	// Wait for the order to be complete or for it to timeout
 	select {
 	case <-timer.C:
-		switch orderPair.FirstOrder().Status() {
-		case order.Pending:
-			err := orderPair.Cancel()
-			if err != nil {
-				log.WithError(err).Error("could not cancel stalled order")
-			}
-
-		// Not sure what's up with this order so fall through to use filled
-		case order.Unknown:
-			fallthrough
-		case order.Updated:
-			// This order is partially filled
-			if orderPair.FirstOrder().Filled().Equal(decimal.Zero) {
-				break
-			}
-
-			fallthrough
-		case order.Partial:
-			// Cancel the first order and let the pair self-heal
-			err := p.trader.OrderSvc().CancelOrder(orderPair.FirstOrder())
-			if err != nil {
-				log.WithError(err).Error("could not cancel stalled order")
-			}
-			// Give the order some time to process
-			wait := time.NewTimer(viper.GetDuration("followtheleader.waitAfterCancelStalledPair"))
-			<-wait.C
-			fallthrough
-		case order.Canceled:
-			fallthrough
-		case order.Expired:
-			fallthrough
-		case order.Rejected:
-			fallthrough
-		case order.Filled:
-			switch orderPair.SecondOrder().Status() {
-			// Assume that this order should be ignored
-			case order.Canceled:
-			case order.Expired:
-			case order.Rejected:
-
-			// Move on if second order is also filled
-			case order.Filled:
-
-			// Not really sure what's going on so fall through to cancel just in case
-			case order.Unknown:
-				fallthrough
-
-			// Not really sure what's going on so cancel just in case
-			case order.Updated:
-				err := p.trader.OrderSvc().CancelOrder(orderPair.SecondOrder())
-				if err != nil {
-					log.WithError(err).Error("could not cancel second order")
-				}
-
-				// break if we haven't filled anything, get out
-				if orderPair.SecondOrder().Filled().Equal(decimal.Zero) {
-					break
-				}
-				fallthrough
-			// Partial case so fall through to make leader
-			case order.Pending:
-				fallthrough
-
-			// Mark as leader
-			case order.Partial:
-				p.leader = orderPair
-			}
-		}
+		// This order has gone stale and should become the leader
+		p.rotateLeader(orderPair)
 	case <-orderDone:
 		// Order has complete. Nothing to do
 	}
@@ -177,26 +129,6 @@ func (p *Processor) isMarketUpwardTrending() (bool, error) {
 	).Info("trix value computed")
 
 	return osc > 0, nil
-}
-
-func (p *Processor) getSpread() (decimal.Decimal, error) {
-	// Get the fees
-	fees, err := p.trader.AccountSvc().Fees()
-	if err != nil {
-		log.WithError(err).Error("failed to get fees")
-		return decimal.Zero, err
-	}
-
-	// Set the profit target
-	target := decimal.NewFromFloat(0.005)
-
-	// Add the taker fees twice for the two orders
-	rate := fees.TakerRate().Add(fees.TakerRate())
-
-	// Calculate spread
-	spread := target.Add(rate)
-
-	return spread, nil
 }
 
 func (p *Processor) buildUpwardTrendingPair() (*orderpair.OrderPair, error) {
@@ -294,4 +226,83 @@ func (p *Processor) getSize(ticker types.Ticker) (decimal.Decimal, error) {
 		size = decimal.Min(baseMax, quoteMax)
 	}
 	return decimal.Min(size, baseMax, quoteMax), nil
+}
+
+func (p *Processor) getSpread() (decimal.Decimal, error) {
+	// Get the fees
+	fees, err := p.trader.AccountSvc().Fees()
+	if err != nil {
+		log.WithError(err).Error("failed to get fees")
+		return decimal.Zero, err
+	}
+
+	// Set the profit target
+	target := decimal.NewFromFloat(0.005)
+
+	// Add the taker fees twice for the two orders
+	rate := fees.TakerRate().Add(fees.TakerRate())
+
+	// Calculate spread
+	spread := target.Add(rate)
+
+	return spread, nil
+}
+
+func (p *Processor) rotateLeader(op *orderpair.OrderPair) {
+	switch op.FirstOrder().Status() {
+	case order.Rejected:
+		// Nothing to do here
+	case order.Pending:
+		err := op.Cancel()
+		if err != nil {
+			log.WithError(err).Error("could not cancel stalled order")
+		}
+
+	// Not sure what's up with this order so fall through to use filled
+	case order.Unknown:
+		fallthrough
+	case order.Canceled:
+		fallthrough
+	case order.Expired:
+		fallthrough
+	case order.Updated:
+		// This order is partially filled
+		if op.FirstOrder().Filled().Equal(decimal.Zero) {
+			break
+		}
+
+		fallthrough
+	case order.Partial:
+		// Cancel the first order and let the pair self-heal
+		err := p.trader.OrderSvc().CancelOrder(op.FirstOrder())
+		if err != nil {
+			log.WithError(err).Error("could not cancel stalled order")
+		}
+		// Give the order some time to process
+		wait := time.NewTimer(viper.GetDuration("followtheleader.waitAfterCancelStalledPair"))
+		<-wait.C
+		fallthrough
+	// We've had some level of success so lets use the order as a leader
+	case order.Filled:
+		switch op.SecondOrder().Status() {
+		// Assume that this order should be ignored
+		case order.Canceled:
+		case order.Expired:
+		case order.Rejected:
+
+		// Move on if second order is also filled
+		case order.Filled:
+
+		// Not really sure what's going on so fall through to cancel just in case
+		case order.Unknown:
+			fallthrough
+		// Open order still so make leader
+		case order.Pending:
+			fallthrough
+		case order.Updated:
+			fallthrough
+		case order.Partial:
+			p.leader = op
+		}
+	}
 }

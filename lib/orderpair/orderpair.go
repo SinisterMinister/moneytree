@@ -74,6 +74,18 @@ func (o *OrderPair) SecondOrder() types.Order {
 	return o.secondOrder
 }
 
+func (o *OrderPair) FirstRequest() types.OrderRequest {
+	o.mutex.Lock()
+	defer o.mutex.Unlock()
+	return o.firstRequest
+}
+
+func (o *OrderPair) SecondRequest() types.OrderRequest {
+	o.mutex.Lock()
+	defer o.mutex.Unlock()
+	return o.secondRequest
+}
+
 func (o *OrderPair) Cancel() error {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
@@ -85,14 +97,18 @@ func (o *OrderPair) executeWorkflow() {
 	var err error
 	o.mutex.Lock()
 	o.firstOrder, err = o.market.AttemptOrder(o.firstRequest)
+
 	// release start hold
 	close(o.startHold)
 	o.mutex.Unlock()
+
+	// Handle any errors
 	if err != nil {
 		log.WithError(err).Error("could not place first order")
 		close(o.done)
 		return
 	}
+	log.WithField("order", o.firstOrder.ToDTO()).Info("first order placed")
 
 	// Wait for order to complete, bailing if it misses
 	tickerStream := o.market.TickerStream(o.stop)
@@ -110,6 +126,7 @@ func (o *OrderPair) executeWorkflow() {
 			}
 		case <-o.firstOrder.Done():
 			// Order is complete, time to move on
+			log.Info("first order done processing")
 			brk = true
 		}
 
@@ -135,8 +152,10 @@ func (o *OrderPair) executeWorkflow() {
 		close(o.done)
 		return
 	}
+	log.WithField("order", o.secondOrder.ToDTO()).Info("second order placed")
 
 	<-o.secondOrder.Done()
+	log.Info("second order done processing")
 
 	// Signal completion
 	close(o.done)

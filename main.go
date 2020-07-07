@@ -49,7 +49,7 @@ func main() {
 	for _, s := range symbols {
 		cur, err := trader.AccountSvc().Currency(s)
 		if err != nil {
-			log.WithError(err).Error("could not get %s", s)
+			log.WithError(err).Errorf("could not get %s", s)
 			continue
 		}
 		currencies = append(currencies, cur)
