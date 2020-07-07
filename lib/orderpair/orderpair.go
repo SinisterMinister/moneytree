@@ -8,6 +8,7 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/sinisterminister/currencytrader/types"
 	"github.com/sinisterminister/currencytrader/types/order"
+	"github.com/spf13/viper"
 )
 
 type OrderPair struct {
@@ -15,16 +16,16 @@ type OrderPair struct {
 	market types.Market
 
 	mutex         sync.Mutex
-	firstRequest  types.OrderRequestDTO
+	firstRequest  types.OrderRequest
 	firstOrder    types.Order
-	secondRequest types.OrderRequestDTO
+	secondRequest types.OrderRequest
 	secondOrder   types.Order
 	running       bool
 	done          chan bool
-	stop          chan bool
+	stop          <-chan bool
 }
 
-func New(trader types.Trader, market types.Market, first types.OrderRequestDTO, second types.OrderRequestDTO) (orderPair *OrderPair, err error) {
+func New(trader types.Trader, market types.Market, first types.OrderRequest, second types.OrderRequest) (orderPair *OrderPair, err error) {
 	orderPair = &OrderPair{
 		trader:        trader,
 		market:        market,
@@ -65,7 +66,7 @@ func (o *OrderPair) FirstOrder() types.Order {
 func (o *OrderPair) SecondOrder() types.Order {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
-	return o.SecondOrder
+	return o.secondOrder
 }
 
 func (o *OrderPair) Cancel() error {
@@ -76,14 +77,38 @@ func (o *OrderPair) Cancel() error {
 
 func (o *OrderPair) executeWorkflow() {
 	// Place first order
-	first, err := o.trader.OrderSvc().AttemptOrder(o.market, o.firstRequest.Type, o.firstRequest.Side, o.firstRequest.Price, o.firstRequest.Quantity)
+	first, err := o.market.AttemptOrder(o.firstRequest)
 	if err != nil {
 		log.WithError(err).Error("could not place first order")
 		close(o.done)
 		return
 	}
+	o.firstOrder = first
 
-	// TODO: Wait for order to complete, bailing if it misses
+	// Wait for order to complete, bailing if it misses
+	tickerStream := o.market.TickerStream(o.stop)
+	for {
+		brk := false
+		select {
+		case tick := <-tickerStream:
+			// Bail if the order missed
+			spread := o.firstRequest.Price().Sub(tick.Ask()).Div(o.firstRequest.Price()).Abs()
+			if spread.GreaterThan(decimal.NewFromFloat(viper.GetFloat64("orderpair.missDistance"))) {
+				// Bail
+				log.Warn("first order missed, skipping second")
+				close(o.done)
+				return
+			}
+		case <-o.firstOrder.Done():
+			// Order is complete, time to move on
+			brk = true
+		}
+
+		// I want to break free...
+		if brk {
+			break
+		}
+	}
 
 	// Bail if fill amount is zero
 	if o.firstOrder.Filled().Equal(decimal.Zero) {
@@ -93,14 +118,14 @@ func (o *OrderPair) executeWorkflow() {
 	}
 
 	// Place second order
-	second, err := o.trader.OrderSvc().AttemptOrder(o.market, o.secondRequest.Type, o.secondRequest.Side, o.secondRequest.Price, o.secondRequest.Quantity)
+	second, err := o.market.AttemptOrder(o.secondRequest)
 	if err != nil {
 		log.WithError(err).Error("could not place second order")
 		close(o.done)
 		return
 	}
 
-	// TODO: Wait for it to complete
+	<-second.Done()
 
 	// Signal completion
 	close(o.done)
@@ -108,19 +133,19 @@ func (o *OrderPair) executeWorkflow() {
 
 func (o *OrderPair) validate() error {
 	// Make sure it's a BUY/SELL pair
-	if o.firstRequest.Side == o.secondRequest.Side {
+	if o.firstRequest.Side() == o.secondRequest.Side() {
 		return &SameSideError{o}
 	}
 
 	// Figure out the net result of the trades against our currency balance
 	var baseRes decimal.Decimal
 	var quoteRes decimal.Decimal
-	if o.firstRequest.Side == order.Buy {
-		baseRes = o.firstRequest.Quantity.Sub(o.secondRequest.Quantity)
-		quoteRes = o.secondRequest.Price.Mul(o.secondRequest.Quantity).Sub(o.firstRequest.Price.Mul(o.firstRequest.Quantity))
+	if o.firstRequest.Side() == order.Buy {
+		baseRes = o.firstRequest.Quantity().Sub(o.secondRequest.Quantity())
+		quoteRes = o.secondRequest.Price().Mul(o.secondRequest.Quantity()).Sub(o.firstRequest.Price().Mul(o.firstRequest.Quantity()))
 	} else {
-		baseRes = o.secondRequest.Quantity.Sub(o.firstRequest.Quantity)
-		quoteRes = o.firstRequest.Price.Mul(o.firstRequest.Quantity).Sub(o.secondRequest.Price.Mul(o.secondRequest.Quantity))
+		baseRes = o.secondRequest.Quantity().Sub(o.firstRequest.Quantity())
+		quoteRes = o.firstRequest.Price().Mul(o.firstRequest.Quantity()).Sub(o.secondRequest.Price()).Mul(o.secondRequest.Quantity())
 	}
 
 	// Make sure we're not losing currency
@@ -137,12 +162,12 @@ func (o *OrderPair) validate() error {
 	// Determin the fees
 	var baseFee decimal.Decimal
 	var quoteFee decimal.Decimal
-	if o.firstRequest.Side == order.Buy {
-		baseFee = o.firstRequest.Quantity.Mul(rates.TakerRate())
-		quoteFee = o.secondRequest.Price.Mul(o.secondRequest.Quantity).Mul(rates.TakerRate())
+	if o.firstRequest.Side() == order.Buy {
+		baseFee = o.firstRequest.Quantity().Mul(rates.TakerRate())
+		quoteFee = o.secondRequest.Price().Mul(o.secondRequest.Quantity()).Mul(rates.TakerRate())
 	} else {
-		baseFee = o.secondRequest.Quantity.Mul(rates.TakerRate())
-		quoteFee = o.firstRequest.Price.Mul(o.firstRequest.Quantity).Mul(rates.TakerRate())
+		baseFee = o.secondRequest.Quantity().Mul(rates.TakerRate())
+		quoteFee = o.firstRequest.Price().Mul(o.firstRequest.Quantity()).Mul(rates.TakerRate())
 	}
 
 	// Make sure we're making money

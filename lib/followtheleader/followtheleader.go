@@ -1,6 +1,7 @@
 package followtheleader
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/go-playground/log/v7"
@@ -20,7 +21,7 @@ type Processor struct {
 }
 
 func New(trader types.Trader, market types.Market) *Processor {
-	return &Processor{trader, market, struct{}{}}
+	return &Processor{trader, market, nil}
 }
 
 func (p *Processor) Process(stop <-chan bool) (done <-chan bool, err error) {
@@ -29,33 +30,37 @@ func (p *Processor) Process(stop <-chan bool) (done <-chan bool, err error) {
 	done = ret
 
 	// Run the process
-	go p.run(ret)
+	go p.run(stop, ret)
 
 	return done, err
 }
 
-func (p *Processor) run(done chan<- bool) {
+func (p *Processor) run(stop <-chan bool, done chan<- bool) {
 	var (
 		orderPair      *orderpair.OrderPair
 		upwardTrending bool
+		err            error
 	)
 
 	// Follow the leader if there is one
 	if p.leader != nil {
 		upwardTrending = p.leader.SecondOrder().Request().Side() == order.Buy
 	} else {
-		upwardTrending = p.isMarketUpwardTrending()
+		upwardTrending, err = p.isMarketUpwardTrending()
+		if err != nil {
+			log.WithError(err).Error("could not get trend data")
+		}
 	}
 
 	// Build the order pair
 	if upwardTrending {
-		orderPair, err := p.buildUpwardTrendingPair()
+		orderPair, err = p.buildUpwardTrendingPair()
 	} else {
-		orderPair, err := p.buildDownwardTrendingPair()
+		orderPair, err = p.buildDownwardTrendingPair()
 	}
 
 	// Execute the order
-	orderDone := orderPair.Execute()
+	orderDone := orderPair.Execute(stop)
 
 	// Create timer to bail on stale orders
 	timer := time.NewTimer(viper.GetDuration("followtheleader.markOrderStaleAfter"))
@@ -75,9 +80,11 @@ func (p *Processor) run(done chan<- bool) {
 			fallthrough
 		case order.Updated:
 			// This order is partially filled
-			if orderPair.FirstOrder().Filled().GreaterThan(decimal.Zero) {
-				fallthrough
+			if orderPair.FirstOrder().Filled().Equal(decimal.Zero) {
+				break
 			}
+
+			fallthrough
 		case order.Partial:
 			// Cancel the first order and let the pair self-heal
 			err := p.trader.OrderSvc().CancelOrder(orderPair.FirstOrder())
@@ -115,11 +122,11 @@ func (p *Processor) run(done chan<- bool) {
 					log.WithError(err).Error("could not cancel second order")
 				}
 
-				// If we've filled anything, fall through to make leader
-				if orderPair.SecondOrder().Filled().GreaterThan(decimal.Zero) {
-					fallthrough
+				// break if we haven't filled anything, get out
+				if orderPair.SecondOrder().Filled().Equal(decimal.Zero) {
+					break
 				}
-
+				fallthrough
 			// Partial case so fall through to make leader
 			case order.Pending:
 				fallthrough
@@ -168,7 +175,7 @@ func (p *Processor) getSpread() (decimal.Decimal, error) {
 	fees, err := p.trader.AccountSvc().Fees()
 	if err != nil {
 		log.WithError(err).Error("failed to get fees")
-		return nil, err
+		return decimal.Zero, err
 	}
 
 	// Set the profit target
@@ -184,29 +191,90 @@ func (p *Processor) getSpread() (decimal.Decimal, error) {
 }
 
 func (p *Processor) buildUpwardTrendingPair() (*orderpair.OrderPair, error) {
+	// Determine prices using the spread
+	spread, err := p.getSpread()
+	if err != nil {
+		return nil, err
+	}
+	spread = decimal.NewFromFloat(1).Add(spread)
 
-	// Get wallets
-	baseWallet := market.BaseCurrency().Wallet()
-	log.WithFields(
-		log.F("total", baseWallet.Total()),
-		log.F("available", baseWallet.Available()),
-	).Infof("wallet for %s", baseWallet.Currency().Name())
-
-	quoteWallet := market.QuoteCurrency().Wallet()
-	log.WithFields(
-		log.F("total", quoteWallet.Total()),
-		log.F("available", quoteWallet.Available()),
-	).Infof("wallet for %s", quoteWallet.Currency().Name())
-
-	// Grab the current ticker
+	// Get the ticker for the current prices
 	ticker, err := p.market.Ticker()
 	if err != nil {
-		log.WithError(err).Error("failed to get ticker")
-		close(done)
-		return
+		return nil, err
 	}
+
+	// Get the size
+	size, err := p.getSize(ticker)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set the bid price to price + 1 increment
+	bidPrice := ticker.Bid().Add(p.market.QuoteCurrency().Increment())
+	askPrice := bidPrice.Mul(spread)
+	bidReq := order.NewRequest(p.market, order.Limit, order.Buy, size, bidPrice)
+	askReq := order.NewRequest(p.market, order.Limit, order.Sell, size, askPrice)
+
+	// Create order pair
+	op, err := orderpair.New(p.trader, p.market, bidReq, askReq)
+	if err != nil {
+		return nil, fmt.Errorf("could not create order pair: %w", err)
+	}
+	return op, nil
 }
 
 func (p *Processor) buildDownwardTrendingPair() (*orderpair.OrderPair, error) {
+	// Determine prices using the spread
+	spread, err := p.getSpread()
+	if err != nil {
+		return nil, err
+	}
 
+	// Prepare the spread to be applied
+	spread = decimal.NewFromFloat(1).Sub(spread)
+
+	// Get the ticker for the current prices
+	ticker, err := p.market.Ticker()
+	if err != nil {
+		return nil, err
+	}
+
+	// Get the size
+	size, err := p.getSize(ticker)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set the ask price to price - 1 increment
+	askPrice := ticker.Ask().Sub(p.market.QuoteCurrency().Increment())
+	bidPrice := askPrice.Mul(spread)
+	askReq := order.NewRequest(p.market, order.Limit, order.Sell, size, askPrice)
+	bidReq := order.NewRequest(p.market, order.Limit, order.Buy, size, bidPrice)
+
+	// Create order pair
+	op, err := orderpair.New(p.trader, p.market, askReq, bidReq)
+	if err != nil {
+		return nil, fmt.Errorf("could not create order pair: %w", err)
+	}
+	return op, nil
+}
+
+func (p *Processor) getSize(ticker types.Ticker) (decimal.Decimal, error) {
+	// Determine order size from average volume
+	size := p.market.AverageTradeVolume()
+	if size == decimal.Zero {
+		return size, fmt.Errorf("could not fetch trade volume: value was %s", size)
+	}
+
+	// Get wallets
+	baseWallet := p.market.BaseCurrency().Wallet()
+	quoteWallet := p.market.QuoteCurrency().Wallet()
+
+	// Get the maximum trade size by wallet
+	baseMax := baseWallet.Available().Div(decimal.NewFromFloat(viper.GetFloat64("followtheleader.tradeWalletMaxSizeRatio")))
+	quoteMax := quoteWallet.Available().Div(decimal.NewFromFloat(viper.GetFloat64("followtheleader.tradeWalletMaxSizeRatio"))).Div(ticker.Bid())
+
+	// Normalize the size to available funds
+	return decimal.Max(size, baseMax, quoteMax), nil
 }
