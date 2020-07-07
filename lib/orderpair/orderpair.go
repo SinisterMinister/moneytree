@@ -21,6 +21,7 @@ type OrderPair struct {
 	secondRequest types.OrderRequest
 	secondOrder   types.Order
 	running       bool
+	startHold     chan bool
 	done          chan bool
 	stop          <-chan bool
 }
@@ -30,6 +31,7 @@ func New(trader types.Trader, market types.Market, first types.OrderRequest, sec
 		trader:        trader,
 		market:        market,
 		done:          make(chan bool),
+		startHold:     make(chan bool),
 		firstRequest:  first,
 		secondRequest: second,
 	}
@@ -45,7 +47,6 @@ func New(trader types.Trader, market types.Market, first types.OrderRequest, sec
 
 func (o *OrderPair) Execute(stop <-chan bool) <-chan bool {
 	o.mutex.Lock()
-	defer o.mutex.Unlock()
 
 	// Only launch routine if not running already
 	if !o.running {
@@ -53,6 +54,10 @@ func (o *OrderPair) Execute(stop <-chan bool) <-chan bool {
 	}
 	o.running = true
 	o.stop = stop
+	o.mutex.Unlock()
+
+	// Wait for the orders to start
+	<-o.startHold
 
 	return o.done
 }
@@ -77,13 +82,17 @@ func (o *OrderPair) Cancel() error {
 
 func (o *OrderPair) executeWorkflow() {
 	// Place first order
-	first, err := o.market.AttemptOrder(o.firstRequest)
+	var err error
+	o.mutex.Lock()
+	o.firstOrder, err = o.market.AttemptOrder(o.firstRequest)
+	// release start hold
+	close(o.startHold)
+	o.mutex.Unlock()
 	if err != nil {
 		log.WithError(err).Error("could not place first order")
 		close(o.done)
 		return
 	}
-	o.firstOrder = first
 
 	// Wait for order to complete, bailing if it misses
 	tickerStream := o.market.TickerStream(o.stop)
@@ -118,14 +127,16 @@ func (o *OrderPair) executeWorkflow() {
 	}
 
 	// Place second order
-	second, err := o.market.AttemptOrder(o.secondRequest)
+	o.mutex.Lock()
+	o.secondOrder, err = o.market.AttemptOrder(o.secondRequest)
+	o.mutex.Unlock()
 	if err != nil {
 		log.WithError(err).Error("could not place second order")
 		close(o.done)
 		return
 	}
 
-	<-second.Done()
+	<-o.secondOrder.Done()
 
 	// Signal completion
 	close(o.done)
@@ -149,8 +160,11 @@ func (o *OrderPair) validate() error {
 	}
 
 	// Make sure we're not losing currency
-	if baseRes.LessThanOrEqual(decimal.Zero) || quoteRes.LessThanOrEqual(decimal.Zero) {
-		return fmt.Errorf("not making more of both currencies, %w", &LosingPropositionError{o})
+	if baseRes.LessThanOrEqual(decimal.Zero) {
+		return fmt.Errorf("not making more of base currency, %w, %s, %s", &LosingPropositionError{o}, o.secondRequest.Quantity(), o.firstRequest.Quantity())
+	}
+	if quoteRes.LessThanOrEqual(decimal.Zero) {
+		return fmt.Errorf("not making more of quote currency, %w", &LosingPropositionError{o})
 	}
 
 	// Get the fee rates

@@ -15,5 +15,5 @@ type SameSideError struct {
 }
 
 func (err *SameSideError) Error() string {
-	return fmt.Sprintf("orders are both of the same side (%s)", err.orderPair.firstRequest.Side)
+	return fmt.Sprintf("orders are both of the same side (%s)", err.orderPair.firstRequest.Side())
 }

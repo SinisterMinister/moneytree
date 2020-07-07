@@ -36,18 +36,33 @@ func (m *MockMarket) EXPECT() *MockMarketMockRecorder {
 }
 
 // AttemptOrder mocks base method
-func (m *MockMarket) AttemptOrder(arg0 types.OrderType, arg1 types.OrderSide, arg2, arg3 decimal.Decimal) (types.Order, error) {
+func (m *MockMarket) AttemptOrder(arg0 types.OrderRequest) (types.Order, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AttemptOrder", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "AttemptOrder", arg0)
 	ret0, _ := ret[0].(types.Order)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AttemptOrder indicates an expected call of AttemptOrder
-func (mr *MockMarketMockRecorder) AttemptOrder(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockMarketMockRecorder) AttemptOrder(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AttemptOrder", reflect.TypeOf((*MockMarket)(nil).AttemptOrder), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AttemptOrder", reflect.TypeOf((*MockMarket)(nil).AttemptOrder), arg0)
+}
+
+// AverageTradeVolume mocks base method
+func (m *MockMarket) AverageTradeVolume() (decimal.Decimal, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AverageTradeVolume")
+	ret0, _ := ret[0].(decimal.Decimal)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AverageTradeVolume indicates an expected call of AverageTradeVolume
+func (mr *MockMarketMockRecorder) AverageTradeVolume() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AverageTradeVolume", reflect.TypeOf((*MockMarket)(nil).AverageTradeVolume))
 }
 
 // BaseCurrency mocks base method
