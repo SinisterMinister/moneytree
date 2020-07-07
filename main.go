@@ -41,9 +41,9 @@ func main() {
 	trader := currencytrader.New(provider)
 	trader.Start()
 
-	symbols := viper.GetStringSlice("symbols")
 	// Prepare the currencies
 	currencies := []types.Currency{}
+	symbols := viper.GetStringSlice("symbols")
 
 	// Load the currencies
 	for _, s := range symbols {

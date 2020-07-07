@@ -49,6 +49,9 @@ func (p *Processor) run(stop <-chan bool, done chan<- bool) {
 		upwardTrending, err = p.isMarketUpwardTrending()
 		if err != nil {
 			log.WithError(err).Error("could not get trend data")
+			// Close the done channel
+			close(done)
+			return
 		}
 	}
 
@@ -57,6 +60,12 @@ func (p *Processor) run(stop <-chan bool, done chan<- bool) {
 		orderPair, err = p.buildUpwardTrendingPair()
 	} else {
 		orderPair, err = p.buildDownwardTrendingPair()
+	}
+	if err != nil {
+		log.WithError(err).Error("could not build pair")
+		// Close the done channel
+		close(done)
+		return
 	}
 
 	// Execute the order
@@ -213,8 +222,9 @@ func (p *Processor) buildUpwardTrendingPair() (*orderpair.OrderPair, error) {
 	// Set the bid price to price + 1 increment
 	bidPrice := ticker.Bid().Add(p.market.QuoteCurrency().Increment())
 	askPrice := bidPrice.Mul(spread)
+	askSize := size.Mul(bidPrice).Div(askPrice).Add(size)
 	bidReq := order.NewRequest(p.market, order.Limit, order.Buy, size, bidPrice)
-	askReq := order.NewRequest(p.market, order.Limit, order.Sell, size, askPrice)
+	askReq := order.NewRequest(p.market, order.Limit, order.Sell, askSize, askPrice)
 
 	// Create order pair
 	op, err := orderpair.New(p.trader, p.market, bidReq, askReq)
@@ -262,9 +272,9 @@ func (p *Processor) buildDownwardTrendingPair() (*orderpair.OrderPair, error) {
 
 func (p *Processor) getSize(ticker types.Ticker) (decimal.Decimal, error) {
 	// Determine order size from average volume
-	size := p.market.AverageTradeVolume()
-	if size == decimal.Zero {
-		return size, fmt.Errorf("could not fetch trade volume: value was %s", size)
+	size, err := p.market.AverageTradeVolume()
+	if err != nil {
+		return size, err
 	}
 
 	// Get wallets
@@ -272,9 +282,12 @@ func (p *Processor) getSize(ticker types.Ticker) (decimal.Decimal, error) {
 	quoteWallet := p.market.QuoteCurrency().Wallet()
 
 	// Get the maximum trade size by wallet
-	baseMax := baseWallet.Available().Div(decimal.NewFromFloat(viper.GetFloat64("followtheleader.tradeWalletMaxSizeRatio")))
-	quoteMax := quoteWallet.Available().Div(decimal.NewFromFloat(viper.GetFloat64("followtheleader.tradeWalletMaxSizeRatio"))).Div(ticker.Bid())
+	baseMax := baseWallet.Available().Div(decimal.NewFromFloat(viper.GetFloat64("followtheleader.maxTradesFundsRatio")))
+	quoteMax := quoteWallet.Available().Div(decimal.NewFromFloat(viper.GetFloat64("followtheleader.maxTradesFundsRatio"))).Div(ticker.Bid())
 
 	// Normalize the size to available funds
-	return decimal.Max(size, baseMax, quoteMax), nil
+	if size == decimal.Zero {
+		size = decimal.Min(baseMax, quoteMax)
+	}
+	return decimal.Min(size, baseMax, quoteMax), nil
 }
