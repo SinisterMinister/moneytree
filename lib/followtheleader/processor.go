@@ -153,9 +153,9 @@ func (p *Processor) buildUpwardTrendingPair() (*orderpair.OrderPair, error) {
 	}
 
 	// Set the bid price to price + 1 increment
-	bidPrice := ticker.Bid().Add(p.market.QuoteCurrency().Increment())
+	bidPrice := ticker.Bid().Add(p.market.QuoteCurrency().Increment()).Round(int32(p.market.QuoteCurrency().Precision()))
 	bidSize := size.Round(int32(p.market.BaseCurrency().Precision()))
-	askPrice := bidPrice.Mul(spread)
+	askPrice := bidPrice.Mul(spread).Round(int32(p.market.QuoteCurrency().Precision()))
 	askSize := size.Div(decimal.NewFromFloat(2)).Mul(bidPrice).Div(askPrice).Add(size.Div(decimal.NewFromFloat(2))).Round(int32(p.market.BaseCurrency().Precision()))
 	bidReq := order.NewRequest(p.market, order.Limit, order.Buy, bidSize, bidPrice)
 	askReq := order.NewRequest(p.market, order.Limit, order.Sell, askSize, askPrice)
@@ -191,12 +191,13 @@ func (p *Processor) buildDownwardTrendingPair() (*orderpair.OrderPair, error) {
 	}
 
 	// Set the ask price to price - 1 increment
-	askPrice := ticker.Ask().Sub(p.market.QuoteCurrency().Increment())
+	askPrice := ticker.Ask().Sub(p.market.QuoteCurrency().Increment()).Round(int32(p.market.QuoteCurrency().Precision()))
 	bidSize := size.Round(int32(p.market.BaseCurrency().Precision()))
-	bidPrice := askPrice.Sub(askPrice.Mul(spread).Sub(askPrice))
+	bidPrice := askPrice.Sub(askPrice.Mul(spread).Sub(askPrice)).Round(int32(p.market.QuoteCurrency().Precision()))
 	askSize := size.Div(decimal.NewFromFloat(2)).Mul(bidPrice).Div(askPrice).Add(size.Div(decimal.NewFromFloat(2))).Round(int32(p.market.BaseCurrency().Precision()))
 	askReq := order.NewRequest(p.market, order.Limit, order.Sell, askSize, askPrice)
 	bidReq := order.NewRequest(p.market, order.Limit, order.Buy, bidSize, bidPrice)
+	log.WithFields(log.F("askSize", askSize.String()), log.F("askPrice", askPrice.String()), log.F("bidSize", bidSize.String()), log.F("bidPrice", bidPrice.String())).Info("downward trending order sizes")
 
 	// Create order pair
 	op, err := orderpair.New(p.trader, p.market, askReq, bidReq)

@@ -86,6 +86,24 @@ func (o *OrderPair) SecondRequest() types.OrderRequest {
 	return o.secondRequest
 }
 
+func (o *OrderPair) BuyRequest() types.OrderRequest {
+	o.mutex.Lock()
+	defer o.mutex.Unlock()
+	if o.firstRequest.Side() == order.Buy {
+		return o.firstRequest
+	}
+	return o.secondRequest
+}
+
+func (o *OrderPair) SellRequest() types.OrderRequest {
+	o.mutex.Lock()
+	defer o.mutex.Unlock()
+	if o.firstRequest.Side() != order.Buy {
+		return o.firstRequest
+	}
+	return o.secondRequest
+}
+
 func (o *OrderPair) Cancel() error {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
@@ -116,7 +134,6 @@ func (o *OrderPair) executeWorkflow() {
 		brk := false
 		select {
 		case tick := <-tickerStream:
-			log.Info("order tick received")
 			// Bail if the order missed
 			spread := o.firstRequest.Price().Sub(tick.Ask()).Div(o.firstRequest.Price()).Abs()
 			if spread.GreaterThan(decimal.NewFromFloat(viper.GetFloat64("orderpair.missDistance"))) && o.firstOrder.Filled().Equals(decimal.Zero) {
@@ -169,22 +186,15 @@ func (o *OrderPair) validate() error {
 	}
 
 	// Figure out the net result of the trades against our currency balance
-	var baseRes decimal.Decimal
-	var quoteRes decimal.Decimal
-	if o.firstRequest.Side() == order.Buy {
-		baseRes = o.firstRequest.Quantity().Sub(o.secondRequest.Quantity())
-		quoteRes = o.secondRequest.Price().Mul(o.secondRequest.Quantity()).Sub(o.firstRequest.Price().Mul(o.firstRequest.Quantity()))
-	} else {
-		baseRes = o.secondRequest.Quantity().Sub(o.firstRequest.Quantity())
-		quoteRes = o.firstRequest.Price().Mul(o.firstRequest.Quantity()).Sub(o.secondRequest.Price()).Mul(o.secondRequest.Quantity())
-	}
+	baseRes := o.BuyRequest().Quantity().Sub(o.SellRequest().Quantity())
+	quoteRes := o.SellRequest().Price().Mul(o.SellRequest().Quantity()).Sub(o.BuyRequest().Price().Mul(o.BuyRequest().Quantity()))
 
 	// Make sure we're not losing currency
 	if baseRes.LessThanOrEqual(decimal.Zero) {
-		return fmt.Errorf("not making more of base currency, %w, %s, %s", &LosingPropositionError{o}, o.secondRequest.Quantity(), o.firstRequest.Quantity())
+		return fmt.Errorf("not making more of base currency, %w, %s", &LosingPropositionError{o}, baseRes.String())
 	}
 	if quoteRes.LessThanOrEqual(decimal.Zero) {
-		return fmt.Errorf("not making more of quote currency, %w", &LosingPropositionError{o})
+		return fmt.Errorf("not making more of quote currency, %w, %s", &LosingPropositionError{o}, quoteRes.String())
 	}
 
 	// Get the fee rates
@@ -194,19 +204,15 @@ func (o *OrderPair) validate() error {
 	}
 
 	// Determin the fees
-	var baseFee decimal.Decimal
-	var quoteFee decimal.Decimal
-	if o.firstRequest.Side() == order.Buy {
-		baseFee = o.firstRequest.Quantity().Mul(rates.TakerRate())
-		quoteFee = o.secondRequest.Price().Mul(o.secondRequest.Quantity()).Mul(rates.TakerRate())
-	} else {
-		baseFee = o.secondRequest.Quantity().Mul(rates.TakerRate())
-		quoteFee = o.firstRequest.Price().Mul(o.firstRequest.Quantity()).Mul(rates.TakerRate())
-	}
+	baseFee := o.BuyRequest().Quantity().Mul(rates.TakerRate())
+	quoteFee := o.SellRequest().Price().Mul(o.SellRequest().Quantity()).Mul(rates.TakerRate())
 
-	// Make sure we're making money
-	if baseRes.LessThanOrEqual(baseFee) || quoteRes.LessThanOrEqual(quoteFee) {
-		return fmt.Errorf("not making money after fees, %w", &LosingPropositionError{o})
+	// Make sure we're not losing currency
+	if baseRes.LessThanOrEqual(baseFee) {
+		return fmt.Errorf("not making more of base currency, %w, %s, %s", &LosingPropositionError{o}, baseRes.String(), baseFee.String())
+	}
+	if quoteRes.LessThanOrEqual(quoteFee) {
+		return fmt.Errorf("not making more of quote currency, %w, %s, %s", &LosingPropositionError{o}, quoteRes.String(), quoteFee.String())
 	}
 
 	return nil
