@@ -72,6 +72,7 @@ func (p *Processor) run(stop <-chan bool, done chan<- bool) {
 
 	// Execute the order
 	orderDone := orderPair.Execute(stop)
+	log.Info("order pair execution started")
 
 	// Create timer to bail on stale orders
 	timer := time.NewTimer(viper.GetDuration("followtheleader.orderTTL"))
@@ -95,7 +96,7 @@ func (p *Processor) run(stop <-chan bool, done chan<- bool) {
 	// Wait for the order to be complete or for it to timeout
 	select {
 	case <-timer.C:
-		// This order has gone stale and should become the leader
+		// This order has gone stale but may not need to be made leader
 		p.rotateLeader(orderPair)
 	case <-orderDone:
 		// Order has complete. Nothing to do
@@ -175,7 +176,7 @@ func (p *Processor) buildDownwardTrendingPair() (*orderpair.OrderPair, error) {
 	}
 
 	// Prepare the spread to be applied
-	spread = decimal.NewFromFloat(1).Sub(spread)
+	spread = decimal.NewFromFloat(1).Add(spread)
 
 	// Get the ticker for the current prices
 	ticker, err := p.market.Ticker()
@@ -192,9 +193,8 @@ func (p *Processor) buildDownwardTrendingPair() (*orderpair.OrderPair, error) {
 	// Set the ask price to price - 1 increment
 	askPrice := ticker.Ask().Sub(p.market.QuoteCurrency().Increment())
 	bidSize := size.Round(int32(p.market.BaseCurrency().Precision()))
-	bidPrice := askPrice.Mul(spread)
+	bidPrice := askPrice.Sub(askPrice.Mul(spread).Sub(askPrice))
 	askSize := size.Div(decimal.NewFromFloat(2)).Mul(bidPrice).Div(askPrice).Add(size.Div(decimal.NewFromFloat(2))).Round(int32(p.market.BaseCurrency().Precision()))
-	askSize = askSize.Round(int32(p.market.BaseCurrency().Precision()))
 	askReq := order.NewRequest(p.market, order.Limit, order.Sell, askSize, askPrice)
 	bidReq := order.NewRequest(p.market, order.Limit, order.Buy, bidSize, bidPrice)
 
@@ -249,6 +249,7 @@ func (p *Processor) getSpread() (decimal.Decimal, error) {
 }
 
 func (p *Processor) rotateLeader(op *orderpair.OrderPair) {
+	log.Info("rotating the leader")
 	switch op.FirstOrder().Status() {
 	case order.Rejected:
 		// Nothing to do here

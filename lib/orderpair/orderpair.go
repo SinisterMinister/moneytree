@@ -116,17 +116,18 @@ func (o *OrderPair) executeWorkflow() {
 		brk := false
 		select {
 		case tick := <-tickerStream:
+			log.Info("order tick received")
 			// Bail if the order missed
 			spread := o.firstRequest.Price().Sub(tick.Ask()).Div(o.firstRequest.Price()).Abs()
-			if spread.GreaterThan(decimal.NewFromFloat(viper.GetFloat64("orderpair.missDistance"))) {
+			if spread.GreaterThan(decimal.NewFromFloat(viper.GetFloat64("orderpair.missDistance"))) && o.firstOrder.Filled().Equals(decimal.Zero) {
 				// Bail
 				log.Warn("first order missed, skipping second")
 				close(o.done)
 				return
 			}
 		case <-o.firstOrder.Done():
-			// Order is complete, time to move on
 			log.Info("first order done processing")
+			// Order is complete, time to move on
 			brk = true
 		}
 
