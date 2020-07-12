@@ -32,16 +32,29 @@ func (p *Processor) Process(stop <-chan bool) (done <-chan bool, err error) {
 
 	// Run the process
 	go p.run(stop, ret)
-
-	return done, err
+	return
 }
 
-func (p *Processor) run(stop <-chan bool, done chan<- bool) {
-	var (
-		orderPair      *orderpair.OrderPair
-		upwardTrending bool
-		err            error
-	)
+func (p *Processor) run(stop <-chan bool, done chan bool) {
+	// Build the order pair
+	orderPair, err := p.buildOrderPair()
+	if err != nil {
+		log.WithError(err).Error("unable to build order pair")
+		close(done)
+	}
+
+	// Execute the order pair
+	err = p.executeOrderPair(stop, orderPair)
+	if err != nil {
+		log.WithError(err).Error("error while executing order pair")
+	}
+
+	// Close the done channel
+	close(done)
+}
+
+func (p *Processor) buildOrderPair() (orderPair *orderpair.OrderPair, err error) {
+	var upwardTrending bool
 
 	// Follow the leader if there is one
 	if p.leader != nil && !p.leader.SecondOrder().IsDone() {
@@ -49,10 +62,7 @@ func (p *Processor) run(stop <-chan bool, done chan<- bool) {
 	} else {
 		upwardTrending, err = p.isMarketUpwardTrending()
 		if err != nil {
-			log.WithError(err).Error("could not get trend data")
-			// Close the done channel
-			close(done)
-			return
+			return nil, fmt.Errorf("could not get trend data: %w", err)
 		}
 	}
 	log.WithFields(log.F("market", p.market.Name()), log.F("upward", upwardTrending)).Info("got market trend direction")
@@ -64,13 +74,13 @@ func (p *Processor) run(stop <-chan bool, done chan<- bool) {
 		orderPair, err = p.buildDownwardTrendingPair()
 	}
 	if err != nil {
-		log.WithError(err).Error("could not build pair")
-		// Close the done channel
-		close(done)
 		return
 	}
 	log.WithFields(log.F("first", orderPair.FirstRequest().ToDTO()), log.F("second", orderPair.SecondRequest().ToDTO())).Debug("order pair created")
+	return
+}
 
+func (p *Processor) executeOrderPair(stop <-chan bool, orderPair *orderpair.OrderPair) (err error) {
 	// Execute the order
 	orderDone := orderPair.Execute(stop)
 	log.Info("order pair execution started")
@@ -80,17 +90,14 @@ func (p *Processor) run(stop <-chan bool, done chan<- bool) {
 
 	// If there's a leader, we wait for it to complete instead of the timer
 	if p.leader != nil && !p.leader.SecondOrder().IsDone() {
+		done := p.leader.SecondOrder().Done()
 		select {
 		case <-orderDone:
-			// Stop the timer
-			timer.Stop()
-
-			// Clear out the timer channel in case it's already fired
-			select {
-			case <-timer.C:
-			default:
-			}
-		case <-p.leader.SecondOrder().Done():
+			// Next order
+			return
+		case <-done:
+			log.Info("second order completed for leader")
+			p.leader = nil
 		}
 	}
 
@@ -102,16 +109,13 @@ func (p *Processor) run(stop <-chan bool, done chan<- bool) {
 	case <-orderDone:
 		// Order has complete. Nothing to do
 	}
-
-	// Close the done channel
-	close(done)
+	return
 }
 
 func (p *Processor) isMarketUpwardTrending() (bool, error) {
 	// Get trix values
 	candles, err := p.market.Candles(candle.FiveMinutes, time.Now().Add(-4*time.Hour), time.Now())
 	if err != nil {
-		log.WithError(err).Error("unable to fetch candle data")
 		return false, err
 	}
 
@@ -155,7 +159,7 @@ func (p *Processor) buildUpwardTrendingPair() (*orderpair.OrderPair, error) {
 
 	// Set the bid price to price + 1 increment
 	// bidPrice := ticker.Bid()
-	bidPrice := ticker.Bid().Add(p.market.QuoteCurrency().Increment()).Round(int32(p.market.QuoteCurrency().Precision()))
+	bidPrice := ticker.Bid().Add(p.market.QuoteCurrency().Increment().Mul(decimal.NewFromFloat(2))).Round(int32(p.market.QuoteCurrency().Precision()))
 	bidSize := size.Round(int32(p.market.BaseCurrency().Precision()))
 	askPrice := bidPrice.Mul(spread).Round(int32(p.market.QuoteCurrency().Precision()))
 	askSize := size.Div(decimal.NewFromFloat(2)).Mul(bidPrice).Div(askPrice).Add(size.Div(decimal.NewFromFloat(2))).Round(int32(p.market.BaseCurrency().Precision()))
@@ -194,7 +198,7 @@ func (p *Processor) buildDownwardTrendingPair() (*orderpair.OrderPair, error) {
 
 	// Set the ask price to price - 1 increment
 	// askPrice := ticker.Ask()
-	askPrice := ticker.Ask().Sub(p.market.QuoteCurrency().Increment()).Round(int32(p.market.QuoteCurrency().Precision()))
+	askPrice := ticker.Ask().Sub(p.market.QuoteCurrency().Increment().Mul(decimal.NewFromFloat(2))).Round(int32(p.market.QuoteCurrency().Precision()))
 	bidSize := size.Round(int32(p.market.BaseCurrency().Precision()))
 	bidPrice := askPrice.Sub(askPrice.Mul(spread).Sub(askPrice)).Round(int32(p.market.QuoteCurrency().Precision()))
 	askSize := size.Div(decimal.NewFromFloat(2)).Mul(bidPrice).Div(askPrice).Add(size.Div(decimal.NewFromFloat(2))).Round(int32(p.market.BaseCurrency().Precision()))
@@ -257,58 +261,24 @@ func (p *Processor) getSpread() (decimal.Decimal, error) {
 
 func (p *Processor) rotateLeader(op *orderpair.OrderPair) {
 	log.Info("rotating the leader")
-	switch op.FirstOrder().Status() {
-	case order.Rejected:
-		// Nothing to do here
-	case order.Pending:
-		err := op.Cancel()
-		if err != nil {
-			log.WithError(err).Warn("could not cancel stalled order")
-		}
-
-	// Not sure what's up with this order so fall through to use filled
-	case order.Unknown:
-		fallthrough
-	case order.Canceled:
-		fallthrough
-	case order.Expired:
-		fallthrough
-	case order.Updated:
-		// This order is untouched,
-		if op.FirstOrder().Filled().Equal(decimal.Zero) {
-			break
-		}
-
-		fallthrough
-	case order.Partial:
-		// Cancel the first order and let the pair self-heal
+	// If first order is still open, cancel it
+	if !op.FirstOrder().IsDone() {
 		err := p.trader.OrderSvc().CancelOrder(op.FirstOrder())
 		if err != nil {
-			log.WithError(err).Error("could not cancel stalled order")
+			log.WithError(err).Warn("could not cancel stalled order")
 		}
 		// Give the order some time to process
 		wait := time.NewTimer(viper.GetDuration("followtheleader.waitAfterCancelStalledPair"))
 		<-wait.C
-		fallthrough
-	// We've had some level of success so lets use the order as a leader
-	case order.Filled:
-		switch op.SecondOrder().Status() {
-		// Assume that this order should be ignored
-		case order.Canceled:
-		case order.Expired:
-		case order.Rejected:
-		case order.Unknown:
+	}
 
-		// Move on if second order is also filled
-		case order.Filled:
+	if op.SecondOrder() == nil {
+		log.Warn("second order wasn't executed")
+		return
+	}
 
-		// Open order still so make leader
-		case order.Pending:
-			fallthrough
-		case order.Updated:
-			fallthrough
-		case order.Partial:
-			p.leader = op
-		}
+	// If the first order was filled at all and the second order is still open, it's leader
+	if !op.FirstOrder().Filled().Equal(decimal.Zero) && !op.SecondOrder().IsDone() {
+		p.leader = op
 	}
 }

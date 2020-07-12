@@ -133,7 +133,8 @@ func (o *OrderPair) executeWorkflow() {
 		close(o.done)
 		return
 	}
-
+	log.Info("second order placed")
+	log.Info("waiting on second order")
 	<-o.secondOrder.Done()
 	log.Info("second order done processing")
 
@@ -162,10 +163,10 @@ func (o *OrderPair) placeSecondOrder() (err error) {
 	}
 
 	// Place second order
-	r1 := o.secondRequest.ToDTO()
-	log.WithFields(log.F("side", r1.Side), log.F("price", r1.Price), log.F("quantity", r1.Quantity)).Info("placing second order")
 	o.mutex.Lock()
 	o.recalculateSecondOrderSizeFromFilled()
+	r1 := o.secondRequest.ToDTO()
+	log.WithFields(log.F("side", r1.Side), log.F("price", r1.Price), log.F("quantity", r1.Quantity)).Info("placing second order")
 	o.secondOrder, err = o.market.AttemptOrder(o.secondRequest)
 	o.mutex.Unlock()
 	return
