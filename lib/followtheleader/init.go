@@ -8,4 +8,7 @@ func init() {
 
 	// Divide the funds into this many equal trades and use that trade size as the maximum trade size
 	viper.SetDefault("followtheleader.maxTradesFundsRatio", 4)
+
+	// Set the expected return per trade pair
+	viper.SetDefault("followtheleader.targetReturn", 0.001)
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/go-playground/log/v7"
 	"github.com/shopspring/decimal"
 	"github.com/sinisterminister/currencytrader/types"
+	"github.com/sinisterminister/currencytrader/types/fees"
 	"github.com/sinisterminister/currencytrader/types/order"
 	"github.com/spf13/viper"
 )
@@ -111,36 +112,79 @@ func (o *OrderPair) Cancel() error {
 }
 
 func (o *OrderPair) executeWorkflow() {
+	// Place the first order
+	err := o.placeFirstOrder()
+	if err != nil {
+		log.WithError(err).Error("could not place first order")
+		close(o.done)
+		return
+	}
+
+	// Wait for order to complete. If it fails, keep going in case partial fill
+	err = o.waitForFirstOrder()
+	if err != nil {
+		log.WithError(err).Warn("first order failed")
+	}
+
+	// Place second order
+	err = o.placeSecondOrder()
+	if err != nil {
+		log.WithError(err).Warn("second order failed")
+		close(o.done)
+		return
+	}
+
+	<-o.secondOrder.Done()
+	log.Info("second order done processing")
+
+	// Signal completion
+	close(o.done)
+}
+
+func (o *OrderPair) placeFirstOrder() (err error) {
+	r0 := o.firstRequest.ToDTO()
+	log.WithFields(log.F("side", r0.Side), log.F("price", r0.Price), log.F("quantity", r0.Quantity)).Info("placing first order")
+
 	// Place first order
-	var err error
 	o.mutex.Lock()
 	o.firstOrder, err = o.market.AttemptOrder(o.firstRequest)
 
 	// release start hold
 	close(o.startHold)
 	o.mutex.Unlock()
+	return
+}
 
-	// Handle any errors
-	if err != nil {
-		log.WithError(err).Error("could not place first order")
-		close(o.done)
-		return
+func (o *OrderPair) placeSecondOrder() (err error) {
+	// Bail if fill amount is zero
+	if o.firstOrder.Filled().Equal(decimal.Zero) {
+		return fmt.Errorf("first order was not filled, skipping second")
 	}
-	log.WithField("order", o.firstOrder.ToDTO()).Info("first order placed")
 
-	// Wait for order to complete, bailing if it misses
-	tickerStream := o.market.TickerStream(o.stop)
+	// Place second order
+	r1 := o.secondRequest.ToDTO()
+	log.WithFields(log.F("side", r1.Side), log.F("price", r1.Price), log.F("quantity", r1.Quantity)).Info("placing second order")
+	o.mutex.Lock()
+	o.recalculateSecondOrderSizeFromFilled()
+	o.secondOrder, err = o.market.AttemptOrder(o.secondRequest)
+	o.mutex.Unlock()
+	return
+}
+
+func (o *OrderPair) waitForFirstOrder() (err error) {
+	stop := make(chan bool)
+	tickerStream := o.market.TickerStream(stop)
 	for {
 		brk := false
 		select {
+		case <-o.stop:
+			close(stop)
+			return fmt.Errorf("stop channel closed")
 		case tick := <-tickerStream:
 			// Bail if the order missed
 			spread := o.firstRequest.Price().Sub(tick.Ask()).Div(o.firstRequest.Price()).Abs()
 			if spread.GreaterThan(decimal.NewFromFloat(viper.GetFloat64("orderpair.missDistance"))) && o.firstOrder.Filled().Equals(decimal.Zero) {
-				// Bail
-				log.Warn("first order missed, skipping second")
-				close(o.done)
-				return
+				return fmt.Errorf("first order missed")
 			}
 		case <-o.firstOrder.Done():
 			log.Info("first order done processing")
@@ -153,30 +197,24 @@ func (o *OrderPair) executeWorkflow() {
 			break
 		}
 	}
+	// Close ticker stream
+	close(stop)
+	return
+}
 
-	// Bail if fill amount is zero
-	if o.firstOrder.Filled().Equal(decimal.Zero) {
-		log.Warn("first order was not filled, skipping second")
-		close(o.done)
-		return
-	}
+func (o *OrderPair) recalculateSecondOrderSizeFromFilled() {
+	// Determine the ratio from the first to the second
+	ratio := o.secondRequest.Quantity().Div(o.firstRequest.Quantity())
 
-	// Place second order
-	o.mutex.Lock()
-	o.secondOrder, err = o.market.AttemptOrder(o.secondRequest)
-	o.mutex.Unlock()
-	if err != nil {
-		log.WithError(err).Error("could not place second order")
-		close(o.done)
-		return
-	}
-	log.WithField("order", o.secondOrder.ToDTO()).Info("second order placed")
+	// Calculate the new size
+	size := o.firstOrder.Filled().Mul(ratio).Round(int32(o.market.QuoteCurrency().Precision()))
 
-	<-o.secondOrder.Done()
-	log.Info("second order done processing")
+	// Build updated DTO
+	dto := o.secondRequest.ToDTO()
+	dto.Quantity = size
 
-	// Signal completion
-	close(o.done)
+	// Set the new request
+	o.secondRequest = order.NewRequestFromDTO(o.market, dto)
 }
 
 func (o *OrderPair) validate() error {
@@ -202,6 +240,9 @@ func (o *OrderPair) validate() error {
 	if err != nil {
 		return err
 	}
+	if viper.GetBool("disableFees") == true {
+		rates = fees.ZeroFee()
+	}
 
 	// Determin the fees
 	baseFee := o.BuyRequest().Quantity().Mul(rates.TakerRate())
@@ -209,10 +250,10 @@ func (o *OrderPair) validate() error {
 
 	// Make sure we're not losing currency
 	if baseRes.LessThanOrEqual(baseFee) {
-		return fmt.Errorf("not making more of base currency, %w, %s, %s", &LosingPropositionError{o}, baseRes.String(), baseFee.String())
+		return fmt.Errorf("not making more of base currency after fees, %w, %s, %s", &LosingPropositionError{o}, baseRes.String(), baseFee.String())
 	}
 	if quoteRes.LessThanOrEqual(quoteFee) {
-		return fmt.Errorf("not making more of quote currency, %w, %s, %s", &LosingPropositionError{o}, quoteRes.String(), quoteFee.String())
+		return fmt.Errorf("not making more of quote currency after fees, %w, %s, %s", &LosingPropositionError{o}, quoteRes.String(), quoteFee.String())
 	}
 
 	return nil

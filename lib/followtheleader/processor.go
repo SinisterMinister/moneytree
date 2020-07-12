@@ -8,6 +8,7 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/sinisterminister/currencytrader/types"
 	"github.com/sinisterminister/currencytrader/types/candle"
+	"github.com/sinisterminister/currencytrader/types/fees"
 	"github.com/sinisterminister/currencytrader/types/order"
 	"github.com/sinisterminister/moneytree/lib/orderpair"
 	"github.com/sinisterminister/moneytree/lib/trix"
@@ -43,7 +44,7 @@ func (p *Processor) run(stop <-chan bool, done chan<- bool) {
 	)
 
 	// Follow the leader if there is one
-	if p.leader != nil {
+	if p.leader != nil && !p.leader.SecondOrder().IsDone() {
 		upwardTrending = p.leader.SecondOrder().Request().Side() == order.Buy
 	} else {
 		upwardTrending, err = p.isMarketUpwardTrending()
@@ -108,7 +109,7 @@ func (p *Processor) run(stop <-chan bool, done chan<- bool) {
 
 func (p *Processor) isMarketUpwardTrending() (bool, error) {
 	// Get trix values
-	candles, err := p.market.Candles(candle.OneMinute, time.Now().Add(-60*time.Minute), time.Now())
+	candles, err := p.market.Candles(candle.FiveMinutes, time.Now().Add(-4*time.Hour), time.Now())
 	if err != nil {
 		log.WithError(err).Error("unable to fetch candle data")
 		return false, err
@@ -153,6 +154,7 @@ func (p *Processor) buildUpwardTrendingPair() (*orderpair.OrderPair, error) {
 	}
 
 	// Set the bid price to price + 1 increment
+	// bidPrice := ticker.Bid()
 	bidPrice := ticker.Bid().Add(p.market.QuoteCurrency().Increment()).Round(int32(p.market.QuoteCurrency().Precision()))
 	bidSize := size.Round(int32(p.market.BaseCurrency().Precision()))
 	askPrice := bidPrice.Mul(spread).Round(int32(p.market.QuoteCurrency().Precision()))
@@ -191,6 +193,7 @@ func (p *Processor) buildDownwardTrendingPair() (*orderpair.OrderPair, error) {
 	}
 
 	// Set the ask price to price - 1 increment
+	// askPrice := ticker.Ask()
 	askPrice := ticker.Ask().Sub(p.market.QuoteCurrency().Increment()).Round(int32(p.market.QuoteCurrency().Precision()))
 	bidSize := size.Round(int32(p.market.BaseCurrency().Precision()))
 	bidPrice := askPrice.Sub(askPrice.Mul(spread).Sub(askPrice)).Round(int32(p.market.QuoteCurrency().Precision()))
@@ -231,17 +234,20 @@ func (p *Processor) getSize(ticker types.Ticker) (decimal.Decimal, error) {
 
 func (p *Processor) getSpread() (decimal.Decimal, error) {
 	// Get the fees
-	fees, err := p.trader.AccountSvc().Fees()
+	f, err := p.trader.AccountSvc().Fees()
 	if err != nil {
 		log.WithError(err).Error("failed to get fees")
 		return decimal.Zero, err
 	}
+	if viper.GetBool("disableFees") == true {
+		f = fees.ZeroFee()
+	}
 
 	// Set the profit target
-	target := decimal.NewFromFloat(0.005)
+	target := decimal.NewFromFloat(viper.GetFloat64("followtheleader.targetReturn"))
 
 	// Add the taker fees twice for the two orders
-	rate := fees.TakerRate().Add(fees.TakerRate())
+	rate := f.TakerRate().Add(f.TakerRate())
 
 	// Calculate spread
 	spread := target.Add(rate)
@@ -257,7 +263,7 @@ func (p *Processor) rotateLeader(op *orderpair.OrderPair) {
 	case order.Pending:
 		err := op.Cancel()
 		if err != nil {
-			log.WithError(err).Error("could not cancel stalled order")
+			log.WithError(err).Warn("could not cancel stalled order")
 		}
 
 	// Not sure what's up with this order so fall through to use filled
@@ -268,7 +274,7 @@ func (p *Processor) rotateLeader(op *orderpair.OrderPair) {
 	case order.Expired:
 		fallthrough
 	case order.Updated:
-		// This order is partially filled
+		// This order is untouched,
 		if op.FirstOrder().Filled().Equal(decimal.Zero) {
 			break
 		}
@@ -291,13 +297,11 @@ func (p *Processor) rotateLeader(op *orderpair.OrderPair) {
 		case order.Canceled:
 		case order.Expired:
 		case order.Rejected:
+		case order.Unknown:
 
 		// Move on if second order is also filled
 		case order.Filled:
 
-		// Not really sure what's going on so fall through to cancel just in case
-		case order.Unknown:
-			fallthrough
 		// Open order still so make leader
 		case order.Pending:
 			fallthrough
