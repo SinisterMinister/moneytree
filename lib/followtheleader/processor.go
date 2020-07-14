@@ -58,7 +58,7 @@ func (p *Processor) buildOrderPair() (orderPair *orderpair.OrderPair, err error)
 
 	// Follow the leader if there is one
 	if p.leader != nil && !p.leader.SecondOrder().IsDone() {
-		upwardTrending = p.leader.SecondOrder().Request().Side() == order.Buy
+		upwardTrending = p.leader.SecondOrder().Request().Side() == order.Sell
 	} else {
 		upwardTrending, err = p.isMarketUpwardTrending()
 		if err != nil {

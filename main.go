@@ -18,7 +18,11 @@ import (
 
 func main() {
 	// Setup the console logger
-	log.AddHandler(console.New(true), log.InfoLevel, log.DebugLevel, log.WarnLevel, log.ErrorLevel, log.NoticeLevel, log.FatalLevel, log.AlertLevel, log.PanicLevel)
+	log.AddHandler(console.New(true), log.InfoLevel, log.WarnLevel, log.ErrorLevel, log.NoticeLevel, log.FatalLevel, log.AlertLevel, log.PanicLevel)
+
+	if viper.GetBool("debug") {
+		log.AddHandler(console.New(true), log.DebugLevel)
+	}
 
 	// Setup the kill switch
 	killSwitch := make(chan bool)
