@@ -185,6 +185,7 @@ func (o *OrderPair) waitForFirstOrder() (err error) {
 			// Bail if the order missed
 			spread := o.firstRequest.Price().Sub(tick.Ask()).Div(o.firstRequest.Price()).Abs()
 			if spread.GreaterThan(decimal.NewFromFloat(viper.GetFloat64("orderpair.missDistance"))) && o.firstOrder.Filled().Equals(decimal.Zero) {
+				close(stop)
 				return fmt.Errorf("first order missed")
 			}
 		case <-o.firstOrder.Done():
