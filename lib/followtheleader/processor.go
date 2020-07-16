@@ -1,6 +1,7 @@
 package followtheleader
 
 import (
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -16,13 +17,14 @@ import (
 )
 
 type Processor struct {
+	db     *sql.DB
 	trader types.Trader
 	market types.Market
 	leader *orderpair.OrderPair
 }
 
-func New(trader types.Trader, market types.Market) *Processor {
-	return &Processor{trader, market, nil}
+func New(db *sql.DB, trader types.Trader, market types.Market) *Processor {
+	return &Processor{db, trader, market, nil}
 }
 
 func (p *Processor) Process(stop <-chan bool) (done <-chan bool, err error) {
@@ -58,7 +60,7 @@ func (p *Processor) buildOrderPair() (orderPair *orderpair.OrderPair, err error)
 
 	// Follow the leader if there is one
 	if p.leader != nil && !p.leader.SecondOrder().IsDone() {
-		upwardTrending = p.leader.SecondOrder().Request().Side() == order.Sell
+		upwardTrending = p.leader.SecondOrder().Request().Side() != order.Sell
 	} else {
 		upwardTrending, err = p.isMarketUpwardTrending()
 		if err != nil {
@@ -167,7 +169,7 @@ func (p *Processor) buildUpwardTrendingPair() (*orderpair.OrderPair, error) {
 	askReq := order.NewRequest(p.market, order.Limit, order.Sell, askSize, askPrice)
 
 	// Create order pair
-	op, err := orderpair.New(p.trader, p.market, bidReq, askReq)
+	op, err := orderpair.New(p.db, p.trader, p.market, bidReq, askReq)
 	if err != nil {
 		return nil, fmt.Errorf("could not create order pair: %w", err)
 	}
@@ -207,7 +209,7 @@ func (p *Processor) buildDownwardTrendingPair() (*orderpair.OrderPair, error) {
 	log.WithFields(log.F("askSize", askSize.String()), log.F("askPrice", askPrice.String()), log.F("bidSize", bidSize.String()), log.F("bidPrice", bidPrice.String())).Info("downward trending order sizes")
 
 	// Create order pair
-	op, err := orderpair.New(p.trader, p.market, askReq, bidReq)
+	op, err := orderpair.New(p.db, p.trader, p.market, askReq, bidReq)
 	if err != nil {
 		return nil, fmt.Errorf("could not create order pair: %w", err)
 	}

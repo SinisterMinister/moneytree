@@ -1,10 +1,12 @@
 package orderpair
 
 import (
+	"database/sql"
 	"fmt"
 	"sync"
 
 	"github.com/go-playground/log/v7"
+	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 	"github.com/sinisterminister/currencytrader/types"
 	"github.com/sinisterminister/currencytrader/types/fees"
@@ -15,8 +17,10 @@ import (
 type OrderPair struct {
 	trader types.Trader
 	market types.Market
+	db     *sql.DB
 
-	mutex         sync.Mutex
+	mutex         sync.RWMutex
+	uuid          uuid.UUID
 	firstRequest  types.OrderRequest
 	firstOrder    types.Order
 	secondRequest types.OrderRequest
@@ -27,8 +31,15 @@ type OrderPair struct {
 	stop          <-chan bool
 }
 
-func New(trader types.Trader, market types.Market, first types.OrderRequest, second types.OrderRequest) (orderPair *OrderPair, err error) {
+func New(db *sql.DB, trader types.Trader, market types.Market, first types.OrderRequest, second types.OrderRequest) (orderPair *OrderPair, err error) {
+	id, err := uuid.NewUUID()
+	if err != nil {
+		return nil, fmt.Errorf("could not create time based UUID: %w", err)
+	}
+
 	orderPair = &OrderPair{
+		db:            db,
+		uuid:          id,
 		trader:        trader,
 		market:        market,
 		done:          make(chan bool),
@@ -46,9 +57,76 @@ func New(trader types.Trader, market types.Market, first types.OrderRequest, sec
 	return orderPair, nil
 }
 
+func NewFromDAO(db *sql.DB, trader types.Trader, market types.Market, dao OrderPairDAO) (orderPair *OrderPair, err error) {
+	id, err := uuid.Parse(dao.Uuid)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse order pair ID: %w", err)
+	}
+
+	orderPair = &OrderPair{
+		db:            db,
+		uuid:          id,
+		trader:        trader,
+		market:        market,
+		done:          make(chan bool),
+		startHold:     make(chan bool),
+		firstRequest:  order.NewRequestFromDTO(market, dao.FirstRequest),
+		secondRequest: order.NewRequestFromDTO(market, dao.SecondRequest),
+	}
+
+	if dao.FirstOrderID != "" {
+		order, err := trader.OrderSvc().Order(market, dao.FirstOrderID)
+		if err != nil {
+			return nil, err
+		}
+		orderPair.firstOrder = order
+	}
+
+	if dao.SecondOrderID != "" {
+		order, err := trader.OrderSvc().Order(market, dao.SecondOrderID)
+		if err != nil {
+			return nil, err
+		}
+		orderPair.secondOrder = order
+	}
+
+	return
+}
+
+func SetupDB(db *sql.DB) error {
+	_, err := db.Exec("CREATE TABLE IF NOT EXISTS orderpairs (uuid char(36) primary key, data JSONB);")
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func Load(db *sql.DB, trader types.Trader, market types.Market, id string) (pair *OrderPair, err error) {
+	dao := OrderPairDAO{}
+	err = db.QueryRow("SELECT data FROM orderpairs WHERE uuid = $1;", id).Scan(&dao)
+	if err != nil {
+		return nil, fmt.Errorf("could not load order pair from database: %w", err)
+	}
+
+	pair, err = NewFromDAO(db, trader, market, dao)
+	return
+}
+
+func (o *OrderPair) Save() (err error) {
+	o.mutex.RLock()
+	defer o.mutex.RUnlock()
+
+	dao := o.ToDAO()
+	log.WithField("dao", dao).Debug("saving order pair")
+	_, err = o.db.Exec("INSERT INTO orderpairs (uuid, data) VALUES ($1, $2) ON CONFLICT (uuid) DO UPDATE SET data = $2;", o.uuid, dao)
+	if err != nil {
+		err = fmt.Errorf("could not insert into database: %w", err)
+	}
+	return
+}
+
 func (o *OrderPair) Execute(stop <-chan bool) <-chan bool {
 	o.mutex.Lock()
-
 	// Only launch routine if not running already
 	if !o.running {
 		go o.executeWorkflow()
@@ -64,32 +142,32 @@ func (o *OrderPair) Execute(stop <-chan bool) <-chan bool {
 }
 
 func (o *OrderPair) FirstOrder() types.Order {
-	o.mutex.Lock()
-	defer o.mutex.Unlock()
+	o.mutex.RLock()
+	defer o.mutex.RUnlock()
 	return o.firstOrder
 }
 
 func (o *OrderPair) SecondOrder() types.Order {
-	o.mutex.Lock()
-	defer o.mutex.Unlock()
+	o.mutex.RLock()
+	defer o.mutex.RUnlock()
 	return o.secondOrder
 }
 
 func (o *OrderPair) FirstRequest() types.OrderRequest {
-	o.mutex.Lock()
-	defer o.mutex.Unlock()
+	o.mutex.RLock()
+	defer o.mutex.RUnlock()
 	return o.firstRequest
 }
 
 func (o *OrderPair) SecondRequest() types.OrderRequest {
-	o.mutex.Lock()
-	defer o.mutex.Unlock()
+	o.mutex.RLock()
+	defer o.mutex.RUnlock()
 	return o.secondRequest
 }
 
 func (o *OrderPair) BuyRequest() types.OrderRequest {
-	o.mutex.Lock()
-	defer o.mutex.Unlock()
+	o.mutex.RLock()
+	defer o.mutex.RUnlock()
 	if o.firstRequest.Side() == order.Buy {
 		return o.firstRequest
 	}
@@ -97,8 +175,8 @@ func (o *OrderPair) BuyRequest() types.OrderRequest {
 }
 
 func (o *OrderPair) SellRequest() types.OrderRequest {
-	o.mutex.Lock()
-	defer o.mutex.Unlock()
+	o.mutex.RLock()
+	defer o.mutex.RUnlock()
 	if o.firstRequest.Side() != order.Buy {
 		return o.firstRequest
 	}
@@ -119,6 +197,13 @@ func (o *OrderPair) executeWorkflow() {
 		close(o.done)
 		return
 	}
+	log.Info("first order placed")
+
+	// Save the order
+	err = o.Save()
+	if err != nil {
+		log.WithError(err).Error("could not save order")
+	}
 
 	// Wait for order to complete. If it fails, keep going in case partial fill
 	err = o.waitForFirstOrder()
@@ -134,12 +219,26 @@ func (o *OrderPair) executeWorkflow() {
 		return
 	}
 	log.Info("second order placed")
+
+	// Save the order
+	err = o.Save()
+	if err != nil {
+		log.WithError(err).Error("could not save order")
+	}
+
+	// Wait for second order to complete
 	log.Info("waiting on second order")
 	<-o.secondOrder.Done()
 	log.Info("second order done processing")
 
 	// Signal completion
 	close(o.done)
+
+	// Save the order
+	err = o.Save()
+	if err != nil {
+		log.WithError(err).Error("could not save order")
+	}
 }
 
 func (o *OrderPair) placeFirstOrder() (err error) {
@@ -259,4 +358,32 @@ func (o *OrderPair) validate() error {
 	}
 
 	return nil
+}
+
+func (o *OrderPair) ToDAO() *OrderPairDAO {
+	var fid, sid string
+	if o.firstOrder != nil {
+		fid = o.firstOrder.ID()
+	}
+
+	if o.secondOrder != nil {
+		sid = o.secondOrder.ID()
+	}
+
+	var done bool
+	select {
+	case <-o.done:
+		done = true
+	default:
+		done = false
+	}
+
+	return &OrderPairDAO{
+		Uuid:          o.uuid.String(),
+		FirstRequest:  o.firstRequest.ToDTO(),
+		SecondRequest: o.secondRequest.ToDTO(),
+		FirstOrderID:  fid,
+		SecondOrderID: sid,
+		Done:          done,
+	}
 }
