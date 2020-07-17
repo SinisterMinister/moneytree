@@ -38,6 +38,49 @@ func (p *Processor) Process(stop <-chan bool) (done <-chan bool, err error) {
 }
 
 func (p *Processor) run(stop <-chan bool, done chan bool) {
+	p.recover(stop)
+	p.process(stop, done)
+}
+
+func (p *Processor) recover(stop <-chan bool) {
+	// Load running order pairs
+	pairs, err := orderpair.LoadOpenPairs(p.db, p.trader, p.market)
+	if err != nil {
+		log.WithError(err).Error("could not load order pairs")
+		return
+	}
+
+	// Drop closed pairs
+	open := make(map[<-chan bool]*orderpair.OrderPair)
+	for _, pair := range pairs {
+		done := pair.Execute(stop)
+		select {
+		case <-done:
+		default:
+			open[done] = pair
+		}
+	}
+
+	// Determine the leader
+	var secondDone <-chan bool
+	done := make(chan bool)
+	close(done)
+	secondDone = done
+	if len(open) > 0 {
+		for done, pair := range open {
+			if p.leader == nil || p.leader.FirstOrder().CreationTime().After(pair.FirstOrder().CreationTime()) {
+				p.leader = pair
+			} else {
+				secondDone = done
+			}
+		}
+	}
+
+	// Wait for the second order
+	<-secondDone
+}
+
+func (p *Processor) process(stop <-chan bool, done chan bool) {
 	// Build the order pair
 	orderPair, err := p.buildOrderPair()
 	if err != nil {

@@ -112,6 +112,28 @@ func Load(db *sql.DB, trader types.Trader, market types.Market, id string) (pair
 	return
 }
 
+func LoadOpenPairs(db *sql.DB, trader types.Trader, market types.Market) (pairs []*OrderPair, err error) {
+	pairs = []*OrderPair{}
+	rows, err := db.Query("SELECT data FROM orderpairs WHERE (data->>'done')::boolean = FALSE;")
+	if err != nil {
+		return nil, fmt.Errorf("could not load open order pairs from database: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		dao := OrderPairDAO{}
+		err = rows.Scan(&dao)
+		if err != nil {
+			return nil, fmt.Errorf("could not load open order pair from database: %w", err)
+		}
+		pair, err := NewFromDAO(db, trader, market, dao)
+		if err != nil {
+			return nil, fmt.Errorf("could not load open order: %w", err)
+		}
+		pairs = append(pairs, pair)
+	}
+	return
+}
+
 func (o *OrderPair) Save() (err error) {
 	o.mutex.RLock()
 	defer o.mutex.RUnlock()
@@ -189,20 +211,51 @@ func (o *OrderPair) Cancel() error {
 	return o.trader.OrderSvc().CancelOrder(o.firstOrder)
 }
 
-func (o *OrderPair) executeWorkflow() {
-	// Place the first order
-	err := o.placeFirstOrder()
-	if err != nil {
-		log.WithError(err).Error("could not place first order")
-		close(o.done)
-		return
+func (o *OrderPair) ToDAO() *OrderPairDAO {
+	var fid, sid string
+	if o.firstOrder != nil {
+		fid = o.firstOrder.ID()
 	}
-	log.Info("first order placed")
 
-	// Save the order
-	err = o.Save()
-	if err != nil {
-		log.WithError(err).Error("could not save order")
+	if o.secondOrder != nil {
+		sid = o.secondOrder.ID()
+	}
+
+	var done bool
+	select {
+	case <-o.done:
+		done = true
+	default:
+		done = false
+	}
+
+	return &OrderPairDAO{
+		Uuid:          o.uuid.String(),
+		FirstRequest:  o.firstRequest.ToDTO(),
+		SecondRequest: o.secondRequest.ToDTO(),
+		FirstOrderID:  fid,
+		SecondOrderID: sid,
+		Done:          done,
+	}
+}
+
+func (o *OrderPair) executeWorkflow() {
+	var err error
+
+	// Place the first order
+	if o.firstOrder == nil {
+		err = o.placeFirstOrder()
+		if err != nil {
+			log.WithError(err).Error("could not place first order")
+			close(o.done)
+			return
+		}
+
+		// Save the order
+		err = o.Save()
+		if err != nil {
+			log.WithError(err).Error("could not save order")
+		}
 	}
 
 	// Wait for order to complete. If it fails, keep going in case partial fill
@@ -211,19 +264,21 @@ func (o *OrderPair) executeWorkflow() {
 		log.WithError(err).Warn("first order failed")
 	}
 
-	// Place second order
-	err = o.placeSecondOrder()
-	if err != nil {
-		log.WithError(err).Warn("second order failed")
-		close(o.done)
-		return
-	}
-	log.Info("second order placed")
+	if o.secondOrder == nil {
+		// Place second order
+		err = o.placeSecondOrder()
+		if err != nil {
+			log.WithError(err).Warn("second order failed")
+			close(o.done)
+			return
+		}
+		log.Info("second order placed")
 
-	// Save the order
-	err = o.Save()
-	if err != nil {
-		log.WithError(err).Error("could not save order")
+		// Save the order
+		err = o.Save()
+		if err != nil {
+			log.WithError(err).Error("could not save order")
+		}
 	}
 
 	// Wait for second order to complete
@@ -358,32 +413,4 @@ func (o *OrderPair) validate() error {
 	}
 
 	return nil
-}
-
-func (o *OrderPair) ToDAO() *OrderPairDAO {
-	var fid, sid string
-	if o.firstOrder != nil {
-		fid = o.firstOrder.ID()
-	}
-
-	if o.secondOrder != nil {
-		sid = o.secondOrder.ID()
-	}
-
-	var done bool
-	select {
-	case <-o.done:
-		done = true
-	default:
-		done = false
-	}
-
-	return &OrderPairDAO{
-		Uuid:          o.uuid.String(),
-		FirstRequest:  o.firstRequest.ToDTO(),
-		SecondRequest: o.secondRequest.ToDTO(),
-		FirstOrderID:  fid,
-		SecondOrderID: sid,
-		Done:          done,
-	}
 }
