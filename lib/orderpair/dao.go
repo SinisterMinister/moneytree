@@ -15,6 +15,7 @@ type OrderPairDAO struct {
 	FirstOrderID  string                `json:"firstOrderID"`
 	SecondOrderID string                `json:"secondOrderID"`
 	Done          bool                  `json:"done"`
+	Failed        bool                  `json:"failed"`
 }
 
 func (o OrderPairDAO) Value() (driver.Value, error) {

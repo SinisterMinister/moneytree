@@ -17,14 +17,15 @@ import (
 )
 
 type Processor struct {
-	db     *sql.DB
-	trader types.Trader
-	market types.Market
-	leader *orderpair.OrderPair
+	db       *sql.DB
+	trader   types.Trader
+	market   types.Market
+	leader   *orderpair.OrderPair
+	follower *orderpair.OrderPair
 }
 
 func New(db *sql.DB, trader types.Trader, market types.Market) *Processor {
-	return &Processor{db, trader, market, nil}
+	return &Processor{db, trader, market, nil, nil}
 }
 
 func (p *Processor) Process(stop <-chan bool) (done <-chan bool, err error) {
@@ -33,16 +34,13 @@ func (p *Processor) Process(stop <-chan bool) (done <-chan bool, err error) {
 	done = ret
 
 	// Run the process
-	go p.run(stop, ret)
+	go p.process(stop, ret)
 	return
 }
 
-func (p *Processor) run(stop <-chan bool, done chan bool) {
-	p.recover(stop)
-	p.process(stop, done)
-}
+func (p *Processor) Recover(stop <-chan bool) {
+	log.Info("recovering open order pairs")
 
-func (p *Processor) recover(stop <-chan bool) {
 	// Load running order pairs
 	pairs, err := orderpair.LoadOpenPairs(p.db, p.trader, p.market)
 	if err != nil {
@@ -51,33 +49,28 @@ func (p *Processor) recover(stop <-chan bool) {
 	}
 
 	// Drop closed pairs
-	open := make(map[<-chan bool]*orderpair.OrderPair)
+	open := []*orderpair.OrderPair{}
 	for _, pair := range pairs {
 		done := pair.Execute(stop)
 		select {
 		case <-done:
 		default:
-			open[done] = pair
+			open = append(open, pair)
 		}
 	}
 
 	// Determine the leader
-	var secondDone <-chan bool
-	done := make(chan bool)
-	close(done)
-	secondDone = done
-	if len(open) > 0 {
-		for done, pair := range open {
-			if p.leader == nil || p.leader.FirstOrder().CreationTime().After(pair.FirstOrder().CreationTime()) {
-				p.leader = pair
-			} else {
-				secondDone = done
-			}
-		}
+	switch {
+	case len(open) == 2:
+		p.follower = open[1]
+		fallthrough
+	case len(open) == 1:
+		p.leader = open[0]
+	case len(open) > 2:
+		// Grab the latest two
+		p.follower = open[len(open)-1]
+		p.leader = open[len(open)-2]
 	}
-
-	// Wait for the second order
-	<-secondDone
 }
 
 func (p *Processor) process(stop <-chan bool, done chan bool) {
@@ -100,6 +93,13 @@ func (p *Processor) process(stop <-chan bool, done chan bool) {
 
 func (p *Processor) buildOrderPair() (orderPair *orderpair.OrderPair, err error) {
 	var upwardTrending bool
+
+	// Return follower if set
+	if p.follower != nil {
+		orderPair = p.follower
+		p.follower = nil
+		return
+	}
 
 	// Follow the leader if there is one
 	if p.leader != nil && !p.leader.SecondOrder().IsDone() {

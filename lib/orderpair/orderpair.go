@@ -3,6 +3,7 @@ package orderpair
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/go-playground/log/v7"
@@ -26,6 +27,7 @@ type OrderPair struct {
 	secondRequest types.OrderRequest
 	secondOrder   types.Order
 	running       bool
+	failed        bool
 	startHold     chan bool
 	done          chan bool
 	stop          <-chan bool
@@ -77,6 +79,13 @@ func NewFromDAO(db *sql.DB, trader types.Trader, market types.Market, dao OrderP
 	if dao.FirstOrderID != "" {
 		order, err := trader.OrderSvc().Order(market, dao.FirstOrderID)
 		if err != nil {
+			if strings.Contains(err.Error(), "NotFound") {
+				log.Warnf("could not load first order %s, closing as failed", dao.FirstOrderID)
+				orderPair.failed = true
+				close(orderPair.done)
+				orderPair.Save()
+				return orderPair, nil
+			}
 			return nil, err
 		}
 		orderPair.firstOrder = order
@@ -85,11 +94,15 @@ func NewFromDAO(db *sql.DB, trader types.Trader, market types.Market, dao OrderP
 	if dao.SecondOrderID != "" {
 		order, err := trader.OrderSvc().Order(market, dao.SecondOrderID)
 		if err != nil {
+			if strings.Contains(err.Error(), "NotFound") {
+				log.Warnf("could not load second order %s, ignoring", dao.SecondOrderID)
+				orderPair.Save()
+				return orderPair, nil
+			}
 			return nil, err
 		}
 		orderPair.secondOrder = order
 	}
-
 	return
 }
 
@@ -258,6 +271,9 @@ func (o *OrderPair) executeWorkflow() {
 		}
 	}
 
+	// release start hold
+	close(o.startHold)
+
 	// Wait for order to complete. If it fails, keep going in case partial fill
 	err = o.waitForFirstOrder()
 	if err != nil {
@@ -303,9 +319,6 @@ func (o *OrderPair) placeFirstOrder() (err error) {
 	// Place first order
 	o.mutex.Lock()
 	o.firstOrder, err = o.market.AttemptOrder(o.firstRequest)
-
-	// release start hold
-	close(o.startHold)
 	o.mutex.Unlock()
 	return
 }
