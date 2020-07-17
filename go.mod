@@ -10,8 +10,6 @@ require (
 	github.com/lib/pq v1.7.0
 	github.com/preichenberger/go-coinbasepro/v2 v2.0.5
 	github.com/shopspring/decimal v0.0.0-20190905144223-a36b5d85f337
-	github.com/sinisterminister/currencytrader v0.0.0
+	github.com/sinisterminister/currencytrader v0.0.0-20200716045201-c0efeee3b31b
 	github.com/spf13/viper v1.6.2
 )
-
-replace github.com/sinisterminister/currencytrader => ../currencytrader

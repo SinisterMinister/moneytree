@@ -11,6 +11,7 @@ func init() {
 	viper.AddConfigPath("/etc/moneytree/")
 	viper.AddConfigPath("$HOME/.moneytree")
 	viper.AddConfigPath(".")
+	viper.AutomaticEnv()
 	err := viper.ReadInConfig()
 	if err != nil {
 		log.WithError(err).Panic("fatal error loading config file")
