@@ -103,7 +103,7 @@ func (p *Processor) buildOrderPair() (orderPair *orderpair.OrderPair, err error)
 
 	// Follow the leader if there is one
 	if p.leader != nil && !p.leader.SecondOrder().IsDone() {
-		upwardTrending = p.leader.SecondOrder().Request().Side() != order.Sell
+		upwardTrending = p.leader.SecondRequest().Side() != order.Sell
 	} else {
 		upwardTrending, err = p.isMarketUpwardTrending()
 		if err != nil {
@@ -155,6 +155,30 @@ func (p *Processor) executeOrderPair(stop <-chan bool, orderPair *orderpair.Orde
 		// Order has complete. Nothing to do
 	}
 	return
+}
+
+func (p *Processor) rotateLeader(op *orderpair.OrderPair) {
+	log.Info("rotating the leader")
+	// If first order is still open, cancel it
+	if !op.FirstOrder().IsDone() {
+		err := p.trader.OrderSvc().CancelOrder(op.FirstOrder())
+		if err != nil {
+			log.WithError(err).Warn("could not cancel stalled order")
+		}
+		// Give the order some time to process
+		wait := time.NewTimer(viper.GetDuration("followtheleader.waitAfterCancelStalledPair"))
+		<-wait.C
+	}
+
+	if op.SecondOrder() == nil {
+		log.Warn("second order wasn't executed")
+		return
+	}
+
+	// If the first order was filled at all and the second order is still open, it's leader
+	if !op.IsDone() {
+		p.leader = op
+	}
 }
 
 func (p *Processor) isMarketUpwardTrending() (bool, error) {
@@ -302,28 +326,4 @@ func (p *Processor) getSpread() (decimal.Decimal, error) {
 	spread := target.Add(rate)
 
 	return spread, nil
-}
-
-func (p *Processor) rotateLeader(op *orderpair.OrderPair) {
-	log.Info("rotating the leader")
-	// If first order is still open, cancel it
-	if !op.FirstOrder().IsDone() {
-		err := p.trader.OrderSvc().CancelOrder(op.FirstOrder())
-		if err != nil {
-			log.WithError(err).Warn("could not cancel stalled order")
-		}
-		// Give the order some time to process
-		wait := time.NewTimer(viper.GetDuration("followtheleader.waitAfterCancelStalledPair"))
-		<-wait.C
-	}
-
-	if op.SecondOrder() == nil {
-		log.Warn("second order wasn't executed")
-		return
-	}
-
-	// If the first order was filled at all and the second order is still open, it's leader
-	if !op.FirstOrder().Filled().Equal(decimal.Zero) && !op.SecondOrder().IsDone() {
-		p.leader = op
-	}
 }

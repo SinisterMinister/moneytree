@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "moneytree.fullname" . }}
+  labels:
+    {{- include "moneytree.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.moneytree.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "moneytree.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+    {{- with .Values.moneytree.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      labels:
+        {{- include "moneytree.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.moneytree.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "moneytree.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.moneytree.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.moneytree.securityContext | nindent 12 }}
+          image: "{{ .Values.moneytree.image.repository }}:{{ .Values.moneytree.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.moneytree.image.pullPolicy }}
+
+          # define a liveness probe that checks every 5 seconds, starting after 5 seconds
+          livenessProbe:
+            httpGet:
+              path: /live
+              port: 8086
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+          # define a readiness probe that checks every 5 seconds
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8086
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.moneytree.resources | nindent 12 }}
+      {{- with .Values.moneytree.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.moneytree.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.moneytree.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

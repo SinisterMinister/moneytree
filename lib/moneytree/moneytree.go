@@ -3,8 +3,10 @@ package moneytree
 import (
 	"database/sql"
 	"fmt"
+	"net/http"
 
 	"github.com/go-playground/log/v7"
+	"github.com/heptiolabs/healthcheck"
 
 	// Load up postgres driver
 	_ "github.com/lib/pq"
@@ -37,6 +39,9 @@ func New(stop <-chan bool, trader types.Trader, currencies ...types.Currency) (M
 	if err != nil {
 		log.WithError(err).Fatal("could not connect to database")
 	}
+
+	log.Info("starting healthcheck endoints")
+	m.startHealthcheck()
 
 	log.Info("moneytree started")
 	return m, nil
@@ -82,4 +87,15 @@ func (m *Moneytree) startMarketWatchers() {
 		processor.Recover(m.stop)
 		marketwatcher.New(m.stop, mkt, processor)
 	}
+}
+
+func (m *Moneytree) startHealthcheck() {
+	// Create a healthcheck.Handler
+	health := healthcheck.NewHandler()
+
+	// Our app is not happy if we've got more than 100 goroutines running.
+	health.AddLivenessCheck("goroutine-threshold", healthcheck.GoroutineCountCheck(256))
+
+	// Expose the /live and /ready endpoints over HTTP (on port 8086)
+	go http.ListenAndServe("0.0.0.0:8086", health)
 }

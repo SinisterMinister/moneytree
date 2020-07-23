@@ -1,0 +1,11 @@
+metadata:
+spec:
+  containers:
+    - name: docker
+      image: docker:dind
+      tty: true
+      args:
+        - dockerd-entrypoint.sh dockerd && cat
+      command:
+        - "/bin/sh"
+        - "-c"

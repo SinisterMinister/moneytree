@@ -176,6 +176,15 @@ func (o *OrderPair) Execute(stop <-chan bool) <-chan bool {
 	return o.done
 }
 
+func (o *OrderPair) IsDone() bool {
+	select {
+	case <-o.done:
+		return true
+	default:
+		return false
+	}
+}
+
 func (o *OrderPair) FirstOrder() types.Order {
 	o.mutex.RLock()
 	defer o.mutex.RUnlock()
@@ -285,7 +294,11 @@ func (o *OrderPair) executeWorkflow() {
 		err = o.placeSecondOrder()
 		if err != nil {
 			log.WithError(err).Warn("second order failed")
-			close(o.done)
+			select {
+			case <-o.done:
+			default:
+				close(o.done)
+			}
 			return
 		}
 		log.Info("second order placed")
