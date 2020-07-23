@@ -9,3 +9,5 @@ spec:
       command:
         - "/bin/sh"
         - "-c"
+      securityContext:
+        privileged: true
