@@ -1,0 +1,26 @@
+---
+kind: ConfigMap 
+apiVersion: v1 
+metadata:
+  name: moneytree-config
+data:
+  config.yaml: |-
+    ---
+    symbols:
+    - BTC
+    - USD
+
+    coinbase:
+      # Sandbox Credentials
+      websocketURL:  wss://ws-feed-public.sandbox.pro.coinbase.com
+      baseURL: https://api-public.sandbox.pro.coinbase.com
+      key: 7f80661cd3fbaa1d52ea87d565074d4c
+      passphrase: u0w273x7hw
+      secret: cFqrTqWLw3nS/wTalxoLKLLGvWVD/fAMcg8T1a0YPTCbnjOyC0M9c4Mqt4THWx0vrSXa2EyfoKxy6plwC9KKIg==
+
+    disableFees: true
+
+    followtheleader: 
+      orderTTL: 1m
+
+    debug: true

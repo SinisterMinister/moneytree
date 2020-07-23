@@ -25,6 +25,16 @@ spec:
       serviceAccountName: {{ include "moneytree.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.moneytree.podSecurityContext | nindent 8 }}
+      
+      initContainers:
+        - name: copy-config
+          image: busybox:1.28
+          command: ['sh', '-c', 'cp /config/config.yaml /shared && cat /shared/config.yaml']
+          volumeMounts:
+            - name: shared
+              mountPath: /shared
+            - name: config
+              mountPath: /config
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
@@ -48,6 +58,16 @@ spec:
             periodSeconds: 5
           resources:
             {{- toYaml .Values.moneytree.resources | nindent 12 }}
+
+          volumeMounts:
+            - name: shared
+              mountPath: /etc/moneytree
+      volumes:
+        - name: config
+          configMap:
+            name: moneytree-config
+        - name: shared
+          emptyDir: {}
       {{- with .Values.moneytree.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
