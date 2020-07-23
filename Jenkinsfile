@@ -21,6 +21,9 @@ pipeline {
         stage('Push Container') {
             steps {
                 container('docker') {
+                    withCredentials([usernamePassword(credentialsId: "hub", usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+                        sh "docker login -u $USERNAME -p $PASSWORD"
+                    }
                     sh "docker push hub.sinimini.com/docker/moneytree:latest"
                 }
             }
