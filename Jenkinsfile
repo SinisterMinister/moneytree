@@ -9,14 +9,6 @@ pipeline {
             yamlFile "jenkins-containers.yaml"
         }
     }
-    options {
-        skipDefaultCheckout()
-        buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '10'))
-    }
-    environment {
-        // Get maven to download as many artifacts at a time as possible
-        MAVEN_OPTS = "-Dmaven.artifact.threads=30"
-    }
     stages {
         stage('Build Container') {
             steps {
