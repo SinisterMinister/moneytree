@@ -7,7 +7,7 @@ import (
 	"github.com/sinisterminister/moneytree/lib/moneytree"
 
 	"github.com/go-playground/log/v7"
-	"github.com/go-playground/log/v7/handlers/console"
+	"github.com/go-playground/log/v7/handlers/json"
 	"github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/sinisterminister/currencytrader"
 	"github.com/sinisterminister/currencytrader/types"
@@ -18,10 +18,10 @@ import (
 
 func main() {
 	// Setup the console logger
-	log.AddHandler(console.New(true), log.InfoLevel, log.WarnLevel, log.ErrorLevel, log.NoticeLevel, log.FatalLevel, log.AlertLevel, log.PanicLevel)
+	log.AddHandler(json.New(os.Stdout), log.InfoLevel, log.WarnLevel, log.ErrorLevel, log.NoticeLevel, log.FatalLevel, log.AlertLevel, log.PanicLevel)
 
 	if viper.GetBool("debug") {
-		log.AddHandler(console.New(true), log.DebugLevel)
+		log.AddHandler(json.New(os.Stdout), log.DebugLevel)
 	}
 
 	// Setup the kill switch
