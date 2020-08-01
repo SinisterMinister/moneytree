@@ -1,7 +1,7 @@
 metadata:
 spec:
   containers:
-    - name: docker
+    - name: hub.sinimini.com/docker/docker
       image: docker:dind
       tty: true
       args:
