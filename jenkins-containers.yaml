@@ -1,8 +1,8 @@
 metadata:
 spec:
   containers:
-    - name: hub.sinimini.com/docker/docker
-      image: docker:dind
+    - name: docker
+      image: hub.sinimini.com/docker/docker:dind
       tty: true
       args:
         - dockerd-entrypoint.sh dockerd && cat
