@@ -1,7 +1,14 @@
 # Default values for moneytree.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
+dependencies:
+  postgresql:
+    enable: true
+
 moneytree:
+  postgresql:
+    database: moneytree
+    password: password
   replicaCount: 1
 
   image:
@@ -47,3 +54,7 @@ moneytree:
   tolerations: []
 
   affinity: {}
+
+postgresql:
+  postgresqlPassword: password
+  postgresqlDatabase: moneytree

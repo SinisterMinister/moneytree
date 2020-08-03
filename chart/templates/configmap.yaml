@@ -24,3 +24,8 @@ data:
       orderTTL: 1m
 
     debug: true
+
+    postgres:
+      host: {{ .Chart.Name }}-postgresql
+      password: {{ .Values.moneytree.postgresql.password }}
+      database: {{ .Values.moneytree.postgresql.database }}
