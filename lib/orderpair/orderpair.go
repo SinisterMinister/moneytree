@@ -383,10 +383,17 @@ func (o *OrderPair) waitForFirstOrder() (err error) {
 			return fmt.Errorf("stop channel closed")
 		case tick := <-tickerStream:
 			// Bail if the order missed
-			spread := o.firstRequest.Price().Sub(tick.Ask()).Div(o.firstRequest.Price()).Abs()
-			if spread.GreaterThan(decimal.NewFromFloat(viper.GetFloat64("orderpair.missDistance"))) && o.firstOrder.Filled().Equals(decimal.Zero) {
+			currentSpread := o.firstRequest.Price().Sub(tick.Ask()).Div(o.firstRequest.Price()).Abs()
+			pairSpread := o.firstRequest.Price().Sub(o.secondRequest.Price()).Div(o.firstRequest.Price()).Abs()
+			maxSpread := currentSpread.Mul(decimal.NewFromFloat(viper.GetFloat64("orderpair.missPercentage")))
+			if currentSpread.GreaterThan(maxSpread) && o.firstOrder.Filled().Equals(decimal.Zero) {
 				close(stop)
 				return fmt.Errorf("first order missed")
+			}
+
+			if currentSpread.GreaterThan(pairSpread) {
+				close(stop)
+				return fmt.Errorf("first order partially filled")
 			}
 		case <-o.firstOrder.Done():
 			log.Info("first order done processing")
