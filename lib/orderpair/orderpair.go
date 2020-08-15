@@ -369,6 +369,48 @@ func (o *OrderPair) placeSecondOrder() (err error) {
 	return
 }
 
+func (o *OrderPair) maxSpread() decimal.Decimal {
+	return o.spread().Mul(decimal.NewFromFloat(viper.GetFloat64("orderpair.missPercentage")))
+}
+
+func (o *OrderPair) spread() decimal.Decimal {
+	return o.firstRequest.Price().Sub(o.secondRequest.Price()).Div(o.firstRequest.Price()).Abs()
+}
+
+func (o *OrderPair) missPrice() decimal.Decimal {
+	if o.firstRequest.Side() == order.Buy {
+		return o.firstRequest.Price().Mul(o.maxSpread()).Add(o.firstRequest.Price())
+	} else {
+		return o.firstRequest.Price().Sub(o.firstRequest.Price().Mul(o.maxSpread()))
+	}
+}
+
+func (o *OrderPair) missedOrder(price decimal.Decimal) bool {
+	if o.firstRequest.Side() == order.Buy {
+		if price.GreaterThan(o.missPrice()) {
+			return true
+		}
+	} else {
+		if price.LessThan(o.missPrice()) {
+			return true
+		}
+	}
+	return false
+}
+
+func (o *OrderPair) passedOrder(price decimal.Decimal) bool {
+	if o.firstRequest.Side() == order.Buy {
+		if price.GreaterThan(o.secondRequest.Price()) {
+			return true
+		}
+	} else {
+		if price.LessThan(o.secondRequest.Price()) {
+			return true
+		}
+	}
+	return false
+}
+
 func (o *OrderPair) waitForFirstOrder() (err error) {
 	stop := make(chan bool)
 	tickerStream := o.market.TickerStream(stop)
@@ -383,17 +425,14 @@ func (o *OrderPair) waitForFirstOrder() (err error) {
 			return fmt.Errorf("stop channel closed")
 		case tick := <-tickerStream:
 			// Bail if the order missed
-			currentSpread := o.firstRequest.Price().Sub(tick.Ask()).Div(o.firstRequest.Price()).Abs()
-			pairSpread := o.firstRequest.Price().Sub(o.secondRequest.Price()).Div(o.firstRequest.Price()).Abs()
-			maxSpread := currentSpread.Mul(decimal.NewFromFloat(viper.GetFloat64("orderpair.missPercentage")))
-			if currentSpread.GreaterThan(maxSpread) && o.firstOrder.Filled().Equals(decimal.Zero) {
+			if o.missedOrder(tick.Price()) && o.firstOrder.Filled().Equals(decimal.Zero) {
 				close(stop)
 				return fmt.Errorf("first order missed")
 			}
 
-			if currentSpread.GreaterThan(pairSpread) {
+			if o.passedOrder(tick.Price()) {
 				close(stop)
-				return fmt.Errorf("first order partially filled")
+				return fmt.Errorf("first order partially filled but price passed second order")
 			}
 		case <-o.firstOrder.Done():
 			log.Info("first order done processing")
