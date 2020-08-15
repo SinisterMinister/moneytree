@@ -2,7 +2,6 @@ package followtheleader
 
 import (
 	"database/sql"
-	"fmt"
 	"time"
 
 	"github.com/go-playground/log/v7"
@@ -12,33 +11,25 @@ import (
 	"github.com/sinisterminister/currencytrader/types/fees"
 	"github.com/sinisterminister/currencytrader/types/order"
 	"github.com/sinisterminister/moneytree/lib/orderpair"
+	"github.com/sinisterminister/moneytree/lib/state"
 	"github.com/sinisterminister/moneytree/lib/trix"
 	"github.com/spf13/viper"
 )
 
 type Processor struct {
-	db       *sql.DB
-	trader   types.Trader
-	market   types.Market
-	leader   *orderpair.OrderPair
-	follower *orderpair.OrderPair
+	db           *sql.DB
+	trader       types.Trader
+	market       types.Market
+	stateManager *state.Manager
+	stop         <-chan bool
 }
 
-func New(db *sql.DB, trader types.Trader, market types.Market) *Processor {
-	return &Processor{db, trader, market, nil, nil}
+func New(db *sql.DB, trader types.Trader, market types.Market, stop <-chan bool) *Processor {
+	manager := state.NewManager(stop)
+	return &Processor{db, trader, market, manager, stop}
 }
 
-func (p *Processor) Process(stop <-chan bool) (done <-chan bool, err error) {
-	// Build closed return channel
-	ret := make(chan bool)
-	done = ret
-
-	// Run the process
-	go p.process(stop, ret)
-	return
-}
-
-func (p *Processor) Recover(stop <-chan bool) {
+func (p *Processor) Recover() {
 	log.Info("recovering open order pairs")
 
 	// Load running order pairs
@@ -51,7 +42,7 @@ func (p *Processor) Recover(stop <-chan bool) {
 	// Drop closed pairs
 	open := []*orderpair.OrderPair{}
 	for _, pair := range pairs {
-		done := pair.Execute(stop)
+		done := pair.Execute(p.stop)
 		select {
 		case <-done:
 		default:
@@ -59,126 +50,55 @@ func (p *Processor) Recover(stop <-chan bool) {
 		}
 	}
 
-	// Determine the leader
-	switch {
-	case len(open) == 2:
-		p.follower = open[1]
-		fallthrough
-	case len(open) == 1:
-		p.leader = open[0]
-	case len(open) > 2:
-		// Grab the latest two
-		p.follower = open[len(open)-1]
-		p.leader = open[len(open)-2]
+	// Load most recent pair to see if it should set the direction
+	pair, err := orderpair.LoadMostRecentPair(p.db, p.trader, p.market)
+	if err != nil {
+		log.WithError(err).Error("could not load most recent pair")
+		return
+	}
+	// If this isn't complete, it becomes our initial state
+	if !pair.IsDone() {
+		if pair.BuyRequest().Side() == order.Buy {
+			p.stateManager.Resume(&UpwardTrending{processor: p, orderPair: pair})
+		} else {
+			p.stateManager.Resume(&DownwardTrending{processor: p, orderPair: pair})
+		}
 	}
 }
 
-func (p *Processor) process(stop <-chan bool, done chan bool) {
-	// Build the order pair
-	orderPair, err := p.buildOrderPair()
-	if err != nil {
-		log.WithError(err).Error("unable to build order pair")
-		close(done)
+func (p *Processor) Process() (done <-chan bool, err error) {
+	// Build closed return channel
+	ret := make(chan bool)
+	done = ret
+
+	// Run the process
+	go p.process(ret)
+	return
+}
+
+func (p *Processor) process(done chan bool) {
+	// If there's no defined initial state, create one
+	if p.stateManager.CurrentState() == nil {
+		// Determine if the market is upward trending
+		upward, err := p.isMarketUpwardTrending()
+		if err != nil {
+			log.WithError(err).Error("unable to determine market direction")
+			close(done)
+		}
+
+		// If the market is upward trending, set the state as such
+		if upward {
+			p.stateManager.TransitionTo(&UpwardTrending{processor: p})
+		} else {
+			p.stateManager.TransitionTo(&DownwardTrending{processor: p})
+		}
 	}
 
-	// Execute the order pair
-	err = p.executeOrderPair(stop, orderPair)
-	if err != nil {
-		log.WithError(err).Error("error while executing order pair")
-	}
+	// Wait for the state to process
+	<-p.stateManager.CurrentState().Done()
 
 	// Close the done channel
 	close(done)
-}
-
-func (p *Processor) buildOrderPair() (orderPair *orderpair.OrderPair, err error) {
-	var upwardTrending bool
-
-	// Return follower if set
-	if p.follower != nil {
-		orderPair = p.follower
-		p.follower = nil
-		return
-	}
-
-	// Follow the leader if there is one
-	if p.leader != nil && !p.leader.SecondOrder().IsDone() {
-		upwardTrending = p.leader.SecondRequest().Side() != order.Sell
-	} else {
-		upwardTrending, err = p.isMarketUpwardTrending()
-		if err != nil {
-			return nil, fmt.Errorf("could not get trend data: %w", err)
-		}
-	}
-	log.WithFields(log.F("market", p.market.Name()), log.F("upward", upwardTrending)).Info("got market trend direction")
-
-	// Build the order pair
-	if upwardTrending {
-		orderPair, err = p.buildUpwardTrendingPair()
-	} else {
-		orderPair, err = p.buildDownwardTrendingPair()
-	}
-	if err != nil {
-		return
-	}
-	log.WithFields(log.F("first", orderPair.FirstRequest().ToDTO()), log.F("second", orderPair.SecondRequest().ToDTO())).Debug("order pair created")
-	return
-}
-
-func (p *Processor) executeOrderPair(stop <-chan bool, orderPair *orderpair.OrderPair) (err error) {
-	// Execute the order
-	orderDone := orderPair.Execute(stop)
-	log.Info("order pair execution started")
-
-	// Create timer to bail on stale orders
-	timer := time.NewTimer(viper.GetDuration("followtheleader.orderTTL"))
-
-	// If there's a leader, we wait for it to complete instead of the timer
-	if p.leader != nil && !p.leader.SecondOrder().IsDone() {
-		done := p.leader.SecondOrder().Done()
-		select {
-		case <-orderDone:
-			// Next order
-			return
-		case <-done:
-			log.Info("second order completed for leader")
-			p.leader = nil
-		}
-	}
-
-	// Wait for the order to be complete or for it to timeout
-	select {
-	case <-timer.C:
-		// This order has gone stale but may not need to be made leader
-		p.rotateLeader(orderPair)
-	case <-orderDone:
-		// Order has complete. Nothing to do
-	}
-	return
-}
-
-func (p *Processor) rotateLeader(op *orderpair.OrderPair) {
-	log.Info("rotating the leader")
-	// If first order is still open, cancel it
-	if !op.FirstOrder().IsDone() {
-		err := p.trader.OrderSvc().CancelOrder(op.FirstOrder())
-		if err != nil {
-			log.WithError(err).Warn("could not cancel stalled order")
-		}
-		// Give the order some time to process
-		wait := time.NewTimer(viper.GetDuration("followtheleader.waitAfterCancelStalledPair"))
-		<-wait.C
-	}
-
-	if op.SecondOrder() == nil {
-		log.Warn("second order wasn't executed")
-		return
-	}
-
-	// If the first order was filled at all and the second order is still open, it's leader
-	if !op.IsDone() {
-		p.leader = op
-	}
 }
 
 func (p *Processor) isMarketUpwardTrending() (bool, error) {

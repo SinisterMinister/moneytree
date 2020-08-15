@@ -1,7 +1,7 @@
 package state
 
 import (
-	"errors"
+	"fmt"
 	"reflect"
 )
 
@@ -12,11 +12,17 @@ type State interface {
 
 	// AllowedFrom returns a slice of states that are allowed to transition into this state
 	AllowedFrom() []State
+
+	// Done returns a channel that will close once the state processing has finished
+	Done() <-chan bool
+
+	// Resume resumes a states execution
+	Resume(stop <-chan bool, manager *Manager)
 }
 
 // NewManager initializes and returns a new manager instance
 func NewManager(stop <-chan bool) *Manager {
-	m := &Manager{nil, make(chan State), make(chan chan State)}
+	m := &Manager{nil, make(chan State), make(chan State), make(chan chan State)}
 	m.runner(stop)
 	return m
 }
@@ -25,18 +31,29 @@ func NewManager(stop <-chan bool) *Manager {
 type Manager struct {
 	currentState            State
 	incomingState           chan State
+	incomingResumeState     chan State
 	incomingCurrentStateReq chan chan State
 }
 
 // TransitionTo transitions into the given state
 func (m *Manager) TransitionTo(state State) error {
-	for _, s := range state.AllowedFrom() {
-		if reflect.TypeOf(s) == reflect.TypeOf(state) {
-			m.incomingState <- state
-			return nil
+	if m.currentState != nil {
+		for _, s := range state.AllowedFrom() {
+			if reflect.TypeOf(s) == reflect.TypeOf(state) {
+				m.incomingState <- state
+				return nil
+			}
 		}
+		return fmt.Errorf("cannot transition into state: state doesn't allow transitions from %T state type", state)
 	}
-	return errors.New("cannot transition into state: ")
+	m.incomingState <- state
+	return nil
+}
+
+// Resume transitions into the given state without activating the processing
+func (m *Manager) Resume(state State) error {
+	m.incomingResumeState <- state
+	return nil
 }
 
 // CurrentState returns the current executing state
@@ -56,7 +73,11 @@ func (m *Manager) runner(stop <-chan bool) {
 		for {
 			select {
 			case state := <-m.incomingState:
+				m.currentState = state
 				go state.Activate(stop, m)
+			case state := <-m.incomingResumeState:
+				m.currentState = state
+				go state.Resume(stop, m)
 			case ch := <-m.incomingCurrentStateReq:
 				ch <- m.currentState
 				close(ch)

@@ -1,8 +1,6 @@
 package marketwatcher
 
 import (
-	"time"
-
 	"github.com/go-playground/log/v7"
 	"github.com/sinisterminister/currencytrader/types"
 	"github.com/sinisterminister/moneytree/lib/marketprocessor"
@@ -30,7 +28,7 @@ func (mw *MarketWatcher) watchMarket() {
 		default:
 		}
 
-		done, err := mw.processor.Process(mw.stop)
+		done, err := mw.processor.Process()
 		if err != nil {
 			log.WithError(err).Error("error processing market")
 			return
@@ -42,9 +40,6 @@ func (mw *MarketWatcher) watchMarket() {
 			return
 		case <-done:
 			log.WithField("market", mw.market.Name()).Info("market process cycle complete")
-
-			// Wait a sec
-			<-time.NewTicker(5 * time.Second).C
 		}
 	}
 }

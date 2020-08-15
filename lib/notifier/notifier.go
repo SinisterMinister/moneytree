@@ -11,29 +11,30 @@ type Notifier interface {
 
 func NewPriceAboveNotifier(stop <-chan bool, market types.Market, price decimal.Decimal) *PriceAbove {
 	n := &PriceAbove{
-		observers:         []chan bool{},
-		triggered:         false,
-		incomingReceivers: make(chan chan bool),
+		observerChannel:  make(chan bool),
+		triggered:        false,
+		incomingRequests: make(chan chan chan bool),
+		market:           market,
 	}
 	n.runner(stop)
 	return n
 }
 
 type PriceAbove struct {
-	observers         []chan bool
-	triggered         bool
-	incomingReceivers chan chan bool
-	market            types.Market
-	price             decimal.Decimal
+	observerChannel  chan bool
+	triggered        bool
+	incomingRequests chan chan chan bool
+	market           types.Market
+	price            decimal.Decimal
 }
 
 func (n *PriceAbove) Receive() <-chan bool {
-	ch := make(chan bool)
+	ch := make(chan chan bool)
 
 	// Register the receiver
-	n.incomingReceivers <- ch
+	n.incomingRequests <- ch
 
-	return ch
+	return <-ch
 }
 
 func (n *PriceAbove) runner(stop <-chan bool) {
@@ -56,46 +57,45 @@ func (n *PriceAbove) runner(stop <-chan bool) {
 				// Stop the stream
 				close(tickerStop)
 
-				// Notify all the observers by closing their channels
-				for _, ch := range n.observers {
-					close(ch)
-				}
+				// Notify all the observers
+				close(n.observerChannel)
 
 				// Bail out
 				return
 			}
 
-		case ch := <-n.incomingReceivers:
-			n.observers = append(n.observers, ch)
+		case ch := <-n.incomingRequests:
+			ch <- n.observerChannel
 		}
 	}
 }
 
 func NewPriceBelowNotifier(stop <-chan bool, market types.Market, price decimal.Decimal) *PriceBelow {
 	n := &PriceBelow{
-		observers:         []chan bool{},
-		triggered:         false,
-		incomingReceivers: make(chan chan bool),
+		observerChannel:  make(chan bool),
+		triggered:        false,
+		incomingRequests: make(chan chan chan bool),
+		market:           market,
 	}
 	n.runner(stop)
 	return n
 }
 
 type PriceBelow struct {
-	observers         []chan bool
-	triggered         bool
-	incomingReceivers chan chan bool
-	market            types.Market
-	price             decimal.Decimal
+	observerChannel  chan bool
+	triggered        bool
+	incomingRequests chan chan chan bool
+	market           types.Market
+	price            decimal.Decimal
 }
 
 func (n *PriceBelow) Receive() <-chan bool {
-	ch := make(chan bool)
+	ch := make(chan chan bool)
 
 	// Register the receiver
-	n.incomingReceivers <- ch
+	n.incomingRequests <- ch
 
-	return ch
+	return <-ch
 }
 
 func (n *PriceBelow) runner(stop <-chan bool) {
@@ -118,17 +118,15 @@ func (n *PriceBelow) runner(stop <-chan bool) {
 				// Stop the stream
 				close(tickerStop)
 
-				// Notify all the observers by closing their channels
-				for _, ch := range n.observers {
-					close(ch)
-				}
+				// Notify all the observers
+				close(n.observerChannel)
 
 				// Bail out
 				return
 			}
 
-		case ch := <-n.incomingReceivers:
-			n.observers = append(n.observers, ch)
+		case ch := <-n.incomingRequests:
+			ch <- n.observerChannel
 		}
 	}
 }

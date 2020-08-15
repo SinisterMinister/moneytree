@@ -2,6 +2,7 @@ package followtheleader
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/go-playground/log/v7"
 	"github.com/shopspring/decimal"
@@ -14,49 +15,95 @@ import (
 
 type DownwardTrending struct {
 	processor *Processor
+
+	mutex     sync.Mutex
+	doneChan  chan bool
+	active    bool
+	orderPair *orderpair.OrderPair
 }
 
 func (s *DownwardTrending) Activate(stop <-chan bool, manager *state.Manager) {
-	for {
-		// Build the order pair
-		orderPair, err := s.buildPair()
-		if err != nil {
-			log.WithError(err).Error("could not build order pair")
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if !s.active {
+		if s.doneChan == nil {
+			// Build the done chan
+			s.doneChan = make(chan bool)
 		}
 
-		// Execute the order
-		orderDone := orderPair.Execute(stop)
-		log.Info("order pair execution started")
-
-		// Start a price notifier for us to cancel if the rises above
-		req := orderPair.FirstRequest()
-		abovePrice := req.Price().Add(req.Price().Mul(decimal.NewFromFloat(viper.GetFloat64("followtheleader.reversalSpread"))))
-		aboveNotifier := notifier.NewPriceAboveNotifier(stop, s.processor.market, abovePrice).Receive()
-
-		select {
-		case <-stop: // Bail on stop
-			return
-
-		case <-aboveNotifier: // Price went to high, time to bail and transition to opposite state
-			// Cancel the order
-			log.Info("price went too far above ask. canceling order")
-			err := orderPair.Cancel()
-			if err != nil {
-				log.WithError(err).Error("could not cancel order")
-			}
-
-			// Transition to an upward trending state
-			log.Info("transitioning to upward trending state")
-			manager.TransitionTo(&UpwardTrending{})
-			return
-
-		case <-orderDone: // Order completed successfully, nothing to do here
-		}
+		go s.run(stop, manager)
 	}
+	s.active = true
 }
 
 func (s *DownwardTrending) AllowedFrom() []state.State {
-	return []state.State{&UpwardTrending{}}
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	return []state.State{&UpwardTrending{processor: s.processor}}
+}
+
+func (s *DownwardTrending) Done() <-chan bool {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	if s.doneChan == nil {
+		// Build the done chan
+		s.doneChan = make(chan bool)
+	}
+	return s.doneChan
+}
+
+func (s *DownwardTrending) Resume(stop <-chan bool, manager *state.Manager) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	// Wait for the order to complete
+	s.active = true
+	go s.wait(stop, manager)
+}
+
+func (s *DownwardTrending) run(stop <-chan bool, manager *state.Manager) {
+	defer close(s.doneChan)
+
+	// Build the order pair
+	orderPair, err := s.buildPair()
+	if err != nil {
+		log.WithError(err).Error("could not build order pair")
+		return
+	}
+	s.orderPair = orderPair
+
+	// Execute the order
+	orderPair.Execute(stop)
+	log.Info("order pair execution started")
+
+	// Wait for the order to complete
+	s.wait(stop, manager)
+}
+
+func (s *DownwardTrending) wait(stop <-chan bool, manager *state.Manager) {
+	// Start a price notifier for us to cancel if the rises above
+	req := s.orderPair.FirstRequest()
+	abovePrice := req.Price().Add(req.Price().Mul(decimal.NewFromFloat(viper.GetFloat64("followtheleader.reversalSpread"))))
+	aboveNotifier := notifier.NewPriceAboveNotifier(stop, s.processor.market, abovePrice).Receive()
+
+	select {
+	case <-aboveNotifier: // Price went to high, time to bail and transition to opposite state
+		// Cancel the order
+		log.Info("price went too far above ask. canceling order")
+		err := s.orderPair.Cancel()
+		if err != nil {
+			log.WithError(err).Error("could not cancel order")
+		}
+
+		// Transition to an upward trending state
+		log.Info("transitioning to upward trending state")
+		manager.TransitionTo(&UpwardTrending{processor: s.processor})
+		return
+
+	case <-s.orderPair.Done(): // Order completed successfully, nothing to do here
+	case <-stop: // Bail on stop
+	}
 }
 
 func (s *DownwardTrending) buildPair() (*orderpair.OrderPair, error) {

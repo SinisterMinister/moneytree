@@ -125,6 +125,17 @@ func Load(db *sql.DB, trader types.Trader, market types.Market, id string) (pair
 	return
 }
 
+func LoadMostRecentPair(db *sql.DB, trader types.Trader, market types.Market) (pair *OrderPair, err error) {
+	dao := OrderPairDAO{}
+	err = db.QueryRow("SELECT data FROM orderpairs ORDER BY uuid DESC LIMIT 1").Scan(&dao)
+	if err != nil {
+		return nil, fmt.Errorf("could not load order pair from database: %w", err)
+	}
+
+	pair, err = NewFromDAO(db, trader, market, dao)
+	return
+}
+
 func LoadOpenPairs(db *sql.DB, trader types.Trader, market types.Market) (pairs []*OrderPair, err error) {
 	pairs = []*OrderPair{}
 	rows, err := db.Query("SELECT data FROM orderpairs WHERE (data->>'done')::boolean = FALSE;")
@@ -183,6 +194,12 @@ func (o *OrderPair) IsDone() bool {
 	default:
 		return false
 	}
+}
+
+func (o *OrderPair) Done() <-chan bool {
+	o.mutex.RLock()
+	defer o.mutex.RUnlock()
+	return o.done
 }
 
 func (o *OrderPair) FirstOrder() types.Order {
@@ -357,8 +374,11 @@ func (o *OrderPair) waitForFirstOrder() (err error) {
 	tickerStream := o.market.TickerStream(stop)
 	for {
 		brk := false
+		o.mutex.RLock()
+		orderStop := o.stop
+		o.mutex.RUnlock()
 		select {
-		case <-o.stop:
+		case <-orderStop:
 			close(stop)
 			return fmt.Errorf("stop channel closed")
 		case tick := <-tickerStream:
