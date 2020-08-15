@@ -27,10 +27,7 @@ func (s *DownwardTrending) Activate(stop <-chan bool, manager *state.Manager) {
 	defer s.mutex.Unlock()
 
 	if !s.active {
-		if s.doneChan == nil {
-			// Build the done chan
-			s.doneChan = make(chan bool)
-		}
+		s.setupDoneChan()
 
 		go s.run(stop, manager)
 	}
@@ -46,11 +43,16 @@ func (s *DownwardTrending) AllowedFrom() []state.State {
 func (s *DownwardTrending) Done() <-chan bool {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+	s.setupDoneChan()
+	return s.doneChan
+}
+
+func (s *DownwardTrending) setupDoneChan() {
 	if s.doneChan == nil {
 		// Build the done chan
+		log.Info("setting up done chan")
 		s.doneChan = make(chan bool)
 	}
-	return s.doneChan
 }
 
 func (s *DownwardTrending) Resume(stop <-chan bool, manager *state.Manager) {
@@ -63,8 +65,6 @@ func (s *DownwardTrending) Resume(stop <-chan bool, manager *state.Manager) {
 }
 
 func (s *DownwardTrending) run(stop <-chan bool, manager *state.Manager) {
-	defer close(s.doneChan)
-
 	// Build the order pair
 	orderPair, err := s.buildPair()
 	if err != nil {
@@ -79,6 +79,9 @@ func (s *DownwardTrending) run(stop <-chan bool, manager *state.Manager) {
 
 	// Wait for the order to complete
 	s.wait(stop, manager)
+
+	// Close the done channel
+	close(s.doneChan)
 }
 
 func (s *DownwardTrending) wait(stop <-chan bool, manager *state.Manager) {
@@ -98,7 +101,10 @@ func (s *DownwardTrending) wait(stop <-chan bool, manager *state.Manager) {
 
 		// Transition to an upward trending state
 		log.Info("transitioning to upward trending state")
-		manager.TransitionTo(&UpwardTrending{processor: s.processor})
+		err = manager.TransitionTo(&UpwardTrending{processor: s.processor})
+		if err != nil {
+			log.WithError(err).Error("could not transition states")
+		}
 		return
 
 	case <-s.orderPair.Done(): // Order completed successfully, nothing to do here

@@ -3,6 +3,8 @@ package state
 import (
 	"fmt"
 	"reflect"
+
+	"github.com/go-playground/log/v7"
 )
 
 // State is the object that performs actions while it it active
@@ -37,8 +39,9 @@ type Manager struct {
 
 // TransitionTo transitions into the given state
 func (m *Manager) TransitionTo(state State) error {
+	log.Infof("transitioning into state %T", state)
 	if m.currentState != nil {
-		for _, s := range state.AllowedFrom() {
+		for _, s := range m.currentState.AllowedFrom() {
 			if reflect.TypeOf(s) == reflect.TypeOf(state) {
 				m.incomingState <- state
 				return nil
@@ -52,6 +55,7 @@ func (m *Manager) TransitionTo(state State) error {
 
 // Resume transitions into the given state without activating the processing
 func (m *Manager) Resume(state State) error {
+	log.Infof("resuming state %T", state)
 	m.incomingResumeState <- state
 	return nil
 }

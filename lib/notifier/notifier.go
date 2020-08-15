@@ -1,6 +1,7 @@
 package notifier
 
 import (
+	"github.com/go-playground/log/v7"
 	"github.com/shopspring/decimal"
 	"github.com/sinisterminister/currencytrader/types"
 )
@@ -15,8 +16,9 @@ func NewPriceAboveNotifier(stop <-chan bool, market types.Market, price decimal.
 		triggered:        false,
 		incomingRequests: make(chan chan chan bool),
 		market:           market,
+		price:            price,
 	}
-	n.runner(stop)
+	go n.runner(stop)
 	return n
 }
 
@@ -54,6 +56,7 @@ func (n *PriceAbove) runner(stop <-chan bool) {
 		// Handle ticker stream
 		case ticker := <-stream:
 			if ticker.Price().GreaterThan(n.price) {
+				log.Debugf("notifying that price went above %s", n.price.String())
 				// Stop the stream
 				close(tickerStop)
 
@@ -76,8 +79,9 @@ func NewPriceBelowNotifier(stop <-chan bool, market types.Market, price decimal.
 		triggered:        false,
 		incomingRequests: make(chan chan chan bool),
 		market:           market,
+		price:            price,
 	}
-	n.runner(stop)
+	go n.runner(stop)
 	return n
 }
 
@@ -115,6 +119,7 @@ func (n *PriceBelow) runner(stop <-chan bool) {
 		// Handle ticker stream
 		case ticker := <-stream:
 			if ticker.Price().LessThan(n.price) {
+				log.Debugf("notifying that price fell below %s", n.price.String())
 				// Stop the stream
 				close(tickerStop)
 

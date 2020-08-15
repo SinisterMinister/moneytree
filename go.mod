@@ -16,4 +16,5 @@ require (
 	github.com/spf13/viper v1.6.2
 	golang.org/x/sys v0.0.0-20200722175500-76b94024e4b6 // indirect
 	google.golang.org/protobuf v1.25.0 // indirect
+	gopkg.in/DATA-DOG/go-sqlmock.v1 v1.3.0 // indirect
 )

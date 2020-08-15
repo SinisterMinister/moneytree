@@ -56,8 +56,10 @@ func (p *Processor) Recover() {
 		log.WithError(err).Error("could not load most recent pair")
 		return
 	}
+
 	// If this isn't complete, it becomes our initial state
 	if !pair.IsDone() {
+		log.Debugf("last pair still open, resuming")
 		if pair.BuyRequest().Side() == order.Buy {
 			p.stateManager.Resume(&UpwardTrending{processor: p, orderPair: pair})
 		} else {
@@ -95,6 +97,7 @@ func (p *Processor) process(done chan bool) {
 	}
 
 	// Wait for the state to process
+	log.Infof("waiting for %T to process", p.stateManager.CurrentState())
 	<-p.stateManager.CurrentState().Done()
 
 	// Close the done channel

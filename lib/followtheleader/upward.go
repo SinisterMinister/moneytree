@@ -2,6 +2,7 @@ package followtheleader
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/go-playground/log/v7"
 	"github.com/shopspring/decimal"
@@ -14,17 +15,19 @@ import (
 
 type UpwardTrending struct {
 	processor *Processor
+
+	mutex     sync.Mutex
 	doneChan  chan bool
 	active    bool
 	orderPair *orderpair.OrderPair
 }
 
 func (s *UpwardTrending) Activate(stop <-chan bool, manager *state.Manager) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	if !s.active {
-		if s.doneChan == nil {
-			// Build the done chan
-			s.doneChan = make(chan bool)
-		}
+		s.setupDoneChan()
 
 		go s.run(stop, manager)
 	}
@@ -34,17 +37,28 @@ func (s *UpwardTrending) Activate(stop <-chan bool, manager *state.Manager) {
 func (s *UpwardTrending) AllowedFrom() []state.State {
 	return []state.State{&DownwardTrending{}}
 }
-
 func (s *UpwardTrending) Done() <-chan bool {
-	if s.doneChan == nil {
-		// Build the done chan
-		s.doneChan = make(chan bool)
-	}
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.setupDoneChan()
 	return s.doneChan
 }
 
+func (s *UpwardTrending) setupDoneChan() {
+	if s.doneChan == nil {
+		// Build the done chan
+		log.Info("setting up done chan")
+		s.doneChan = make(chan bool)
+	}
+}
+
 func (s *UpwardTrending) Resume(stop <-chan bool, manager *state.Manager) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	// Wait for the order to complete
+	log.Info("resuming upward trending state processing")
+	s.active = true
 	go s.wait(stop, manager)
 }
 
@@ -57,6 +71,7 @@ func (s *UpwardTrending) run(stop <-chan bool, manager *state.Manager) {
 		log.WithError(err).Error("could not build order pair")
 		return
 	}
+	s.orderPair = orderPair
 
 	// Execute the order
 	orderPair.Execute(stop)
@@ -71,6 +86,7 @@ func (s *UpwardTrending) wait(stop <-chan bool, manager *state.Manager) {
 	req := s.orderPair.FirstRequest()
 	belowPrice := req.Price().Sub(req.Price().Mul(decimal.NewFromFloat(viper.GetFloat64("followtheleader.reversalSpread"))))
 	belowNotifier := notifier.NewPriceBelowNotifier(stop, s.processor.market, belowPrice).Receive()
+	log.Debugf("waiting for pair to complete or price to fall below %s", belowPrice.String())
 
 	select {
 	case <-belowNotifier: // Price went to low, time to bail and transition to opposite state
