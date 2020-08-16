@@ -152,7 +152,7 @@ func (s *DownwardTrending) buildPair() (*orderpair.OrderPair, error) {
 		log.F("askPrice", askPrice.String()),
 		log.F("bidSize", bidSize.String()),
 		log.F("bidPrice", bidPrice.String()),
-	).Info("downward trending order sizes")
+	).Info("downward trending order data")
 
 	// Create order pair
 	op, err := orderpair.New(s.processor.db, s.processor.trader, s.processor.market, askReq, bidReq)
