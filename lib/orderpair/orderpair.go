@@ -64,13 +64,17 @@ func NewFromDAO(db *sql.DB, trader types.Trader, market types.Market, dao OrderP
 	if err != nil {
 		return nil, fmt.Errorf("could not parse order pair ID: %w", err)
 	}
+	done := make(chan bool)
+	if dao.Done {
+		close(done)
+	}
 
 	orderPair = &OrderPair{
 		db:            db,
 		uuid:          id,
 		trader:        trader,
 		market:        market,
-		done:          make(chan bool),
+		done:          done,
 		startHold:     make(chan bool),
 		firstRequest:  order.NewRequestFromDTO(market, dao.FirstRequest),
 		secondRequest: order.NewRequestFromDTO(market, dao.SecondRequest),
