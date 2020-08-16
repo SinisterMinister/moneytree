@@ -79,9 +79,6 @@ func (s *DownwardTrending) run(stop <-chan bool, manager *state.Manager) {
 
 	// Wait for the order to complete
 	s.wait(stop, manager)
-
-	// Close the done channel
-	close(s.doneChan)
 }
 
 func (s *DownwardTrending) wait(stop <-chan bool, manager *state.Manager) {
@@ -110,6 +107,9 @@ func (s *DownwardTrending) wait(stop <-chan bool, manager *state.Manager) {
 	case <-s.orderPair.Done(): // Order completed successfully, nothing to do here
 	case <-stop: // Bail on stop
 	}
+
+	// Close the done channel
+	close(s.doneChan)
 }
 
 func (s *DownwardTrending) buildPair() (*orderpair.OrderPair, error) {

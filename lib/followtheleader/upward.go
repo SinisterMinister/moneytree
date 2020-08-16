@@ -63,8 +63,6 @@ func (s *UpwardTrending) Resume(stop <-chan bool, manager *state.Manager) {
 }
 
 func (s *UpwardTrending) run(stop <-chan bool, manager *state.Manager) {
-	defer close(s.doneChan)
-
 	// Build the order pair
 	orderPair, err := s.buildPair()
 	if err != nil {
@@ -105,6 +103,9 @@ func (s *UpwardTrending) wait(stop <-chan bool, manager *state.Manager) {
 	case <-s.orderPair.Done(): // Order completed successfully, nothing to do here
 	case <-stop: // Bail on stop
 	}
+
+	// Close the done channel
+	close(s.doneChan)
 }
 
 func (s *UpwardTrending) buildPair() (*orderpair.OrderPair, error) {
