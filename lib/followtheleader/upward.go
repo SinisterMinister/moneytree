@@ -35,7 +35,7 @@ func (s *UpwardTrending) Activate(stop <-chan bool, manager *state.Manager) {
 }
 
 func (s *UpwardTrending) AllowedFrom() []state.State {
-	return []state.State{&DownwardTrending{}}
+	return []state.State{&UpwardTrending{}, &DownwardTrending{}}
 }
 func (s *UpwardTrending) Done() <-chan bool {
 	s.mutex.Lock()
@@ -102,7 +102,7 @@ func (s *UpwardTrending) wait(stop <-chan bool, manager *state.Manager) {
 
 	case <-s.orderPair.Done(): // Order completed successfully, nothing to do here
 		log.Info("pair finished processing. state processing complete")
-		s.active = false
+		manager.TransitionTo(&UpwardTrending{processor: s.processor})
 	case <-stop: // Bail on stop
 	}
 
