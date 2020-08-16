@@ -1,9 +1,12 @@
 package marketwatcher
 
 import (
+	"time"
+
 	"github.com/go-playground/log/v7"
 	"github.com/sinisterminister/currencytrader/types"
 	"github.com/sinisterminister/moneytree/lib/marketprocessor"
+	"github.com/spf13/viper"
 )
 
 type MarketWatcher struct {
@@ -40,6 +43,7 @@ func (mw *MarketWatcher) watchMarket() {
 			return
 		case <-done:
 			log.WithField("market", mw.market.Name()).Info("market process cycle complete")
+			<-time.NewTimer(viper.GetDuration("marketwatcher.marketCycleDelay")).C
 		}
 	}
 }
