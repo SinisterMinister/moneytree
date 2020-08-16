@@ -251,6 +251,18 @@ func (o *OrderPair) SellRequest() types.OrderRequest {
 func (o *OrderPair) Cancel() error {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
+
+	if o.firstOrder.IsDone() {
+		// Close the done channel if necessary
+		select {
+		case <-o.done:
+		default:
+			close(o.done)
+		}
+		return nil
+	}
+
+	// Cancel the first order
 	return o.trader.OrderSvc().CancelOrder(o.firstOrder)
 }
 
