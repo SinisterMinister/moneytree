@@ -248,6 +248,12 @@ func (o *OrderPair) SellRequest() types.OrderRequest {
 	return o.secondRequest
 }
 
+func (o *OrderPair) Spread() decimal.Decimal {
+	o.mutex.RLock()
+	defer o.mutex.RUnlock()
+	return o.spread()
+}
+
 func (o *OrderPair) Cancel() error {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()

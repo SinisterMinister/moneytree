@@ -84,7 +84,8 @@ func (s *DownwardTrending) run(stop <-chan bool, manager *state.Manager) {
 func (s *DownwardTrending) wait(stop <-chan bool, manager *state.Manager) {
 	// Start a price notifier for us to cancel if the rises above
 	req := s.orderPair.FirstRequest()
-	abovePrice := req.Price().Add(req.Price().Mul(decimal.NewFromFloat(viper.GetFloat64("followtheleader.reversalSpread"))))
+	failSpread := s.orderPair.Spread().Mul(decimal.NewFromFloat(viper.GetFloat64("followtheleader.reversalSpread")))
+	abovePrice := req.Price().Add(req.Price().Mul(failSpread))
 	aboveNotifier := notifier.NewPriceAboveNotifier(stop, s.processor.market, abovePrice).Receive()
 
 	select {
