@@ -103,9 +103,10 @@ func (s *DownwardTrending) wait(stop <-chan bool, manager *state.Manager) {
 		if err != nil {
 			log.WithError(err).Error("could not transition states")
 		}
-		return
 
 	case <-s.orderPair.Done(): // Order completed successfully, nothing to do here
+		log.Info("pair finished processing. state processing complete")
+		s.active = false
 	case <-stop: // Bail on stop
 	}
 

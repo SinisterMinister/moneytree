@@ -99,9 +99,10 @@ func (s *UpwardTrending) wait(stop <-chan bool, manager *state.Manager) {
 		// Transition to an upward trending state
 		log.Info("transitioning to downward trending state")
 		manager.TransitionTo(&DownwardTrending{processor: s.processor})
-		return
 
 	case <-s.orderPair.Done(): // Order completed successfully, nothing to do here
+		log.Info("pair finished processing. state processing complete")
+		s.active = false
 	case <-stop: // Bail on stop
 	}
 
