@@ -289,15 +289,22 @@ func (o *OrderPair) ToDAO() *OrderPairDAO {
 	default:
 		done = false
 	}
+	var firstOrder, secondOrder types.OrderDTO
+	if o.firstOrder != nil {
+		firstOrder = o.firstOrder.ToDTO()
+	}
+	if o.secondOrder != nil {
+		secondOrder = o.secondOrder.ToDTO()
+	}
 
 	return &OrderPairDAO{
 		Uuid:          o.uuid.String(),
 		FirstRequest:  o.firstRequest.ToDTO(),
 		SecondRequest: o.secondRequest.ToDTO(),
 		FirstOrderID:  fid,
-		FirstOrder:    o.firstOrder.ToDTO(),
+		FirstOrder:    firstOrder,
 		SecondOrderID: sid,
-		SecondOrder:   o.secondOrder.ToDTO(),
+		SecondOrder:   secondOrder,
 		Done:          done,
 	}
 }

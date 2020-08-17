@@ -5,7 +5,6 @@ go 1.14
 require (
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/go-playground/errors/v5 v5.1.1 // indirect
-	github.com/go-playground/log v6.3.0+incompatible
 	github.com/go-playground/log/v7 v7.0.2
 	github.com/go-playground/pkg/v5 v5.1.0 // indirect
 	github.com/golang/mock v1.4.3
