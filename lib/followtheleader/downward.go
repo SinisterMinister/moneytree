@@ -69,6 +69,8 @@ func (s *DownwardTrending) run(stop <-chan bool, manager *state.Manager) {
 	orderPair, err := s.buildPair()
 	if err != nil {
 		log.WithError(err).Error("could not build order pair")
+		// Close the done channel
+		close(s.doneChan)
 		return
 	}
 	s.orderPair = orderPair
