@@ -35,17 +35,23 @@ func (p *Processor) Recover() {
 	// Load running order pairs
 	pairs, err := orderpair.LoadOpenPairs(p.db, p.trader, p.market)
 	if err != nil {
-		log.WithError(err).Error("could not load order pairs")
+		log.WithError(err).Errorf("could not load order pairs: %w", err)
 		return
 	}
 
-	// Drop closed pairs
 	open := []*orderpair.OrderPair{}
 	for _, pair := range pairs {
-		done := pair.Execute(p.stop)
-		select {
-		case <-done:
-		default:
+		// Cancel pairs missed pairs that may be open
+		if pair.FirstOrder().Filled().Equal(decimal.Zero) {
+			err = pair.Cancel()
+			if err != nil {
+				log.WithField("pair", pair.ToDAO()).WithError(err).Errorf("could not cancel order pair: %w", err)
+			}
+		}
+
+		// Drop closed pairs
+		if !pair.IsDone() {
+			pair.Execute(p.stop)
 			open = append(open, pair)
 		}
 	}
