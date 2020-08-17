@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"os/signal"
+	"runtime/debug"
 
 	"github.com/sinisterminister/moneytree/lib/moneytree"
 
@@ -17,6 +18,13 @@ import (
 )
 
 func main() {
+	// Capture panics
+	defer func() {
+		if err := recover(); err != nil {
+			log.WithField("error", err).Fatalf("MONEYTREE PANICKED! %s\n %s", err, debug.Stack())
+		}
+	}()
+
 	// Setup the console logger
 	log.AddHandler(json.New(os.Stdout), log.InfoLevel, log.WarnLevel, log.ErrorLevel, log.NoticeLevel, log.FatalLevel, log.AlertLevel, log.PanicLevel)
 
