@@ -326,6 +326,10 @@ func (o *OrderPair) executeWorkflow() {
 	err = o.waitForFirstOrder()
 	if err != nil {
 		log.WithError(err).Warn("first order failed")
+		err = o.trader.OrderSvc().CancelOrder(o.firstOrder)
+		if err != nil {
+			log.WithError(err).Infof("could not cancel first order: %w", err)
+		}
 	}
 
 	if o.secondOrder == nil {
