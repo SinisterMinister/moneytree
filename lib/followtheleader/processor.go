@@ -42,7 +42,7 @@ func (p *Processor) Recover() {
 	open := []*orderpair.OrderPair{}
 	for _, pair := range pairs {
 		// Cancel pairs missed pairs that may be open
-		if pair.FirstOrder().Filled().Equal(decimal.Zero) {
+		if pair.FirstOrder() != nil && pair.FirstOrder().Filled().Equal(decimal.Zero) {
 			err = pair.Cancel()
 			if err != nil {
 				log.WithField("pair", pair.ToDAO()).WithError(err).Errorf("could not cancel order pair: %w", err)
