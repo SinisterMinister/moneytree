@@ -295,7 +295,9 @@ func (o *OrderPair) ToDAO() *OrderPairDAO {
 		FirstRequest:  o.firstRequest.ToDTO(),
 		SecondRequest: o.secondRequest.ToDTO(),
 		FirstOrderID:  fid,
+		FirstOrder:    o.firstOrder.ToDTO(),
 		SecondOrderID: sid,
+		SecondOrder:   o.secondOrder.ToDTO(),
 		Done:          done,
 	}
 }

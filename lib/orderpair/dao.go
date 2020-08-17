@@ -13,7 +13,9 @@ type OrderPairDAO struct {
 	FirstRequest  types.OrderRequestDTO `json:"firstRequest"`
 	SecondRequest types.OrderRequestDTO `json:"secondRequest"`
 	FirstOrderID  string                `json:"firstOrderID"`
+	FirstOrder    types.OrderDTO        `json:"firstOrder"`
 	SecondOrderID string                `json:"secondOrderID"`
+	SecondOrder   types.OrderDTO        `json:"secondOrder"`
 	Done          bool                  `json:"done"`
 	Failed        bool                  `json:"failed"`
 }
