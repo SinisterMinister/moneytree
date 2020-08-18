@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/go-playground/log/v7"
 	"github.com/google/uuid"
@@ -13,6 +14,15 @@ import (
 	"github.com/sinisterminister/currencytrader/types/fees"
 	"github.com/sinisterminister/currencytrader/types/order"
 	"github.com/spf13/viper"
+)
+
+type Status string
+
+var (
+	Open     Status = "OPEN"
+	Success  Status = "SUCCESS"
+	Failed   Status = "FAILED"
+	Canceled Status = "CANCELED"
 )
 
 type OrderPair struct {
@@ -31,6 +41,9 @@ type OrderPair struct {
 	startHold     chan bool
 	done          chan bool
 	stop          <-chan bool
+	createdAt     time.Time
+	endedAt       time.Time
+	status        Status
 }
 
 func New(db *sql.DB, trader types.Trader, market types.Market, first types.OrderRequest, second types.OrderRequest) (orderPair *OrderPair, err error) {
@@ -48,6 +61,8 @@ func New(db *sql.DB, trader types.Trader, market types.Market, first types.Order
 		startHold:     make(chan bool),
 		firstRequest:  first,
 		secondRequest: second,
+		createdAt:     time.Now(),
+		status:        Open,
 	}
 
 	// Validate DTOs
@@ -78,6 +93,9 @@ func NewFromDAO(db *sql.DB, trader types.Trader, market types.Market, dao OrderP
 		startHold:     make(chan bool),
 		firstRequest:  order.NewRequestFromDTO(market, dao.FirstRequest),
 		secondRequest: order.NewRequestFromDTO(market, dao.SecondRequest),
+		createdAt:     dao.CreatedAt,
+		endedAt:       dao.EndedAt,
+		status:        dao.Status,
 	}
 
 	if dao.FirstOrderID != "" {
@@ -317,7 +335,9 @@ func (o *OrderPair) executeWorkflow() {
 		err = o.placeFirstOrder()
 		if err != nil {
 			log.WithError(err).Error("could not place first order")
-			close(o.done)
+
+			// End the workflow
+			o.endWorkflow()
 			return
 		}
 
@@ -349,7 +369,8 @@ func (o *OrderPair) executeWorkflow() {
 			select {
 			case <-o.done:
 			default:
-				close(o.done)
+				// End the workflow
+				o.endWorkflow()
 			}
 			return
 		}
@@ -358,7 +379,7 @@ func (o *OrderPair) executeWorkflow() {
 		// Save the order
 		err = o.Save()
 		if err != nil {
-			log.WithError(err).Error("could not save order")
+			log.WithError(err).Error("could not save order pair")
 		}
 	}
 
@@ -367,13 +388,30 @@ func (o *OrderPair) executeWorkflow() {
 	<-o.secondOrder.Done()
 	log.Info("second order done processing")
 
-	// Signal completion
+	if o.firstOrder.Status() == order.Filled && o.secondOrder.Status() == order.Filled {
+		o.status = Success
+	}
+
+	// End the workflow
+	o.endWorkflow()
+}
+
+func (o *OrderPair) endWorkflow() {
+	// Close the done channel
 	close(o.done)
 
-	// Save the order
-	err = o.Save()
+	// Record the timestamp
+	o.endedAt = time.Now()
+
+	// Record status as failed if not success
+	if o.status != Success {
+		o.status = Failed
+	}
+
+	// Save the order pair
+	err := o.Save()
 	if err != nil {
-		log.WithError(err).Error("could not save order")
+		log.WithError(err).Error("could not save order pair")
 	}
 }
 

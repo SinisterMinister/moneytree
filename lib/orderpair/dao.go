@@ -4,6 +4,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/sinisterminister/currencytrader/types"
 )
@@ -18,6 +19,9 @@ type OrderPairDAO struct {
 	SecondOrder   types.OrderDTO        `json:"secondOrder"`
 	Done          bool                  `json:"done"`
 	Failed        bool                  `json:"failed"`
+	CreatedAt     time.Time             `json:"createdAt"`
+	EndedAt       time.Time             `json:"endedAt"`
+	Status        Status                `json:"status"`
 }
 
 func (o OrderPairDAO) Value() (driver.Value, error) {
