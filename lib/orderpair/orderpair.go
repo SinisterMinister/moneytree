@@ -104,7 +104,11 @@ func NewFromDAO(db *sql.DB, trader types.Trader, market types.Market, dao OrderP
 			if strings.Contains(err.Error(), "NotFound") {
 				log.Warnf("could not load first order %s, closing as failed", dao.FirstOrderID)
 				orderPair.failed = true
-				close(orderPair.done)
+				select {
+				case <-orderPair.done:
+				default:
+					close(orderPair.done)
+				}
 				orderPair.Save()
 				return orderPair, nil
 			}
