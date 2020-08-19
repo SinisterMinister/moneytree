@@ -4,7 +4,7 @@ import "github.com/spf13/viper"
 
 func init() {
 	viper.SetDefault("followtheleader.orderTTL", "5m")
-	viper.SetDefault("followtheleader.failSpreadPercentage", 0.10)
+	viper.SetDefault("followtheleader.failSpreadPercentage", 0.25)
 	viper.SetDefault("followtheleader.waitAfterCancelStalledPair", "5s")
 
 	// Divide the funds into this many equal trades and use that trade size as the maximum trade size
