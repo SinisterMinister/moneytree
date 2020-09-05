@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/go-playground/log/v7"
-	"github.com/google/uuid"
+	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
 	"github.com/sinisterminister/currencytrader/types"
 	"github.com/sinisterminister/currencytrader/types/fees"

@@ -17,6 +17,7 @@ require (
 	github.com/pelletier/go-toml v1.8.0 // indirect
 	github.com/preichenberger/go-coinbasepro/v2 v2.0.5
 	github.com/prometheus/common v0.13.0 // indirect
+	github.com/satori/go.uuid v1.2.0
 	github.com/shopspring/decimal v1.2.0
 	github.com/sinisterminister/currencytrader v0.0.0-20200817025949-f2185a41ff1e
 	github.com/spf13/afero v1.3.5 // indirect

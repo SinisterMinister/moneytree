@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/go-playground/log/v7"
-	"github.com/google/uuid"
+	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
 	"github.com/sinisterminister/currencytrader/types"
 	"github.com/sinisterminister/currencytrader/types/order"
@@ -83,7 +83,7 @@ func (svc *Service) LoadOpenPairs() (pairs []*OrderPair, err error) {
 
 func (svc *Service) LowestOpenBuyFirstPrice() (price decimal.Decimal, err error) {
 	dao := OrderPairDAO{}
-	err = svc.db.QueryRow("SELECT data FROM orderpairs WHERE (data->>'done')::boolean = FALSE AND (data->'firstRequest'->>'side') = 'BUY' AND (data->'firstOrder'->>'status') = 'FILLED' ORDER BY uuid DESC LIMIT 1").Scan(&dao)
+	err = svc.db.QueryRow("SELECT data FROM orderpairs WHERE (data->>'done')::boolean = FALSE AND (data->'firstRequest'->>'side') = 'BUY' AND (data->'firstOrder'->>'status') = 'FILLED' ORDER BY data->'firstRequest'->>'price' DESC LIMIT 1").Scan(&dao)
 	if err != nil {
 		return decimal.Zero, fmt.Errorf("could not load order pair from database: %w", err)
 	}
@@ -94,7 +94,7 @@ func (svc *Service) LowestOpenBuyFirstPrice() (price decimal.Decimal, err error)
 
 func (svc *Service) HighestOpenSellFirstPrice() (price decimal.Decimal, err error) {
 	dao := OrderPairDAO{}
-	err = svc.db.QueryRow("SELECT data FROM orderpairs WHERE (data->>'done')::boolean = FALSE AND (data->'firstRequest'->>'side') = 'SELL' AND (data->'firstOrder'->>'status') = 'FILLED' ORDER BY uuid DESC LIMIT 1").Scan(&dao)
+	err = svc.db.QueryRow("SELECT data FROM orderpairs WHERE (data->>'done')::boolean = FALSE AND (data->'firstRequest'->>'side') = 'SELL' AND (data->'firstOrder'->>'status') = 'FILLED' ORDER BY data->'firstRequest'->>'price' LIMIT 1").Scan(&dao)
 	if err != nil {
 		return decimal.Zero, fmt.Errorf("could not load order pair from database: %w", err)
 	}
@@ -113,11 +113,7 @@ func (svc *Service) Save(dao OrderPairDAO) (err error) {
 }
 
 func (svc *Service) New(first types.OrderRequest, second types.OrderRequest) (orderPair *OrderPair, err error) {
-	id, err := uuid.NewUUID()
-	if err != nil {
-		return nil, fmt.Errorf("could not create time based UUID: %w", err)
-	}
-
+	id := uuid.NewV1()
 	orderPair = &OrderPair{
 		svc:           svc,
 		uuid:          id,
@@ -139,7 +135,7 @@ func (svc *Service) New(first types.OrderRequest, second types.OrderRequest) (or
 }
 
 func (svc *Service) NewFromDAO(dao OrderPairDAO) (orderPair *OrderPair, err error) {
-	id, err := uuid.Parse(dao.Uuid)
+	id, err := uuid.FromString(dao.Uuid)
 	if err != nil {
 		return nil, fmt.Errorf("could not parse order pair ID: %w", err)
 	}
