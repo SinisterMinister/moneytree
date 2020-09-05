@@ -7,6 +7,7 @@ import (
 
 	"github.com/sinisterminister/moneytree/lib/moneytree"
 
+	"github.com/go-playground/log/v7/handlers/json"
 	"github.com/go-playground/log/v7"
 	"github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/sinisterminister/currencytrader"
@@ -24,11 +25,15 @@ func main() {
 		}
 	}()
 
+	// Setup json logging for containers
+	if _, err := os.Stat("/.dockerenv"); err == nil {
+		log.AddHandler(json.New(os.Stdout), log.InfoLevel, log.WarnLevel, log.ErrorLevel, log.NoticeLevel, log.FatalLevel, log.AlertLevel, log.PanicLevel)
+		if viper.GetBool("debug") {
+			log.AddHandler(json.New(os.Stdout), log.DebugLevel)
+		}
+	}
+
 	// Setup the console logger
-	// log.AddHandler(json.New(os.Stdout), log.InfoLevel, log.WarnLevel, log.ErrorLevel, log.NoticeLevel, log.FatalLevel, log.AlertLevel, log.PanicLevel)
-	// if viper.GetBool("debug") {
-	// 	log.AddHandler(json.New(os.Stdout), log.DebugLevel)
-	// }
 
 	// Setup the kill switch
 	killSwitch := make(chan bool)
