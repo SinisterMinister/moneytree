@@ -81,11 +81,22 @@ func (s *UpwardTrending) run(stop <-chan bool, manager *state.Manager) {
 	s.wait(stop, manager)
 }
 
+func (s *UpwardTrending) bailPrice() (price decimal.Decimal) {
+	// Try to get bail price from pair service
+	price, err := s.processor.pairSvc.LowestOpenBuyFirstPrice()
+	if err != nil || price == decimal.Zero {
+		log.WithError(err).Warn("could not find bail price from open orders. bailing to reversal spread")
+		req := s.orderPair.FirstRequest()
+		failSpread := s.orderPair.Spread().Mul(decimal.NewFromFloat(viper.GetFloat64("followtheleader.reversalSpread")))
+		price = req.Price().Sub(req.Price().Mul(failSpread))
+	}
+	log.Debugf("order bail price is %s", price.String())
+	return
+}
+
 func (s *UpwardTrending) wait(stop <-chan bool, manager *state.Manager) {
 	// Start a price notifier for us to cancel if the rises below
-	req := s.orderPair.FirstRequest()
-	failSpread := s.orderPair.Spread().Mul(decimal.NewFromFloat(viper.GetFloat64("followtheleader.reversalSpread")))
-	belowPrice := req.Price().Sub(req.Price().Mul(failSpread))
+	belowPrice := s.bailPrice()
 	belowNotifier := notifier.NewPriceBelowNotifier(stop, s.processor.market, belowPrice).Receive()
 	log.Debugf("waiting for pair to complete or price to fall below %s", belowPrice.String())
 
@@ -155,7 +166,7 @@ func (s *UpwardTrending) buildPair() (*orderpair.OrderPair, error) {
 	).Info("upward trending order data")
 
 	// Create order pair
-	op, err := orderpair.New(s.processor.db, s.processor.trader, s.processor.market, bidReq, askReq)
+	op, err := s.processor.pairSvc.New(bidReq, askReq)
 	if err != nil {
 		return nil, fmt.Errorf("could not create order pair: %w", err)
 	}

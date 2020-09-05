@@ -22,18 +22,23 @@ type Processor struct {
 	market       types.Market
 	stateManager *state.Manager
 	stop         <-chan bool
+	pairSvc      *orderpair.Service
 }
 
 func New(db *sql.DB, trader types.Trader, market types.Market, stop <-chan bool) *Processor {
 	manager := state.NewManager(stop)
-	return &Processor{db, trader, market, manager, stop}
+	svc, err := orderpair.NewService(db, trader, market)
+	if err != nil {
+		log.WithError(err).Fatal("could not start order pair service")
+	}
+	return &Processor{db, trader, market, manager, stop, svc}
 }
 
 func (p *Processor) Recover() {
 	log.Info("recovering open order pairs")
 
 	// Load running order pairs
-	pairs, err := orderpair.LoadOpenPairs(p.db, p.trader, p.market)
+	pairs, err := p.pairSvc.LoadOpenPairs()
 	if err != nil {
 		log.WithError(err).Errorf("could not load order pairs: %w", err)
 		return
@@ -57,7 +62,7 @@ func (p *Processor) Recover() {
 	}
 
 	// Load most recent pair to see if it should set the direction
-	pair, err := orderpair.LoadMostRecentPair(p.db, p.trader, p.market)
+	pair, err := p.pairSvc.LoadMostRecentPair()
 	if err != nil {
 		log.WithError(err).Error("could not load most recent pair")
 		return

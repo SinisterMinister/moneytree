@@ -1,9 +1,7 @@
 package orderpair
 
 import (
-	"database/sql"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -26,10 +24,7 @@ var (
 )
 
 type OrderPair struct {
-	trader types.Trader
-	market types.Market
-	db     *sql.DB
-
+	svc           *Service
 	mutex         sync.RWMutex
 	uuid          uuid.UUID
 	firstRequest  types.OrderRequest
@@ -44,157 +39,6 @@ type OrderPair struct {
 	createdAt     time.Time
 	endedAt       time.Time
 	status        Status
-}
-
-func New(db *sql.DB, trader types.Trader, market types.Market, first types.OrderRequest, second types.OrderRequest) (orderPair *OrderPair, err error) {
-	id, err := uuid.NewUUID()
-	if err != nil {
-		return nil, fmt.Errorf("could not create time based UUID: %w", err)
-	}
-
-	orderPair = &OrderPair{
-		db:            db,
-		uuid:          id,
-		trader:        trader,
-		market:        market,
-		done:          make(chan bool),
-		startHold:     make(chan bool),
-		firstRequest:  first,
-		secondRequest: second,
-		createdAt:     time.Now(),
-		status:        Open,
-	}
-
-	// Validate DTOs
-	err = orderPair.validate()
-	if err != nil {
-		return nil, err
-	}
-
-	return orderPair, nil
-}
-
-func NewFromDAO(db *sql.DB, trader types.Trader, market types.Market, dao OrderPairDAO) (orderPair *OrderPair, err error) {
-	id, err := uuid.Parse(dao.Uuid)
-	if err != nil {
-		return nil, fmt.Errorf("could not parse order pair ID: %w", err)
-	}
-	done := make(chan bool)
-	if dao.Done {
-		close(done)
-	}
-
-	orderPair = &OrderPair{
-		db:            db,
-		uuid:          id,
-		trader:        trader,
-		market:        market,
-		done:          done,
-		startHold:     make(chan bool),
-		firstRequest:  order.NewRequestFromDTO(market, dao.FirstRequest),
-		secondRequest: order.NewRequestFromDTO(market, dao.SecondRequest),
-		createdAt:     dao.CreatedAt,
-		endedAt:       dao.EndedAt,
-		status:        dao.Status,
-	}
-
-	if dao.FirstOrderID != "" {
-		order, err := trader.OrderSvc().Order(market, dao.FirstOrderID)
-		if err != nil {
-			if strings.Contains(err.Error(), "NotFound") {
-				log.Warnf("could not load first order %s, closing as failed", dao.FirstOrderID)
-				orderPair.failed = true
-				select {
-				case <-orderPair.done:
-				default:
-					close(orderPair.done)
-				}
-				orderPair.Save()
-				return orderPair, nil
-			}
-			return nil, err
-		}
-		orderPair.firstOrder = order
-	}
-
-	if dao.SecondOrderID != "" {
-		order, err := trader.OrderSvc().Order(market, dao.SecondOrderID)
-		if err != nil {
-			if strings.Contains(err.Error(), "NotFound") {
-				log.Warnf("could not load second order %s, ignoring", dao.SecondOrderID)
-				orderPair.Save()
-				return orderPair, nil
-			}
-			return nil, err
-		}
-		orderPair.secondOrder = order
-	}
-	return
-}
-
-func SetupDB(db *sql.DB) error {
-	_, err := db.Exec("CREATE TABLE IF NOT EXISTS orderpairs (uuid char(36) primary key, data JSONB);")
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func Load(db *sql.DB, trader types.Trader, market types.Market, id string) (pair *OrderPair, err error) {
-	dao := OrderPairDAO{}
-	err = db.QueryRow("SELECT data FROM orderpairs WHERE uuid = $1;", id).Scan(&dao)
-	if err != nil {
-		return nil, fmt.Errorf("could not load order pair from database: %w", err)
-	}
-
-	pair, err = NewFromDAO(db, trader, market, dao)
-	return
-}
-
-func LoadMostRecentPair(db *sql.DB, trader types.Trader, market types.Market) (pair *OrderPair, err error) {
-	dao := OrderPairDAO{}
-	err = db.QueryRow("SELECT data FROM orderpairs ORDER BY uuid DESC LIMIT 1").Scan(&dao)
-	if err != nil {
-		return nil, fmt.Errorf("could not load order pair from database: %w", err)
-	}
-
-	pair, err = NewFromDAO(db, trader, market, dao)
-	return
-}
-
-func LoadOpenPairs(db *sql.DB, trader types.Trader, market types.Market) (pairs []*OrderPair, err error) {
-	pairs = []*OrderPair{}
-	rows, err := db.Query("SELECT data FROM orderpairs WHERE (data->>'done')::boolean = FALSE;")
-	if err != nil {
-		return nil, fmt.Errorf("could not load open order pairs from database: %w", err)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		dao := OrderPairDAO{}
-		err = rows.Scan(&dao)
-		if err != nil {
-			return nil, fmt.Errorf("could not load open order pair from database: %w", err)
-		}
-		pair, err := NewFromDAO(db, trader, market, dao)
-		if err != nil {
-			return nil, fmt.Errorf("could not load open order: %w", err)
-		}
-		pairs = append(pairs, pair)
-	}
-	return
-}
-
-func (o *OrderPair) Save() (err error) {
-	o.mutex.RLock()
-	defer o.mutex.RUnlock()
-
-	dao := o.ToDAO()
-	log.WithField("dao", dao).Debug("saving order pair")
-	_, err = o.db.Exec("INSERT INTO orderpairs (uuid, data) VALUES ($1, $2) ON CONFLICT (uuid) DO UPDATE SET data = $2;", o.uuid, dao)
-	if err != nil {
-		err = fmt.Errorf("could not insert into database: %w", err)
-	}
-	return
 }
 
 func (o *OrderPair) Execute(stop <-chan bool) <-chan bool {
@@ -291,10 +135,10 @@ func (o *OrderPair) Cancel() error {
 	}
 
 	// Cancel the first order
-	return o.trader.OrderSvc().CancelOrder(o.firstOrder)
+	return o.svc.trader.OrderSvc().CancelOrder(o.firstOrder)
 }
 
-func (o *OrderPair) ToDAO() *OrderPairDAO {
+func (o *OrderPair) ToDAO() OrderPairDAO {
 	var fid, sid string
 	if o.firstOrder != nil {
 		fid = o.firstOrder.ID()
@@ -319,7 +163,7 @@ func (o *OrderPair) ToDAO() *OrderPairDAO {
 		secondOrder = o.secondOrder.ToDTO()
 	}
 
-	return &OrderPairDAO{
+	return OrderPairDAO{
 		Uuid:          o.uuid.String(),
 		FirstRequest:  o.firstRequest.ToDTO(),
 		SecondRequest: o.secondRequest.ToDTO(),
@@ -359,7 +203,7 @@ func (o *OrderPair) executeWorkflow() {
 	err = o.waitForFirstOrder()
 	if err != nil {
 		log.WithError(err).Warn("first order failed")
-		err = o.trader.OrderSvc().CancelOrder(o.firstOrder)
+		err = o.svc.trader.OrderSvc().CancelOrder(o.firstOrder)
 		if err != nil {
 			log.WithError(err).Infof("could not cancel first order: %w", err)
 		}
@@ -400,6 +244,14 @@ func (o *OrderPair) executeWorkflow() {
 	o.endWorkflow()
 }
 
+func (o *OrderPair) Save() error {
+	o.mutex.RLock()
+	dao := o.ToDAO()
+	o.mutex.RUnlock()
+
+	return o.svc.Save(dao)
+}
+
 func (o *OrderPair) endWorkflow() {
 	// Close the done channel
 	close(o.done)
@@ -425,7 +277,7 @@ func (o *OrderPair) placeFirstOrder() (err error) {
 
 	// Place first order
 	o.mutex.Lock()
-	o.firstOrder, err = o.market.AttemptOrder(o.firstRequest)
+	o.firstOrder, err = o.svc.market.AttemptOrder(o.firstRequest)
 	o.mutex.Unlock()
 	return
 }
@@ -441,7 +293,7 @@ func (o *OrderPair) placeSecondOrder() (err error) {
 	o.recalculateSecondOrderSizeFromFilled()
 	r1 := o.secondRequest.ToDTO()
 	log.WithFields(log.F("side", r1.Side), log.F("price", r1.Price), log.F("quantity", r1.Quantity)).Info("placing second order")
-	o.secondOrder, err = o.market.AttemptOrder(o.secondRequest)
+	o.secondOrder, err = o.svc.market.AttemptOrder(o.secondRequest)
 	o.mutex.Unlock()
 	return
 }
@@ -490,7 +342,7 @@ func (o *OrderPair) passedOrder(price decimal.Decimal) bool {
 
 func (o *OrderPair) waitForFirstOrder() (err error) {
 	stop := make(chan bool)
-	tickerStream := o.market.TickerStream(stop)
+	tickerStream := o.svc.market.TickerStream(stop)
 	for {
 		brk := false
 		o.mutex.RLock()
@@ -532,14 +384,14 @@ func (o *OrderPair) recalculateSecondOrderSizeFromFilled() {
 	ratio := o.secondRequest.Quantity().Div(o.firstRequest.Quantity())
 
 	// Calculate the new size
-	size := o.firstOrder.Filled().Mul(ratio).Round(int32(o.market.QuoteCurrency().Precision()))
+	size := o.firstOrder.Filled().Mul(ratio).Round(int32(o.svc.market.QuoteCurrency().Precision()))
 
 	// Build updated DTO
 	dto := o.secondRequest.ToDTO()
 	dto.Quantity = size
 
 	// Set the new request
-	o.secondRequest = order.NewRequestFromDTO(o.market, dto)
+	o.secondRequest = order.NewRequestFromDTO(o.svc.market, dto)
 }
 
 func (o *OrderPair) validate() error {
@@ -561,7 +413,7 @@ func (o *OrderPair) validate() error {
 	}
 
 	// Get the fee rates
-	rates, err := o.trader.AccountSvc().Fees()
+	rates, err := o.svc.trader.AccountSvc().Fees()
 	if err != nil {
 		return err
 	}

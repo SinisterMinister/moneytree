@@ -2,7 +2,6 @@ package moneytree
 
 import (
 	"database/sql"
-	"fmt"
 	"net/http"
 
 	"github.com/go-playground/log/v7"
@@ -13,7 +12,6 @@ import (
 	"github.com/sinisterminister/currencytrader/types"
 	"github.com/sinisterminister/moneytree/lib/followtheleader"
 	"github.com/sinisterminister/moneytree/lib/marketwatcher"
-	"github.com/sinisterminister/moneytree/lib/orderpair"
 )
 
 type Moneytree struct {
@@ -54,12 +52,6 @@ func (m *Moneytree) connectToDatabase() error {
 	}
 	m.db = db
 
-	// Setup the orderpair db
-	log.Info("setting up order pair database")
-	err = orderpair.SetupDB(db)
-	if err != nil {
-		return fmt.Errorf("could not setup order pair database: %w", err)
-	}
 	return nil
 }
 

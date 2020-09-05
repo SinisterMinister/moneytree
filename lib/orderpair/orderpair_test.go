@@ -44,8 +44,6 @@ func TestValidate_HappyPath(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.scenario, func(t *testing.T) {
 			op := &OrderPair{
-				trader:        tt.trader,
-				market:        tt.market,
 				firstRequest:  tt.first,
 				secondRequest: tt.second,
 			}
@@ -88,8 +86,6 @@ func TestValidate_LosingProposition(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.scenario, func(t *testing.T) {
 			op := &OrderPair{
-				trader:        tt.trader,
-				market:        tt.market,
 				firstRequest:  tt.first,
 				secondRequest: tt.second,
 			}
@@ -144,14 +140,12 @@ func validate_LosingProposition_LossOfQuoteCurrencyFromFees(ctrl *gomock.Control
 
 func TestValidate_SameSide(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	trader, market := buildStubs(ctrl)
+	_, market := buildStubs(ctrl)
 
 	first := order.NewRequest(market, order.Limit, order.Buy, decimal.NewFromFloat(100), decimal.NewFromFloat(100))
 	second := order.NewRequest(market, order.Limit, order.Buy, decimal.NewFromFloat(101), decimal.NewFromFloat(200))
 
 	op := &OrderPair{
-		trader:        trader,
-		market:        market,
 		firstRequest:  first,
 		secondRequest: second,
 	}
