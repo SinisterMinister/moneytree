@@ -86,11 +86,18 @@ func (s *DownwardTrending) run(stop <-chan bool, manager *state.Manager) {
 func (s *DownwardTrending) bailPrice() (price decimal.Decimal) {
 	// Try to get bail price from pair service
 	price, err := s.processor.pairSvc.HighestOpenSellFirstPrice()
-	if err != nil || price == decimal.Zero {
-		log.WithError(err).Warn("could not find bail price from open orders. bailing to reversal spread")
-		req := s.orderPair.FirstRequest()
+	// If price is zero, use reversal as base
+	if err != nil {
+		log.WithError(err).Warn("could not find bail price from open orders. falling back to reversal spread")
+	}
+	req := s.orderPair.FirstRequest()
+	if price == decimal.Zero {
+		log.Warn("bail price zero. falling back to reversal spread")
 		failSpread := s.orderPair.Spread().Mul(decimal.NewFromFloat(viper.GetFloat64("followtheleader.reversalSpread")))
 		price = req.Price().Add(req.Price().Mul(failSpread))
+	} else {
+		// Build price from target spread
+		price = req.Price().Add(req.Price().Mul(s.orderPair.Spread()))
 	}
 	log.Debugf("order bail price is %s", price.String())
 	return

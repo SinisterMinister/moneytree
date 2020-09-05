@@ -163,14 +163,17 @@ func (p *Processor) getSize(ticker types.Ticker) (decimal.Decimal, error) {
 }
 
 func (p *Processor) getSpread() (decimal.Decimal, error) {
-	// Get the fees
-	f, err := p.trader.AccountSvc().Fees()
-	if err != nil {
-		log.WithError(err).Error("failed to get fees")
-		return decimal.Zero, err
-	}
+	var f types.Fees
 	if viper.GetBool("disableFees") == true {
 		f = fees.ZeroFee()
+	} else {
+		// Get the fees
+		var err error
+		f, err = p.trader.AccountSvc().Fees()
+		if err != nil {
+			log.WithError(err).Error("failed to get fees")
+			return decimal.Zero, err
+		}
 	}
 
 	// Set the profit target
