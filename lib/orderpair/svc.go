@@ -50,7 +50,7 @@ func (svc *Service) Load(id string) (pair *OrderPair, err error) {
 
 func (svc *Service) LoadMostRecentPair() (pair *OrderPair, err error) {
 	dao := OrderPairDAO{}
-	err = svc.db.QueryRow("SELECT data FROM orderpairs ORDER BY uuid DESC LIMIT 1").Scan(&dao)
+	err = svc.db.QueryRow("SELECT data FROM orderpairs ORDER BY data->>'createdAt' DESC LIMIT 1").Scan(&dao)
 	if err != nil {
 		return nil, fmt.Errorf("could not load order pair from database: %w", err)
 	}
