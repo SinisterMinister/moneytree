@@ -172,6 +172,10 @@ func (o *OrderPair) ToDAO() OrderPairDAO {
 		SecondOrderID: sid,
 		SecondOrder:   secondOrder,
 		Done:          done,
+		Failed:        o.failed,
+		Status:        o.status,
+		CreatedAt:     o.createdAt,
+		EndedAt:       o.endedAt,
 	}
 }
 
