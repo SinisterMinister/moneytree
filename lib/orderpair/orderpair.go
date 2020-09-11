@@ -361,18 +361,25 @@ func (o *OrderPair) waitForFirstOrder() (err error) {
 		case tick := <-tickerStream:
 			// Bail if the order missed
 			if o.missedOrder(tick.Price()) && o.firstOrder.Filled().Equals(decimal.Zero) {
-				close(stop)
-				err = fmt.Errorf("first order missed")
+				brk = true
 				o.status = Missed
+				err = fmt.Errorf("first order missed")
 			}
 
 			if o.passedOrder(tick.Price()) {
-				close(stop)
+				brk = true
 				err = fmt.Errorf("first order partially filled but price passed second order")
 			}
-			return
+
+			brk = true
 		case <-o.firstOrder.Done():
 			log.Info("first order done processing")
+
+			// Make sure the order completed successfully
+			if o.firstOrder.Status() != order.Filled {
+				err = fmt.Errorf("first order did not complete successfully")
+			}
+
 			// Order is complete, time to move on
 			brk = true
 		}
