@@ -374,8 +374,6 @@ func (o *OrderPair) waitForFirstOrder() (err error) {
 				brk = true
 				err = fmt.Errorf("first order partially filled but price passed second order")
 			}
-
-			brk = true
 		case <-o.firstOrder.Done():
 			log.Info("first order done processing")
 
