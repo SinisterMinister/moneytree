@@ -340,6 +340,65 @@ func bailOnDirectionChange(pair *orderpair.OrderPair) {
 	}
 }
 
+func bailOnPass(pair *orderpair.OrderPair) {
+	stop := make(chan bool)
+	tickerStream := market.TickerStream(stop)
+	for {
+		brk := false
+		select {
+		case <-pair.Done():
+			close(stop)
+			return
+		case tick := <-tickerStream:
+			// Bail if the order passed
+			if pair.IsPassedOrder(tick.Price()) {
+				brk = true
+				log.Errorf("first order partially filled but price passed second order")
+			}
+		case <-pair.FirstOrder().Done():
+			// Order is complete, time to move on
+			brk = true
+		}
+
+		// I want to break free...
+		if brk {
+			break
+		}
+	}
+	// Close ticker stream
+	close(stop)
+}
+
+func bailOnMiss(pair *orderpair.OrderPair) {
+	stop := make(chan bool)
+	tickerStream := market.TickerStream(stop)
+	for {
+		brk := false
+		select {
+		case <-pair.Done():
+			close(stop)
+			return
+		case tick := <-tickerStream:
+			// Bail if the order missed
+			if pair.IsMissedOrder(tick.Price()) && pair.FirstOrder().Filled().Equals(decimal.Zero) {
+				brk = true
+				log.Errorf("first order missed")
+			}
+		case <-pair.FirstOrder().Done():
+			// Order is complete, time to move on
+			brk = true
+		}
+
+		// I want to break free...
+		if brk {
+			break
+		}
+	}
+	// Close ticker stream
+	close(stop)
+	return
+}
+
 func bailPrice(pair *orderpair.OrderPair) (price decimal.Decimal) {
 	var err error
 	switch direction {

@@ -181,6 +181,14 @@ func (o *OrderPair) ToDAO() OrderPairDAO {
 	}
 }
 
+func (o *OrderPair) Save() error {
+	o.mutex.RLock()
+	dao := o.ToDAO()
+	o.mutex.RUnlock()
+
+	return o.svc.Save(dao)
+}
+
 func (o *OrderPair) executeWorkflow() {
 	var err error
 
@@ -189,9 +197,13 @@ func (o *OrderPair) executeWorkflow() {
 		err = o.placeFirstOrder()
 		if err != nil {
 			log.WithError(err).Error("could not place first order")
+			if o.status == Open {
+				o.status = Failed
+			}
 
 			// End the workflow
 			o.endWorkflow()
+			close(o.startHold)
 			return
 		}
 
@@ -206,26 +218,29 @@ func (o *OrderPair) executeWorkflow() {
 	close(o.startHold)
 
 	// Wait for order to complete. If it fails, keep going in case partial fill
-	err = o.waitForFirstOrder()
+	err = o.waitForOrder()
 	if err != nil {
 		log.WithError(err).Warn("first order failed")
-		err = o.svc.trader.OrderSvc().CancelOrder(o.firstOrder)
-		if err != nil {
-			log.WithError(err).Infof("could not cancel first order: %w", err)
+
+		// Cancel the order if it's still open
+		if !o.firstOrder.IsDone() {
+			err = o.svc.trader.OrderSvc().CancelOrder(o.firstOrder)
+			if err != nil {
+				log.WithError(err).Infof("could not cancel first order: %w", err)
+			}
 		}
 	}
 
+	// Continue with second order in case first partially filled
 	if o.secondOrder == nil {
 		// Place second order
 		err = o.placeSecondOrder()
 		if err != nil {
 			log.WithError(err).Warn("second order failed")
-			select {
-			case <-o.done:
-			default:
-				// End the workflow
-				o.endWorkflow()
-			}
+			o.status = Failed
+
+			// End the workflow
+			o.endWorkflow()
 			return
 		}
 		log.Info("second order placed")
@@ -242,20 +257,12 @@ func (o *OrderPair) executeWorkflow() {
 	<-o.secondOrder.Done()
 	log.Info("second order done processing")
 
-	if o.firstOrder.Status() == order.Filled && o.secondOrder.Status() == order.Filled {
+	if o.secondOrder.Status() == order.Filled {
 		o.status = Success
 	}
 
 	// End the workflow
 	o.endWorkflow()
-}
-
-func (o *OrderPair) Save() error {
-	o.mutex.RLock()
-	dao := o.ToDAO()
-	o.mutex.RUnlock()
-
-	return o.svc.Save(dao)
 }
 
 func (o *OrderPair) endWorkflow() {
@@ -269,15 +276,24 @@ func (o *OrderPair) endWorkflow() {
 	// Record the timestamp
 	o.endedAt = time.Now()
 
-	// Record status as failed if not success
-	if o.status != Success {
-		o.status = Failed
-	}
-
 	// Save the order pair
 	err := o.Save()
 	if err != nil {
 		log.WithError(err).Error("could not save order pair")
+	}
+
+	// If the orders are still open, launch routines to save when they close and update
+	if !o.firstOrder.IsDone() {
+		go func() {
+			<-o.firstOrder.Done()
+			o.Save()
+		}()
+	}
+	if !o.secondOrder.IsDone() {
+		go func() {
+			<-o.secondOrder.Done()
+			o.Save()
+		}()
 	}
 }
 
@@ -324,7 +340,7 @@ func (o *OrderPair) missPrice() decimal.Decimal {
 	}
 }
 
-func (o *OrderPair) missedOrder(price decimal.Decimal) bool {
+func (o *OrderPair) IsMissedOrder(price decimal.Decimal) bool {
 	if o.firstRequest.Side() == order.Buy {
 		if price.GreaterThan(o.missPrice()) {
 			return true
@@ -337,7 +353,7 @@ func (o *OrderPair) missedOrder(price decimal.Decimal) bool {
 	return false
 }
 
-func (o *OrderPair) passedOrder(price decimal.Decimal) bool {
+func (o *OrderPair) IsPassedOrder(price decimal.Decimal) bool {
 	if o.firstRequest.Side() == order.Buy {
 		if price.GreaterThan(o.secondRequest.Price()) {
 			return true
@@ -350,49 +366,22 @@ func (o *OrderPair) passedOrder(price decimal.Decimal) bool {
 	return false
 }
 
-func (o *OrderPair) waitForFirstOrder() (err error) {
-	stop := make(chan bool)
-	tickerStream := o.svc.market.TickerStream(stop)
-	for {
-		brk := false
-		o.mutex.RLock()
-		orderStop := o.stop
-		o.mutex.RUnlock()
-		select {
-		case <-orderStop:
-			close(stop)
-			return fmt.Errorf("stop channel closed")
-		case tick := <-tickerStream:
-			// Bail if the order missed
-			if o.missedOrder(tick.Price()) && o.firstOrder.Filled().Equals(decimal.Zero) {
-				brk = true
-				o.status = Missed
-				err = fmt.Errorf("first order missed")
-			}
+func (o *OrderPair) waitForOrder() (err error) {
+	o.mutex.RLock()
+	orderStop := o.stop
+	o.mutex.RUnlock()
 
-			if o.passedOrder(tick.Price()) {
-				brk = true
-				err = fmt.Errorf("first order partially filled but price passed second order")
-			}
-		case <-o.firstOrder.Done():
-			log.Info("first order done processing")
+	select {
+	case <-orderStop:
+		return fmt.Errorf("stop channel closed")
+	case <-o.firstOrder.Done():
+		log.Info("first order done processing")
 
-			// Make sure the order completed successfully
-			if o.firstOrder.Status() != order.Filled {
-				err = fmt.Errorf("first order did not complete successfully")
-			}
-
-			// Order is complete, time to move on
-			brk = true
-		}
-
-		// I want to break free...
-		if brk {
-			break
+		// Make sure the order completed successfully
+		if o.firstOrder.Status() != order.Filled {
+			err = fmt.Errorf("first order did not complete successfully")
 		}
 	}
-	// Close ticker stream
-	close(stop)
 	return
 }
 
