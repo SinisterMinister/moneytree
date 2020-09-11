@@ -31,17 +31,11 @@ func (mw *MarketWatcher) watchMarket() {
 		default:
 		}
 
-		done, err := mw.processor.Process()
-		if err != nil {
-			log.WithError(err).Error("error processing market")
-			return
-		}
-
 		// Wait for the processor to complete
 		select {
 		case <-mw.stop:
 			return
-		case <-done:
+		case <-mw.processor.Process():
 			log.WithField("market", mw.market.Name()).Info("market process cycle complete")
 			<-time.NewTimer(viper.GetDuration("marketwatcher.marketCycleDelay")).C
 		}

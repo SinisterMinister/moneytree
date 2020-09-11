@@ -10,8 +10,7 @@ import (
 	// Load up postgres driver
 	_ "github.com/lib/pq"
 	"github.com/sinisterminister/currencytrader/types"
-	"github.com/sinisterminister/moneytree/lib/followtheleader"
-	"github.com/sinisterminister/moneytree/lib/marketwatcher"
+	"github.com/sinisterminister/moneytree/lib/chaser"
 )
 
 type Moneytree struct {
@@ -27,16 +26,15 @@ func New(stop <-chan bool, trader types.Trader, currencies ...types.Currency) (M
 
 	log.Info("starting database connection")
 	err := m.connectToDatabase()
+	if err != nil {
+		log.WithError(err).Fatal("could not connect to database")
+	}
 
 	log.Info("loading markets")
 	m.loadMarkets()
 
-	log.Info("starting market watchers")
-	m.startMarketWatchers()
-
-	if err != nil {
-		log.WithError(err).Fatal("could not connect to database")
-	}
+	log.Info("starting market processors")
+	m.startMarketProcessors()
 
 	log.Info("starting healthcheck endoints")
 	m.startHealthcheck()
@@ -72,12 +70,11 @@ func (m *Moneytree) loadMarkets() {
 	m.markets = markets
 }
 
-func (m *Moneytree) startMarketWatchers() {
-	// Start the MarketWatchers
+func (m *Moneytree) startMarketProcessors() {
+	// Start the processors
 	for _, mkt := range m.markets {
-		processor := followtheleader.New(m.db, m.trader, mkt, m.stop)
-		processor.Recover()
-		marketwatcher.New(m.stop, mkt, processor)
+		processor := &chaser.Processor{}
+		go processor.Process(m.db, m.trader, mkt, m.stop)
 	}
 }
 
