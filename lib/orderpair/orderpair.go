@@ -124,6 +124,7 @@ func (o *OrderPair) Cancel() error {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
 
+	o.status = Canceled
 	if o.firstOrder.IsDone() {
 		// Close the done channel if necessary
 		select {
@@ -360,13 +361,15 @@ func (o *OrderPair) waitForFirstOrder() (err error) {
 			// Bail if the order missed
 			if o.missedOrder(tick.Price()) && o.firstOrder.Filled().Equals(decimal.Zero) {
 				close(stop)
-				return fmt.Errorf("first order missed")
+				err = fmt.Errorf("first order missed")
 			}
 
 			if o.passedOrder(tick.Price()) {
 				close(stop)
-				return fmt.Errorf("first order partially filled but price passed second order")
+				err = fmt.Errorf("first order partially filled but price passed second order")
 			}
+			o.status = Canceled
+			return
 		case <-o.firstOrder.Done():
 			log.Info("first order done processing")
 			// Order is complete, time to move on
