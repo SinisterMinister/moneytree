@@ -126,16 +126,6 @@ func (o *OrderPair) Cancel() error {
 	defer o.mutex.Unlock()
 
 	o.status = Canceled
-	if o.firstOrder.IsDone() {
-		// Close the done channel if necessary
-		select {
-		case <-o.done:
-		default:
-			close(o.done)
-		}
-		return nil
-	}
-
 	// Cancel the first order
 	return o.svc.trader.OrderSvc().CancelOrder(o.firstOrder)
 }
