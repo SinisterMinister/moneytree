@@ -21,6 +21,7 @@ var (
 	Success  Status = "SUCCESS"
 	Failed   Status = "FAILED"
 	Canceled Status = "CANCELED"
+	Missed   Status = "MISSED"
 )
 
 type OrderPair struct {
@@ -362,13 +363,13 @@ func (o *OrderPair) waitForFirstOrder() (err error) {
 			if o.missedOrder(tick.Price()) && o.firstOrder.Filled().Equals(decimal.Zero) {
 				close(stop)
 				err = fmt.Errorf("first order missed")
+				o.status = Missed
 			}
 
 			if o.passedOrder(tick.Price()) {
 				close(stop)
 				err = fmt.Errorf("first order partially filled but price passed second order")
 			}
-			o.status = Canceled
 			return
 		case <-o.firstOrder.Done():
 			log.Info("first order done processing")
