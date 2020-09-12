@@ -317,12 +317,12 @@ func bailOnDirectionChange(pair *orderpair.OrderPair) {
 		notify <-chan bool
 	)
 	price := bailPrice(pair)
-	switch direction {
-	case Upward:
-		// Start a price notifier for us to cancel if the rises below
+	if direction == Upward {
+		// Start a price notifier for us to cancel if the falls below
 		notify = notifier.NewPriceBelowNotifier(stopChan, market, price).Receive()
 		log.Debugf("waiting for price to fall below %s", price.String())
-	case Downward:
+	} else {
+		// Start a price notifier for us to cancel if the rises above
 		notify = notifier.NewPriceAboveNotifier(stopChan, market, price).Receive()
 		log.Debugf("waiting for price to rise above %s", price.String())
 	}
