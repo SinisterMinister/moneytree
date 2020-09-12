@@ -39,9 +39,15 @@ func (svc *Service) setupDB() error {
 
 func (svc *Service) Load(id string) (pair *OrderPair, err error) {
 	dao := OrderPairDAO{}
-	err = svc.db.QueryRow("SELECT data FROM orderpairs WHERE uuid = $1;", id).Scan(&dao)
+	rows, err = svc.db.QueryRow("SELECT data FROM orderpairs WHERE uuid = $1;", id)
 	if err != nil {
 		return nil, fmt.Errorf("could not load order pair from database: %w", err)
+	}
+	for rows.Next() {
+		err := rows.Scan(&dao)
+		if err != nil {
+			return nil, fmt.Errorf("could not load order pair from database: %w", err)
+		}
 	}
 
 	pair, err = svc.NewFromDAO(dao)
@@ -50,9 +56,15 @@ func (svc *Service) Load(id string) (pair *OrderPair, err error) {
 
 func (svc *Service) LoadMostRecentPair() (pair *OrderPair, err error) {
 	dao := OrderPairDAO{}
-	err = svc.db.QueryRow("SELECT data FROM orderpairs ORDER BY data->>'createdAt' DESC LIMIT 1").Scan(&dao)
+	err = svc.db.QueryRow("SELECT data FROM orderpairs ORDER BY data->>'createdAt' DESC LIMIT 1")
 	if err != nil {
 		return nil, fmt.Errorf("could not load order pair from database: %w", err)
+	}
+	for rows.Next() {
+		err := rows.Scan(&dao)
+		if err != nil {
+			return nil, fmt.Errorf("could not load order pair from database: %w", err)
+		}
 	}
 
 	pair, err = svc.NewFromDAO(dao)
@@ -61,9 +73,15 @@ func (svc *Service) LoadMostRecentPair() (pair *OrderPair, err error) {
 
 func (svc *Service) LoadMostRecentRunningPair() (pair *OrderPair, err error) {
 	dao := OrderPairDAO{}
-	err = svc.db.QueryRow("SELECT data FROM orderpairs WHERE data->>'status' = 'OPEN' AND (data->>'done')::boolean = FALSE ORDER BY data->>'createdAt' DESC LIMIT 1").Scan(&dao)
+	err = svc.db.QueryRow("SELECT data FROM orderpairs WHERE data->>'status' = 'OPEN' AND (data->>'done')::boolean = FALSE ORDER BY data->>'createdAt' DESC LIMIT 1")
 	if err != nil {
 		return nil, fmt.Errorf("could not load order pair from database: %w", err)
+	}
+	for rows.Next() {
+		err := rows.Scan(&dao)
+		if err != nil {
+			return nil, fmt.Errorf("could not load order pair from database: %w", err)
+		}
 	}
 
 	pair, err = svc.NewFromDAO(dao)
@@ -72,9 +90,15 @@ func (svc *Service) LoadMostRecentRunningPair() (pair *OrderPair, err error) {
 
 func (svc *Service) LoadMostRecentOpenPair() (pair *OrderPair, err error) {
 	dao := OrderPairDAO{}
-	err = svc.db.QueryRow("SELECT data FROM orderpairs WHERE data->>'status' = 'OPEN' ORDER BY data->>'createdAt' DESC LIMIT 1").Scan(&dao)
+	err = svc.db.QueryRow("SELECT data FROM orderpairs WHERE data->>'status' = 'OPEN' ORDER BY data->>'createdAt' DESC LIMIT 1")
 	if err != nil {
 		return nil, fmt.Errorf("could not load order pair from database: %w", err)
+	}
+	for rows.Next() {
+		err := rows.Scan(&dao)
+		if err != nil {
+			return nil, fmt.Errorf("could not load order pair from database: %w", err)
+		}
 	}
 
 	pair, err = svc.NewFromDAO(dao)
@@ -105,9 +129,15 @@ func (svc *Service) LoadOpenPairs() (pairs []*OrderPair, err error) {
 
 func (svc *Service) LowestOpenBuyFirstPrice() (price decimal.Decimal, err error) {
 	dao := OrderPairDAO{}
-	err = svc.db.QueryRow("SELECT data FROM orderpairs WHERE data->>'status' = 'OPEN' AND data->'firstRequest'->>'side' = 'BUY' AND data->'firstOrder'->>'status' = 'FILLED' ORDER BY (data->'firstRequest'->>'price')::decimal DESC LIMIT 1").Scan(&dao)
+	err = svc.db.QueryRow("SELECT data FROM orderpairs WHERE data->>'status' = 'OPEN' AND data->'firstRequest'->>'side' = 'BUY' AND data->'firstOrder'->>'status' = 'FILLED' ORDER BY (data->'firstRequest'->>'price')::decimal DESC LIMIT 1")
 	if err != nil {
-		return decimal.Zero, fmt.Errorf("could not load order pair from database: %w", err)
+		return nil, fmt.Errorf("could not load order pair from database: %w", err)
+	}
+	for rows.Next() {
+		err := rows.Scan(&dao)
+		if err != nil {
+			return nil, fmt.Errorf("could not load order pair from database: %w", err)
+		}
 	}
 	price = dao.FirstRequest.Price
 
@@ -116,9 +146,15 @@ func (svc *Service) LowestOpenBuyFirstPrice() (price decimal.Decimal, err error)
 
 func (svc *Service) HighestOpenSellFirstPrice() (price decimal.Decimal, err error) {
 	dao := OrderPairDAO{}
-	err = svc.db.QueryRow("SELECT data FROM orderpairs WHERE data->>'status' = 'OPEN' AND (data->'firstRequest'->>'side') = 'SELL' AND (data->'firstOrder'->>'status') = 'FILLED' ORDER BY (data->'firstRequest'->>'price')::decimal LIMIT 1").Scan(&dao)
+	err = svc.db.QueryRow("SELECT data FROM orderpairs WHERE data->>'status' = 'OPEN' AND (data->'firstRequest'->>'side') = 'SELL' AND (data->'firstOrder'->>'status') = 'FILLED' ORDER BY (data->'firstRequest'->>'price')::decimal LIMIT 1")
 	if err != nil {
-		return decimal.Zero, fmt.Errorf("could not load order pair from database: %w", err)
+		return nil, fmt.Errorf("could not load order pair from database: %w", err)
+	}
+	for rows.Next() {
+		err := rows.Scan(&dao)
+		if err != nil {
+			return nil, fmt.Errorf("could not load order pair from database: %w", err)
+		}
 	}
 	price = dao.FirstRequest.Price
 

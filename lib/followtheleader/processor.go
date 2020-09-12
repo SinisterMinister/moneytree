@@ -99,7 +99,7 @@ func nextPair() *orderpair.OrderPair {
 func recoverRunningPair() (*orderpair.OrderPair, bool) {
 	pair, err := pairSvc.LoadMostRecentRunningPair()
 	if err != nil {
-		log.WithError(err).Error("could not load most recent pair")
+		log.WithError(err).Warn("could not load most recent running pair")
 		return nil, false
 	}
 
@@ -110,7 +110,7 @@ func nextPairDirection() Direction {
 	// Get the most recent open pair
 	pair, err := pairSvc.LoadMostRecentOpenPair()
 	if err != nil {
-		log.WithError(err).Error("could not load most recent open pair")
+		log.WithError(err).Warn("could not load most recent open pair")
 		return currentMarketDirection()
 	}
 	if pair.FirstRequest().Side() == order.Buy {
