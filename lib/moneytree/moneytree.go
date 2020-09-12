@@ -10,7 +10,6 @@ import (
 	// Load up postgres driver
 	_ "github.com/lib/pq"
 	"github.com/sinisterminister/currencytrader/types"
-	"github.com/sinisterminister/moneytree/lib/chaser"
 )
 
 type Moneytree struct {
@@ -73,7 +72,7 @@ func (m *Moneytree) loadMarkets() {
 func (m *Moneytree) startMarketProcessors() {
 	// Start the processors
 	for _, mkt := range m.markets {
-		processor := &chaser.Processor{}
+		processor := &followtheleader.Processor{}
 		go processor.Process(m.db, m.trader, mkt, m.stop)
 	}
 }
