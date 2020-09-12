@@ -1,4 +1,4 @@
-package chaser
+package followtheleader
 
 import (
 	"database/sql"

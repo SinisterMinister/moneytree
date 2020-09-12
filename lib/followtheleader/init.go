@@ -1,4 +1,4 @@
-package chaser
+package followtheleader
 
 import (
 	"github.com/spf13/viper"
