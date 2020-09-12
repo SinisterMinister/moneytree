@@ -353,7 +353,7 @@ func bailOnPass(pair *orderpair.OrderPair) {
 			// Bail if the order passed
 			if pair.IsPassedOrder(tick.Price()) {
 				brk = true
-				log.Errorf("first order partially filled but price passed second order")
+				log.Warn("first order partially filled but price passed second order")
 			}
 		case <-pair.FirstOrder().Done():
 			// Order is complete, time to move on
@@ -382,7 +382,7 @@ func bailOnMiss(pair *orderpair.OrderPair) {
 			// Bail if the order missed
 			if pair.IsMissedOrder(tick.Price()) && pair.FirstOrder().Filled().Equals(decimal.Zero) {
 				brk = true
-				log.Errorf("first order missed")
+				log.Warn("first order missed")
 			}
 		case <-pair.FirstOrder().Done():
 			// Order is complete, time to move on
