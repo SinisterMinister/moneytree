@@ -97,7 +97,7 @@ func nextPair() *orderpair.OrderPair {
 }
 
 func recoverRunningPair() (*orderpair.OrderPair, bool) {
-	pair, err := pairSvc.LoadMostRecentPair()
+	pair, err := pairSvc.LoadMostRecentRunningPair()
 	if err != nil {
 		log.WithError(err).Error("could not load most recent pair")
 		return nil, false

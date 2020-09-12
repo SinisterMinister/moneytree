@@ -59,9 +59,20 @@ func (svc *Service) LoadMostRecentPair() (pair *OrderPair, err error) {
 	return
 }
 
-func (svc *Service) LoadMostRecentOpenPair() (pair *OrderPair, err error) {
+func (svc *Service) LoadMostRecentRunningPair() (pair *OrderPair, err error) {
 	dao := OrderPairDAO{}
 	err = svc.db.QueryRow("SELECT data FROM orderpairs WHERE data->>'status' = 'OPEN' AND (data->>'done')::boolean = FALSE ORDER BY data->>'createdAt' DESC LIMIT 1").Scan(&dao)
+	if err != nil {
+		return nil, fmt.Errorf("could not load order pair from database: %w", err)
+	}
+
+	pair, err = svc.NewFromDAO(dao)
+	return
+}
+
+func (svc *Service) LoadMostRecentOpenPair() (pair *OrderPair, err error) {
+	dao := OrderPairDAO{}
+	err = svc.db.QueryRow("SELECT data FROM orderpairs WHERE data->>'status' = 'OPEN' ORDER BY data->>'createdAt' DESC LIMIT 1").Scan(&dao)
 	if err != nil {
 		return nil, fmt.Errorf("could not load order pair from database: %w", err)
 	}
