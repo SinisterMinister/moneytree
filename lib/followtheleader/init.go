@@ -1,6 +1,8 @@
-package followtheleader
+package chaser
 
-import "github.com/spf13/viper"
+import (
+	"github.com/spf13/viper"
+)
 
 func init() {
 	viper.SetDefault("followtheleader.orderTTL", "5m")
@@ -12,4 +14,5 @@ func init() {
 
 	// Set the expected return per trade pair
 	viper.SetDefault("followtheleader.targetReturn", 0.001)
+	viper.SetDefault("followtheleader.cycleDelay", "5s")
 }
