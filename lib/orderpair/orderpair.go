@@ -378,7 +378,7 @@ func (o *OrderPair) waitForOrder() (err error) {
 		log.Info("first order done processing")
 
 		// Make sure the order completed successfully
-		if o.firstOrder.Status() != order.Filled {
+		if o.firstOrder.Status() != order.Filled && o.firstOrder.Filled().Equals(decimal.Zero) {
 			err = fmt.Errorf("first order did not complete successfully")
 		}
 	}
