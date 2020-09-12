@@ -10,6 +10,7 @@ import (
 	// Load up postgres driver
 	_ "github.com/lib/pq"
 	"github.com/sinisterminister/currencytrader/types"
+	"github.com/sinisterminister/moneytree/lib/followtheleader"
 )
 
 type Moneytree struct {
