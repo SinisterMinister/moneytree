@@ -107,7 +107,7 @@ func (svc *Service) LoadOpenPairs() (pairs []*OrderPair, err error) {
 
 func (svc *Service) LowestOpenBuyFirstPrice() (price decimal.Decimal, err error) {
 	dao := OrderPairDAO{}
-	err = svc.db.QueryRow("SELECT data FROM orderpairs WHERE data->>'status' = 'OPEN' AND data->'firstRequest'->>'side' = 'BUY' AND data->'firstOrder'->>'status' = 'FILLED' ORDER BY (data->'firstRequest'->>'price')::decimal DESC LIMIT 1").Scan(&dao)
+	err = svc.db.QueryRow("SELECT data FROM orderpairs WHERE data->>'status' = 'OPEN' AND data->'firstRequest'->>'side' = 'BUY' ORDER BY (data->'firstRequest'->>'price')::decimal LIMIT 1").Scan(&dao)
 	if err != nil {
 		return decimal.Zero, fmt.Errorf("could not load order pair from database: %w", err)
 	}
@@ -118,7 +118,7 @@ func (svc *Service) LowestOpenBuyFirstPrice() (price decimal.Decimal, err error)
 
 func (svc *Service) HighestOpenSellFirstPrice() (price decimal.Decimal, err error) {
 	dao := OrderPairDAO{}
-	err = svc.db.QueryRow("SELECT data FROM orderpairs WHERE data->>'status' = 'OPEN' AND (data->'firstRequest'->>'side') = 'SELL' AND (data->'firstOrder'->>'status') = 'FILLED' ORDER BY (data->'firstRequest'->>'price')::decimal LIMIT 1").Scan(&dao)
+	err = svc.db.QueryRow("SELECT data FROM orderpairs WHERE data->>'status' = 'OPEN' AND (data->'firstRequest'->>'side') = 'SELL' ORDER BY (data->'firstRequest'->>'price')::decimal DESC LIMIT 1").Scan(&dao)
 	if err != nil {
 		return decimal.Zero, fmt.Errorf("could not load order pair from database: %w", err)
 	}
@@ -186,15 +186,15 @@ func (svc *Service) NewFromDAO(dao OrderPairDAO) (orderPair *OrderPair, err erro
 			if strings.Contains(err.Error(), "NotFound") {
 				log.Warnf("could not load first order %s, closing as failed", dao.FirstOrderID)
 				orderPair.failed = true
+				orderPair.status = Failed
 				select {
 				case <-orderPair.done:
 				default:
 					close(orderPair.done)
 				}
-				svc.Save(orderPair.ToDAO())
-				return orderPair, nil
+			} else {
+				return nil, err
 			}
-			return nil, err
 		}
 		orderPair.firstOrder = order
 	}
@@ -204,12 +204,12 @@ func (svc *Service) NewFromDAO(dao OrderPairDAO) (orderPair *OrderPair, err erro
 		if err != nil {
 			if strings.Contains(err.Error(), "NotFound") {
 				log.Warnf("could not load second order %s, ignoring", dao.SecondOrderID)
-				svc.Save(orderPair.ToDAO())
-				return orderPair, nil
+			} else {
+				return nil, err
 			}
-			return nil, err
 		}
 		orderPair.secondOrder = order
 	}
-	return
+	svc.Save(orderPair.ToDAO())
+	return orderPair, nil
 }
