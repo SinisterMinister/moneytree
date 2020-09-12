@@ -125,7 +125,6 @@ func (o *OrderPair) Cancel() error {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
 
-	o.status = Canceled
 	if o.firstOrder.IsDone() {
 		// Close the done channel if necessary
 		select {
@@ -135,6 +134,7 @@ func (o *OrderPair) Cancel() error {
 		}
 		return o.svc.Save(o.ToDAO())
 	}
+	o.status = Canceled
 
 	// Cancel the first order
 	return o.svc.trader.OrderSvc().CancelOrder(o.firstOrder)
@@ -380,6 +380,9 @@ func (o *OrderPair) waitForOrder() (err error) {
 		// Make sure the order completed successfully
 		if o.firstOrder.Status() != order.Filled && o.firstOrder.Filled().Equals(decimal.Zero) {
 			err = fmt.Errorf("first order did not complete successfully")
+		} else {
+			// Make sure we're still marked as opened if we're still working
+			o.status = Open
 		}
 	}
 	return
