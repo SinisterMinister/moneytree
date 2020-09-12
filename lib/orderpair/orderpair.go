@@ -289,7 +289,7 @@ func (o *OrderPair) endWorkflow() {
 			o.Save()
 		}()
 	}
-	if !o.secondOrder.IsDone() {
+	if o.secondOrder != nil && !o.secondOrder.IsDone() {
 		go func() {
 			<-o.secondOrder.Done()
 			o.Save()
