@@ -133,7 +133,7 @@ func (o *OrderPair) Cancel() error {
 		default:
 			close(o.done)
 		}
-		return nil
+		return o.svc.Save(o.ToDAO())
 	}
 
 	// Cancel the first order
