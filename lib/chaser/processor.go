@@ -40,7 +40,6 @@ func (p *Processor) Process(db *sql.DB, trader types.Trader, market types.Market
 	storeLocalVars(db, trader, market, stop)
 
 	for {
-
 		// Load the next pair to execute
 		pair := nextPair()
 
@@ -49,6 +48,8 @@ func (p *Processor) Process(db *sql.DB, trader types.Trader, market types.Market
 
 		// Start the pair bail out watchers
 		go bailOnDirectionChange(pair)
+		go bailOnMiss(pair)
+		go bailOnPass(pair)
 
 		// Wait for the order to be complete
 		select {
