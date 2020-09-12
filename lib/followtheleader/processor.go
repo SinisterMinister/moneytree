@@ -320,11 +320,11 @@ func bailOnDirectionChange(pair *orderpair.OrderPair) {
 	if direction == Upward {
 		// Start a price notifier for us to cancel if the falls below
 		notify = notifier.NewPriceBelowNotifier(stopChan, market, price).Receive()
-		log.Infof("waiting for price to fall below %s", price.String())
+		log.Infof("waiting for price to fall below %s", price.StringFixed(2))
 	} else {
 		// Start a price notifier for us to cancel if the rises above
 		notify = notifier.NewPriceAboveNotifier(stopChan, market, price).Receive()
-		log.Infof("waiting for price to rise above %s", price.String())
+		log.Infof("waiting for price to rise above %s", price.StringFixed(2))
 	}
 
 	select {
