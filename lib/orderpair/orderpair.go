@@ -223,6 +223,7 @@ func (o *OrderPair) executeWorkflow() {
 
 	// Wait for the first order to finish
 	o.waitForFirstOrder()
+	o.Save()
 
 	// Place the second order. Retry if it fails
 	for {
@@ -333,7 +334,7 @@ func (o *OrderPair) waitForFirstOrder() {
 	select {
 	case <-orderStop:
 	case <-ord.Done():
-		log.Info("first order done processing. status is %s", ord.Status())
+		log.Infof("first order done processing. status is %s", ord.Status())
 
 		// Make sure the order completed successfully
 		switch ord.Status() {
