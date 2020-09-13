@@ -459,31 +459,31 @@ func (o *OrderPair) waitForSecondOrder() {
 			o.mutex.Unlock()
 
 		case order.Unknown:
-			log.Warn("first order status was UNKNOWN when closed")
+			log.Warn("second order status was UNKNOWN when closed")
 			o.mutex.Lock()
 			o.status = Broken
 			o.mutex.Unlock()
 
 		case order.Pending:
-			log.Warn("first order status was PENDING when closed")
+			log.Warn("second order status was PENDING when closed")
 			o.mutex.Lock()
 			o.status = Broken
 			o.mutex.Unlock()
 
 		case order.Rejected:
-			log.Warn("first order status was REJECTED when closed")
+			log.Warn("second order status was REJECTED when closed")
 			o.mutex.Lock()
 			o.status = Broken
 			o.mutex.Unlock()
 
 		case order.Updated:
-			log.Warn("first order status was UPDATED when closed")
+			log.Warn("second order status was UPDATED when closed")
 			o.mutex.Lock()
 			o.status = Broken
 			o.mutex.Unlock()
 
 		case order.Expired:
-			log.Warn("first order status was EXPIRED when closed")
+			log.Warn("second order status was EXPIRED when closed")
 			o.mutex.Lock()
 			o.status = Broken
 			o.mutex.Unlock()
