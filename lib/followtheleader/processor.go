@@ -414,17 +414,17 @@ func bailOnMiss(pair *orderpair.OrderPair) {
 
 func bailPrice(pair *orderpair.OrderPair) (price decimal.Decimal) {
 	var err error
+	req := pair.FirstRequest()
+	failSpread := pair.Spread().Mul(decimal.NewFromFloat(viper.GetFloat64("followtheleader.reversalSpread")))
 	switch direction {
 	case Upward:
 		// Try to get bail price from pair service
 		price, err = pairSvc.LowestOpenBuyFirstPrice()
-		if err != nil || price == decimal.Zero {
+		if err != nil {
 			log.WithError(err).Warn("could not find bail price from open orders. bailing to reversal spread")
 		}
-		req := pair.FirstRequest()
 		if price == decimal.Zero {
 			log.Warn("bail price zero. falling back to reversal spread")
-			failSpread := pair.Spread().Mul(decimal.NewFromFloat(viper.GetFloat64("followtheleader.reversalSpread")))
 			price = req.Price().Sub(req.Price().Mul(failSpread))
 		} else {
 			// Build price from target spread
@@ -438,10 +438,8 @@ func bailPrice(pair *orderpair.OrderPair) (price decimal.Decimal) {
 		if err != nil {
 			log.WithError(err).Warn("could not find bail price from open orders. falling back to reversal spread")
 		}
-		req := pair.FirstRequest()
 		if price == decimal.Zero {
 			log.Warn("bail price zero. falling back to reversal spread")
-			failSpread := pair.Spread().Mul(decimal.NewFromFloat(viper.GetFloat64("followtheleader.reversalSpread")))
 			price = req.Price().Add(req.Price().Mul(failSpread))
 		} else {
 			// Build price from target spread

@@ -425,7 +425,6 @@ func (o *OrderPair) placeSecondOrder() (err error) {
 
 func (o *OrderPair) waitForSecondOrder() {
 	o.mutex.RLock()
-	orderStop := o.stop
 	ord := o.secondOrder
 	o.mutex.RUnlock()
 
@@ -434,60 +433,58 @@ func (o *OrderPair) waitForSecondOrder() {
 		return
 	}
 
-	select {
-	case <-orderStop:
-	case <-ord.Done():
-		log.Info("second order done processing")
+	// Wait for the order to complete
+	<-ord.Done()
+	log.Info("second order done processing")
 
-		// Make sure the order completed successfully
-		switch ord.Status() {
-		case order.Filled:
-			o.mutex.Lock()
-			o.status = Success
-			o.mutex.Unlock()
+	// Make sure the order completed successfully
+	switch ord.Status() {
+	case order.Filled:
+		o.mutex.Lock()
+		o.status = Success
+		o.mutex.Unlock()
 
-		case order.Canceled:
-			log.Warn("second order status was CANCELED when closed")
-			o.mutex.Lock()
-			o.status = Broken
-			o.mutex.Unlock()
+	case order.Canceled:
+		log.Warn("second order status was CANCELED when closed")
+		o.mutex.Lock()
+		o.status = Broken
+		o.mutex.Unlock()
 
-		case order.Partial:
-			log.Warn("second order status was PARTIAL when closed")
-			o.mutex.Lock()
-			o.status = Broken
-			o.mutex.Unlock()
+	case order.Partial:
+		log.Warn("second order status was PARTIAL when closed")
+		o.mutex.Lock()
+		o.status = Broken
+		o.mutex.Unlock()
 
-		case order.Unknown:
-			log.Warn("second order status was UNKNOWN when closed")
-			o.mutex.Lock()
-			o.status = Broken
-			o.mutex.Unlock()
+	case order.Unknown:
+		log.Warn("second order status was UNKNOWN when closed")
+		o.mutex.Lock()
+		o.status = Broken
+		o.mutex.Unlock()
 
-		case order.Pending:
-			log.Warn("second order status was PENDING when closed")
-			o.mutex.Lock()
-			o.status = Broken
-			o.mutex.Unlock()
+	case order.Pending:
+		log.Warn("second order status was PENDING when closed")
+		o.mutex.Lock()
+		o.status = Broken
+		o.mutex.Unlock()
 
-		case order.Rejected:
-			log.Warn("second order status was REJECTED when closed")
-			o.mutex.Lock()
-			o.status = Broken
-			o.mutex.Unlock()
+	case order.Rejected:
+		log.Warn("second order status was REJECTED when closed")
+		o.mutex.Lock()
+		o.status = Broken
+		o.mutex.Unlock()
 
-		case order.Updated:
-			log.Warn("second order status was UPDATED when closed")
-			o.mutex.Lock()
-			o.status = Broken
-			o.mutex.Unlock()
+	case order.Updated:
+		log.Warn("second order status was UPDATED when closed")
+		o.mutex.Lock()
+		o.status = Broken
+		o.mutex.Unlock()
 
-		case order.Expired:
-			log.Warn("second order status was EXPIRED when closed")
-			o.mutex.Lock()
-			o.status = Broken
-			o.mutex.Unlock()
-		}
+	case order.Expired:
+		log.Warn("second order status was EXPIRED when closed")
+		o.mutex.Lock()
+		o.status = Broken
+		o.mutex.Unlock()
 	}
 }
 
