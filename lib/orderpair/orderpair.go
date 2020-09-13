@@ -428,6 +428,11 @@ func (o *OrderPair) waitForSecondOrder() {
 	ord := o.secondOrder
 	o.mutex.RUnlock()
 
+	if o.secondOrder == nil {
+		log.Debug("no second order to wait for. bailing")
+		return
+	}
+
 	select {
 	case <-orderStop:
 	case <-ord.Done():
