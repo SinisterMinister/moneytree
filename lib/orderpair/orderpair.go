@@ -195,6 +195,7 @@ func (o *OrderPair) executeWorkflow() {
 	o.mutex.Lock()
 	if o.running {
 		o.mutex.Unlock()
+		log.Warn("order already executing. bailing")
 		return
 	}
 	// Mark workflow as running
@@ -229,14 +230,14 @@ func (o *OrderPair) executeWorkflow() {
 	for {
 		err = o.placeSecondOrder()
 		_, isSkipped := err.(*SkipSecondOrderError)
-		if err != nil && !isSkipped {
+		if err != nil && isSkipped {
+			break
+		} else {
 			log.WithError(err).Errorf("could not place second order")
 
 			// Don't spam the order
 			<-time.NewTimer(5 * time.Second).C
 			log.Info("retrying second order")
-		} else {
-			break
 		}
 	}
 
@@ -410,8 +411,9 @@ func (o *OrderPair) placeSecondOrder() (err error) {
 		return
 	}
 
-	// Bail if fill amount is zero
-	if o.firstOrder.Filled().Equal(decimal.Zero) {
+	// Bail if pair is no longer open
+	if o.status != Open {
+		log.Warnf("pair status is %s. skipping second order", o.status)
 		return &SkipSecondOrderError{}
 	}
 
