@@ -333,7 +333,7 @@ func (o *OrderPair) waitForFirstOrder() {
 	select {
 	case <-orderStop:
 	case <-ord.Done():
-		log.Info("first order done processing")
+		log.Info("first order done processing. status is %s", ord.Status())
 
 		// Make sure the order completed successfully
 		switch ord.Status() {
