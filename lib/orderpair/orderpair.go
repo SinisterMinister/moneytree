@@ -209,7 +209,7 @@ func (o *OrderPair) executeWorkflow() {
 
 	// Handle any errors
 	if err != nil {
-		log.WithError(err).Errorf("could not place first order: %w", err)
+		log.WithError(err).Errorf("could not place first order")
 
 		// Mark pair as failed
 		o.mutex.Lock()
@@ -227,8 +227,9 @@ func (o *OrderPair) executeWorkflow() {
 	// Place the second order. Retry if it fails
 	for {
 		err = o.placeSecondOrder()
-		if err != nil {
-			log.WithError(err).Errorf("could not place second order: %w", err)
+		_, isSkipped := err.(*SkipSecondOrderError)
+		if err != nil && !isSkipped {
+			log.WithError(err).Errorf("could not place second order")
 
 			// Don't spam the order
 			<-time.NewTimer(5 * time.Second).C
@@ -350,7 +351,7 @@ func (o *OrderPair) waitForFirstOrder() {
 			o.status = Open
 			err = o.svc.trader.OrderSvc().CancelOrder(ord)
 			if err != nil {
-				log.WithError(err).Warnf("could not cancel order: %w", err)
+				log.WithError(err).Warn("could not cancel order")
 			}
 			o.mutex.Unlock()
 		case order.Unknown:
@@ -359,7 +360,7 @@ func (o *OrderPair) waitForFirstOrder() {
 			o.status = Canceled
 			err = o.svc.trader.OrderSvc().CancelOrder(ord)
 			if err != nil {
-				log.WithError(err).Warnf("could not cancel order: %w", err)
+				log.WithError(err).Warn("could not cancel order")
 				o.status = Failed
 			}
 			o.mutex.Unlock()
@@ -369,7 +370,7 @@ func (o *OrderPair) waitForFirstOrder() {
 			o.status = Canceled
 			err = o.svc.trader.OrderSvc().CancelOrder(ord)
 			if err != nil {
-				log.WithError(err).Warnf("could not cancel order: %w", err)
+				log.WithError(err).Warn("could not cancel order")
 				o.status = Failed
 			}
 			o.mutex.Unlock()
@@ -385,7 +386,7 @@ func (o *OrderPair) waitForFirstOrder() {
 			o.status = Canceled
 			err = o.svc.trader.OrderSvc().CancelOrder(ord)
 			if err != nil {
-				log.WithError(err).Warnf("could not cancel order: %w", err)
+				log.WithError(err).Warn("could not cancel order")
 				o.status = Failed
 			}
 			o.mutex.Unlock()
@@ -410,7 +411,7 @@ func (o *OrderPair) placeSecondOrder() (err error) {
 
 	// Bail if fill amount is zero
 	if o.firstOrder.Filled().Equal(decimal.Zero) {
-		return fmt.Errorf("first order was not filled, skipping second")
+		return &SkipSecondOrderError{}
 	}
 
 	// Place second order
