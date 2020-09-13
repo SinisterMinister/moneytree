@@ -22,6 +22,7 @@ var (
 	Failed   Status = "FAILED"
 	Canceled Status = "CANCELED"
 	Missed   Status = "MISSED"
+	Broken   Status = "BROKEN"
 )
 
 type OrderPair struct {
@@ -44,13 +45,11 @@ type OrderPair struct {
 
 func (o *OrderPair) Execute(stop <-chan bool) <-chan bool {
 	o.mutex.Lock()
-	// Only launch routine if not running already
-	if !o.running {
-		go o.executeWorkflow()
-	}
-	o.running = true
 	o.stop = stop
 	o.mutex.Unlock()
+
+	// Start workflow
+	go o.executeWorkflow()
 
 	// Wait for the orders to start
 	<-o.startHold
@@ -192,80 +191,78 @@ func (o *OrderPair) Save() error {
 func (o *OrderPair) executeWorkflow() {
 	var err error
 
-	// Place the first order
-	if o.firstOrder == nil {
-		err = o.placeFirstOrder()
-		if err != nil {
-			log.WithError(err).Error("could not place first order")
-			if o.status == Open {
-				o.status = Failed
-			}
-
-			// End the workflow
-			o.endWorkflow()
-			close(o.startHold)
-			return
-		}
-
-		// Save the order
-		err = o.Save()
-		if err != nil {
-			log.WithError(err).Error("could not save order")
-		}
+	// Bail out if already running
+	o.mutex.Lock()
+	if o.running {
+		o.mutex.Unlock()
+		return
 	}
+	// Mark workflow as running
+	o.running = true
+	o.mutex.Unlock()
 
-	// release start hold
-	close(o.startHold)
+	// Attempt to place first order
+	err = o.placeFirstOrder()
 
-	// Wait for order to complete. If it fails, keep going in case partial fill
-	err = o.waitForOrder()
+	// Release start hold
+	o.releaseStartHold()
+
+	// Handle any errors
 	if err != nil {
-		log.WithError(err).Warn("first order failed")
+		log.WithError(err).Errorf("could not place first order: %w", err)
 
-		// Cancel the order if it's still open
-		if !o.firstOrder.IsDone() {
-			err = o.svc.trader.OrderSvc().CancelOrder(o.firstOrder)
-			if err != nil {
-				log.WithError(err).Infof("could not cancel first order: %w", err)
-			}
-		}
+		// Mark pair as failed
+		o.mutex.Lock()
+		o.status = Failed
+		o.mutex.Unlock()
+
+		// End the workflow
+		o.endWorkflow()
+		return
 	}
 
-	// Continue with second order in case first partially filled
-	if o.secondOrder == nil {
-		// Place second order
+	// Wait for the first order to finish
+	o.waitForFirstOrder()
+
+	// Place the second order. Retry if it fails
+	for {
 		err = o.placeSecondOrder()
 		if err != nil {
-			log.WithError(err).Warn("second order failed")
-			o.status = Failed
+			log.WithError(err).Errorf("could not place second order: %w", err)
 
-			// End the workflow
-			o.endWorkflow()
-			return
-		}
-		log.Info("second order placed")
-
-		// Save the order
-		err = o.Save()
-		if err != nil {
-			log.WithError(err).Error("could not save order pair")
+			// Don't spam the order
+			<-time.NewTimer(5 * time.Second).C
+			log.Info("retrying second order")
+		} else {
+			break
 		}
 	}
 
-	// Wait for second order to complete
-	log.Info("waiting on second order")
-	<-o.secondOrder.Done()
-	log.Info("second order done processing")
-
-	if o.secondOrder.Status() == order.Filled {
-		o.status = Success
-	}
+	// Wait for the second order to complete
+	o.waitForSecondOrder()
 
 	// End the workflow
 	o.endWorkflow()
 }
 
+func (o *OrderPair) releaseStartHold() {
+	// Lock the pair while we work
+	o.mutex.Lock()
+	defer o.mutex.Unlock()
+
+	// Close the channel
+	select {
+	case <-o.startHold:
+	default:
+		close(o.startHold)
+	}
+}
+
 func (o *OrderPair) endWorkflow() {
+	// Lock the pair while we work
+	o.mutex.Lock()
+	defer o.mutex.Unlock()
+
 	// Close the done channel
 	select {
 	case <-o.done:
@@ -285,43 +282,206 @@ func (o *OrderPair) endWorkflow() {
 	// If the orders are still open, launch routines to save when they close and update
 	if !o.firstOrder.IsDone() {
 		go func() {
-			<-o.firstOrder.Done()
+			o.mutex.RLock()
+			ord := o.firstOrder
+			o.mutex.RUnlock()
+
+			<-ord.Done()
 			o.Save()
 		}()
 	}
+
 	if o.secondOrder != nil && !o.secondOrder.IsDone() {
 		go func() {
-			<-o.secondOrder.Done()
+			o.mutex.RLock()
+			ord := o.secondOrder
+			o.mutex.RUnlock()
+
+			<-ord.Done()
 			o.Save()
 		}()
 	}
 }
 
 func (o *OrderPair) placeFirstOrder() (err error) {
+	// Lock the pair while we work
+	o.mutex.Lock()
+	defer o.mutex.Unlock()
+
+	// Don't execute the order if it already exists
+	if o.firstOrder != nil {
+		return
+	}
+
 	r0 := o.firstRequest.ToDTO()
 	log.WithFields(log.F("side", r0.Side), log.F("price", r0.Price), log.F("quantity", r0.Quantity)).Info("placing first order")
 
 	// Place first order
-	o.mutex.Lock()
 	o.firstOrder, err = o.svc.market.AttemptOrder(o.firstRequest)
-	o.mutex.Unlock()
 	return
 }
 
+func (o *OrderPair) waitForFirstOrder() {
+	var err error
+
+	o.mutex.RLock()
+	orderStop := o.stop
+	ord := o.firstOrder
+	o.mutex.RUnlock()
+
+	select {
+	case <-orderStop:
+	case <-ord.Done():
+		log.Info("first order done processing")
+
+		// Make sure the order completed successfully
+		switch ord.Status() {
+		case order.Filled:
+			o.mutex.Lock()
+			o.status = Open
+			o.mutex.Unlock()
+		case order.Canceled:
+			o.mutex.Lock()
+			o.status = Canceled
+			o.mutex.Unlock()
+		case order.Partial:
+			log.Warn("first order status was partial when closed. attempting to cancel")
+			o.mutex.Lock()
+			o.status = Open
+			err = o.svc.trader.OrderSvc().CancelOrder(ord)
+			if err != nil {
+				log.WithError(err).Warnf("could not cancel order: %w", err)
+			}
+			o.mutex.Unlock()
+		case order.Unknown:
+			log.Warn("first order status was UNKNOWN when closed. attempting to cancel")
+			o.mutex.Lock()
+			o.status = Canceled
+			err = o.svc.trader.OrderSvc().CancelOrder(ord)
+			if err != nil {
+				log.WithError(err).Warnf("could not cancel order: %w", err)
+				o.status = Failed
+			}
+			o.mutex.Unlock()
+		case order.Pending:
+			log.Warn("first order status was pending when closed. attempting to cancel")
+			o.mutex.Lock()
+			o.status = Canceled
+			err = o.svc.trader.OrderSvc().CancelOrder(ord)
+			if err != nil {
+				log.WithError(err).Warnf("could not cancel order: %w", err)
+				o.status = Failed
+			}
+			o.mutex.Unlock()
+		case order.Rejected:
+			log.Warn("first order status was rejected when closed. attempting to cancel")
+			o.mutex.Lock()
+			o.status = Failed
+			o.mutex.Unlock()
+
+		case order.Updated:
+			log.Warn("first order status was updated when closed. attempting to cancel")
+			o.mutex.Lock()
+			o.status = Canceled
+			err = o.svc.trader.OrderSvc().CancelOrder(ord)
+			if err != nil {
+				log.WithError(err).Warnf("could not cancel order: %w", err)
+				o.status = Failed
+			}
+			o.mutex.Unlock()
+		case order.Expired:
+			log.Warn("first order status was expired when closed. attempting to cancel")
+			o.mutex.Lock()
+			o.status = Failed
+			o.mutex.Unlock()
+		}
+	}
+}
+
 func (o *OrderPair) placeSecondOrder() (err error) {
+	// Lock the pair while we work
+	o.mutex.Lock()
+	defer o.mutex.Unlock()
+
+	// Don't execute the order if it already exists
+	if o.secondOrder != nil {
+		return
+	}
+
 	// Bail if fill amount is zero
 	if o.firstOrder.Filled().Equal(decimal.Zero) {
 		return fmt.Errorf("first order was not filled, skipping second")
 	}
 
 	// Place second order
-	o.mutex.Lock()
 	o.recalculateSecondOrderSizeFromFilled()
 	r1 := o.secondRequest.ToDTO()
 	log.WithFields(log.F("side", r1.Side), log.F("price", r1.Price), log.F("quantity", r1.Quantity)).Info("placing second order")
 	o.secondOrder, err = o.svc.market.AttemptOrder(o.secondRequest)
-	o.mutex.Unlock()
 	return
+}
+
+func (o *OrderPair) waitForSecondOrder() {
+	o.mutex.RLock()
+	orderStop := o.stop
+	ord := o.secondOrder
+	o.mutex.RUnlock()
+
+	select {
+	case <-orderStop:
+	case <-ord.Done():
+		log.Info("second order done processing")
+
+		// Make sure the order completed successfully
+		switch ord.Status() {
+		case order.Filled:
+			o.mutex.Lock()
+			o.status = Success
+			o.mutex.Unlock()
+
+		case order.Canceled:
+			log.Warn("second order status was CANCELED when closed")
+			o.mutex.Lock()
+			o.status = Broken
+			o.mutex.Unlock()
+
+		case order.Partial:
+			log.Warn("second order status was PARTIAL when closed")
+			o.mutex.Lock()
+			o.status = Broken
+			o.mutex.Unlock()
+
+		case order.Unknown:
+			log.Warn("first order status was UNKNOWN when closed")
+			o.mutex.Lock()
+			o.status = Broken
+			o.mutex.Unlock()
+
+		case order.Pending:
+			log.Warn("first order status was PENDING when closed")
+			o.mutex.Lock()
+			o.status = Broken
+			o.mutex.Unlock()
+
+		case order.Rejected:
+			log.Warn("first order status was REJECTED when closed")
+			o.mutex.Lock()
+			o.status = Broken
+			o.mutex.Unlock()
+
+		case order.Updated:
+			log.Warn("first order status was UPDATED when closed")
+			o.mutex.Lock()
+			o.status = Broken
+			o.mutex.Unlock()
+
+		case order.Expired:
+			log.Warn("first order status was EXPIRED when closed")
+			o.mutex.Lock()
+			o.status = Broken
+			o.mutex.Unlock()
+		}
+	}
 }
 
 func (o *OrderPair) maxSpread() decimal.Decimal {
@@ -364,28 +524,6 @@ func (o *OrderPair) IsPassedOrder(price decimal.Decimal) bool {
 		}
 	}
 	return false
-}
-
-func (o *OrderPair) waitForOrder() (err error) {
-	o.mutex.RLock()
-	orderStop := o.stop
-	o.mutex.RUnlock()
-
-	select {
-	case <-orderStop:
-		return fmt.Errorf("stop channel closed")
-	case <-o.firstOrder.Done():
-		log.Info("first order done processing")
-
-		// Make sure the order completed successfully
-		if o.firstOrder.Status() != order.Filled && o.firstOrder.Filled().Equals(decimal.Zero) {
-			err = fmt.Errorf("first order did not complete successfully")
-		} else {
-			// Make sure we're still marked as opened if we're still working
-			o.status = Open
-		}
-	}
-	return
 }
 
 func (o *OrderPair) recalculateSecondOrderSizeFromFilled() {
