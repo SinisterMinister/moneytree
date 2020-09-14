@@ -82,7 +82,13 @@ func storeLocalVars(d *sql.DB, t types.Trader, m types.Market, stop <-chan bool)
 func nextPair() *orderpair.OrderPair {
 	// Try to recover the pair first
 	pair, ok := recoverRunningPair()
-	if !ok {
+	if ok { // Determine direction from pair
+		if pair.FirstRequest().Side() == order.Buy {
+			direction = Upward
+		} else {
+			direction = Downward
+		}
+	} else {
 		// Get the direction the next order should go
 		direction = nextPairDirection()
 
