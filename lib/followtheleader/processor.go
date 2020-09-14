@@ -355,7 +355,7 @@ func bailOnDirectionChange(pair *orderpair.OrderPair) {
 	select {
 	case <-notify: // Price went to low, time to bail and transition to opposite state
 		// Cancel the order
-		log.Infof("price direction changed. price passed %s. hit %s. canceling order", price.StringFixed(2), pair.FirstRequest().Price().StringFixed(2))
+		log.Infof("price direction changed. price passed %s. canceling order", price.StringFixed(2))
 		err := pair.Cancel()
 		if err != nil {
 			log.WithError(err).Error("could not cancel order")
