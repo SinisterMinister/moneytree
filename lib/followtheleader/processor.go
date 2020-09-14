@@ -330,7 +330,7 @@ func bailOnDirectionChange(pair *orderpair.OrderPair) {
 	select {
 	case <-notify: // Price went to low, time to bail and transition to opposite state
 		// Cancel the order
-		log.Infof("price direction changed. price passed %s. canceling order", pair.FirstRequest().Price().StringFixed(2))
+		log.Infof("price direction changed. price passed %s. canceling order", price.StringFixed(2))
 		err := pair.Cancel()
 		if err != nil {
 			log.WithError(err).Error("could not cancel order")
@@ -423,14 +423,14 @@ func bailPrice(pair *orderpair.OrderPair) (price decimal.Decimal) {
 		targetSpread = targetSpread.Mul(decimal.NewFromFloat(viper.GetFloat64("followtheleader.reversalSpreadPercentage")))
 	}
 	switch direction {
-	case Upward:
+	case Downward:
 		// Try to get bail price from pair service
 		price, err = pairSvc.LowestOpenBuyFirstPrice()
 		if err != nil || price == decimal.Zero {
 			log.WithError(err).Warn("could not find bail price from open orders. bailing to spread based price")
 			price = req.Price().Sub(req.Price().Mul(targetSpread))
 		}
-	case Downward:
+	case Upward:
 		// Try to get bail price from pair service
 		price, err = pairSvc.HighestOpenSellFirstPrice()
 		// If price is zero, use reversal as base
