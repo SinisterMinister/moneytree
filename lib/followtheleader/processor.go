@@ -450,25 +450,38 @@ func bailPrice(pair *orderpair.OrderPair) (price decimal.Decimal) {
 	switch direction {
 	case Downward:
 		// Try to get bail price from pair service
-		price, err = pairSvc.LowestOpenBuyFirstPrice()
-
+		lowestPrice, err := pairSvc.LowestOpenBuyFirstPrice()
+		targetPrice := req.Price().Add(req.Price().Mul(targetSpread))
 		// If price is zero, use reversal as base
-		if price.Equal(decimal.Zero) {
+		if lowestPrice.Equal(decimal.Zero) {
 			if err != nil {
 				log.WithError(err).Warn("could not find bail price from open orders. bailing to spread based price")
 			}
-			price = req.Price().Add(req.Price().Mul(targetSpread))
+			price = targetPrice
+		} else {
+			if lowestPrice.LessThan(targetPrice) {
+				price = targetPrice
+			} else {
+				price = lowestPrice
+			}
 		}
 	case Upward:
 		// Try to get bail price from pair service
-		price, err = pairSvc.HighestOpenSellFirstPrice()
+		highestPrice, err := pairSvc.HighestOpenSellFirstPrice()
+		targetPrice := req.Price().Sub(req.Price().Mul(targetSpread))
 
 		// If price is zero, use reversal as base
-		if price.Equal(decimal.Zero) {
+		if highestPrice.Equal(decimal.Zero) {
 			if err != nil {
 				log.WithError(err).Warn("could not find bail price from open orders. bailing to spread based price")
 			}
-			price = req.Price().Sub(req.Price().Mul(targetSpread))
+			price = targetPrice
+		} else {
+			if highestPrice.GreaterThan(targetPrice) {
+				price = targetPrice
+			} else {
+				price = highestPrice
+			}
 		}
 	}
 	log.Debugf("order bail price is %s", price.String())
