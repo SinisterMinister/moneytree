@@ -202,11 +202,14 @@ func (o *OrderPair) executeWorkflow() {
 	o.running = true
 	o.mutex.Unlock()
 
-	// Attempt to place first order
-	err = o.placeFirstOrder()
-
 	// Release start hold
 	o.releaseStartHold()
+
+	// Save the order to the database
+	o.Save()
+
+	// Attempt to place first order
+	err = o.placeFirstOrder()
 
 	// Handle any errors
 	if err != nil {
@@ -224,6 +227,8 @@ func (o *OrderPair) executeWorkflow() {
 
 	// Wait for the first order to finish
 	o.waitForFirstOrder()
+
+	// Save the first order to the database
 	o.Save()
 
 	// Place the second order. Retry if it fails
