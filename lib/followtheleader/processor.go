@@ -139,9 +139,9 @@ func nextPairDirection() Direction {
 		return currentMarketDirection()
 	}
 	if pair.FirstRequest().Side() == order.Buy {
-		return Upward
+		return Downward
 	}
-	return Downward
+	return Upward
 }
 
 func currentMarketDirection() Direction {
