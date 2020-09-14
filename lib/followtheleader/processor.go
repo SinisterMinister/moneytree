@@ -463,9 +463,9 @@ func bailPrice(pair *orderpair.OrderPair) (price decimal.Decimal) {
 			price = targetPrice
 		} else {
 			if lowestPrice.LessThan(targetPrice) {
-				price = targetPrice
-			} else {
 				price = lowestPrice
+			} else {
+				price = targetPrice
 			}
 		}
 	case Upward:
@@ -481,9 +481,9 @@ func bailPrice(pair *orderpair.OrderPair) (price decimal.Decimal) {
 			price = targetPrice
 		} else {
 			if highestPrice.GreaterThan(targetPrice) {
-				price = targetPrice
-			} else {
 				price = highestPrice
+			} else {
+				price = targetPrice
 			}
 		}
 	default:
