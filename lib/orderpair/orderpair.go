@@ -264,6 +264,12 @@ func (o *OrderPair) executeWorkflow() {
 
 	// End the workflow
 	o.endWorkflow()
+
+	// Save the order pair
+	err = o.Save()
+	if err != nil {
+		log.WithError(err).Error("could not save order pair")
+	}
 }
 
 func (o *OrderPair) releaseStartHold() {
@@ -293,12 +299,6 @@ func (o *OrderPair) endWorkflow() {
 
 	// Record the timestamp
 	o.endedAt = time.Now()
-
-	// Save the order pair
-	err := o.Save()
-	if err != nil {
-		log.WithError(err).Error("could not save order pair")
-	}
 
 	// If the orders are still open, launch routines to save when they close and update
 	if !o.firstOrder.IsDone() {
@@ -449,7 +449,7 @@ func (o *OrderPair) waitForSecondOrder() {
 	ord := o.secondOrder
 	o.mutex.RUnlock()
 
-	if o.secondOrder == nil {
+	if ord == nil {
 		log.Debug("no second order to wait for. bailing")
 		return
 	}
@@ -507,6 +507,9 @@ func (o *OrderPair) waitForSecondOrder() {
 		o.status = Broken
 		o.mutex.Unlock()
 	}
+
+	// Save the pair
+	o.Save()
 }
 
 func (o *OrderPair) maxSpread() decimal.Decimal {
