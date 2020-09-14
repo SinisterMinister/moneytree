@@ -46,6 +46,9 @@ func (p *Processor) Process(db *sql.DB, trader types.Trader, market types.Market
 		// Load the next pair to execute
 		pair := nextPair()
 
+		// Log the direction
+		log.Infof("order direction is %s", direction)
+
 		// Execute the order pair
 		doneChan := pair.Execute(stop)
 
@@ -483,6 +486,8 @@ func bailPrice(pair *orderpair.OrderPair) (price decimal.Decimal) {
 				price = highestPrice
 			}
 		}
+	default:
+		log.Error("invalid direction for bail price")
 	}
 	log.Debugf("order bail price is %s", price.String())
 	return
