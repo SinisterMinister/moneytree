@@ -133,10 +133,16 @@ func (o *OrderPair) Cancel() error {
 		}
 		return o.svc.Save(o.ToDAO())
 	}
+	err := o.svc.trader.OrderSvc().CancelOrder(o.firstOrder)
+	if err != nil {
+		return err
+	}
+
+	// Mark order as canceled
 	o.status = Canceled
 
-	// Cancel the first order
-	return o.svc.trader.OrderSvc().CancelOrder(o.firstOrder)
+	// Save and return
+	return o.svc.Save(o.ToDAO())
 }
 
 func (o *OrderPair) ToDAO() OrderPairDAO {
