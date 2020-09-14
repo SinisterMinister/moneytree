@@ -235,9 +235,10 @@ func (o *OrderPair) executeWorkflow() {
 	for {
 		err = o.placeSecondOrder()
 		_, isSkipped := err.(*SkipSecondOrderError)
-		if err != nil && isSkipped {
-			break
-		} else {
+		if err != nil {
+			if isSkipped {
+				break
+			}
 			log.WithError(err).Errorf("could not place second order")
 
 			// Don't spam the order
