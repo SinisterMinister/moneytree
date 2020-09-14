@@ -381,7 +381,7 @@ func bailOnPass(pair *orderpair.OrderPair) {
 		case tick := <-tickerStream:
 			// Bail if the order passed
 			if pair.IsPassedOrder(tick.Price()) {
-				log.Warn("first order partially filled but price passed second order")
+				log.Warn("first order passed")
 
 				// Cancel the order
 				err := pair.Cancel()
