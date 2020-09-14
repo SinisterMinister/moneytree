@@ -280,7 +280,7 @@ func size(ticker types.Ticker) (decimal.Decimal, error) {
 	quoteMax := quoteWallet.Available().Div(decimal.NewFromFloat(viper.GetFloat64("followtheleader.maxTradesFundsRatio"))).Div(ticker.Bid())
 
 	// Normalize the size to available funds
-	if size == decimal.Zero {
+	if size.Equal(decimal.Zero) {
 		size = decimal.Min(baseMax, quoteMax)
 	}
 	return decimal.Min(size, baseMax, quoteMax), nil
@@ -428,7 +428,7 @@ func bailPrice(pair *orderpair.OrderPair) (price decimal.Decimal) {
 		price, err = pairSvc.LowestOpenBuyFirstPrice()
 
 		// If price is zero, use reversal as base
-		if err != nil || price == decimal.Zero {
+		if err != nil || price.Equal(decimal.Zero) {
 			log.WithError(err).Warn("could not find bail price from open orders. bailing to spread based price")
 			price = req.Price().Add(req.Price().Mul(targetSpread))
 		}
@@ -437,7 +437,7 @@ func bailPrice(pair *orderpair.OrderPair) (price decimal.Decimal) {
 		price, err = pairSvc.HighestOpenSellFirstPrice()
 
 		// If price is zero, use reversal as base
-		if err != nil || price == decimal.Zero {
+		if err != nil || price.Equal(decimal.Zero) {
 			log.WithError(err).Warn("could not find bail price from open orders. bailing to spread based price")
 			price = req.Price().Sub(req.Price().Mul(targetSpread))
 		}
