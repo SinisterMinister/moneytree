@@ -39,6 +39,9 @@ func (p *Processor) Process(db *sql.DB, trader types.Trader, market types.Market
 	// Store the local vars
 	storeLocalVars(db, trader, market, stop)
 
+	// Restore the open orders
+	go restoreDoneOpenOrders()
+
 	for {
 		// Load the next pair to execute
 		pair := nextPair()
@@ -77,6 +80,22 @@ func storeLocalVars(d *sql.DB, t types.Trader, m types.Market, stop <-chan bool)
 		log.WithError(err).Fatal("could not start order pair service")
 	}
 	pairSvc = svc
+}
+
+func restoreDoneOpenOrders() {
+	// Load the open orders
+	orders, err := pairSvc.LoadOpenPairs()
+	if err != nil {
+		log.WithError(err).Warn("could not restore open orders")
+		return
+	}
+
+	// Execute all done open orders in the background
+	for _, o := range orders {
+		if o.IsDone() {
+			o.Execute(stopChan)
+		}
+	}
 }
 
 func nextPair() *orderpair.OrderPair {
