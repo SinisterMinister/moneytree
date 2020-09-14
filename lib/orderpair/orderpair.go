@@ -244,8 +244,8 @@ func (o *OrderPair) executeWorkflow() {
 		o.Save()
 
 		// Handle errors
-		_, isSkipped := err.(*SkipSecondOrderError)
 		if err != nil {
+			_, isSkipped := err.(*SkipSecondOrderError)
 			if isSkipped {
 				break
 			}
@@ -254,6 +254,8 @@ func (o *OrderPair) executeWorkflow() {
 			// Don't spam the order
 			<-time.NewTimer(5 * time.Second).C
 			log.Info("retrying second order")
+		} else {
+			break
 		}
 	}
 
