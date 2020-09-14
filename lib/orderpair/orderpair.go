@@ -207,15 +207,14 @@ func (o *OrderPair) executeWorkflow() {
 	// Mark workflow as running
 	o.running = true
 	o.mutex.Unlock()
-
-	// Save the order to the database
-	o.Save()
-
 	// Attempt to place first order
 	err = o.placeFirstOrder()
 
 	// Release start hold
 	o.releaseStartHold()
+
+	// Save the order to the database
+	o.Save()
 
 	// Handle any errors
 	if err != nil {
@@ -240,6 +239,11 @@ func (o *OrderPair) executeWorkflow() {
 	// Place the second order. Retry if it fails
 	for {
 		err = o.placeSecondOrder()
+
+		// Save the order to the database
+		o.Save()
+
+		// Handle errors
 		_, isSkipped := err.(*SkipSecondOrderError)
 		if err != nil {
 			if isSkipped {
