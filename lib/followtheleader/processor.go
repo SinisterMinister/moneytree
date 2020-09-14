@@ -415,37 +415,28 @@ func bailOnMiss(pair *orderpair.OrderPair) {
 func bailPrice(pair *orderpair.OrderPair) (price decimal.Decimal) {
 	var err error
 	req := pair.FirstRequest()
-	failSpread := pair.Spread().Mul(decimal.NewFromFloat(viper.GetFloat64("followtheleader.reversalSpread")))
+	targetSpread, err := spread()
+	if err != nil {
+		log.WithError(err).Warn("could not get target spread. bailing to reversal spread")
+		targetSpread = decimal.NewFromFloat(viper.GetFloat64("followtheleader.reversalSpread"))
+	}
 	switch direction {
 	case Upward:
 		// Try to get bail price from pair service
 		price, err = pairSvc.LowestOpenBuyFirstPrice()
-		if err != nil {
-			log.WithError(err).Warn("could not find bail price from open orders. bailing to reversal spread")
+		if err != nil || price == decimal.Zero {
+			log.WithError(err).Warn("could not find bail price from open orders. bailing to spread based price")
+			price = req.Price().Sub(req.Price().Mul(targetSpread))
 		}
-		if price == decimal.Zero {
-			log.Warn("bail price zero. falling back to reversal spread")
-			price = req.Price().Sub(req.Price().Mul(failSpread))
-		} else {
-			// Build price from target spread
-			price = req.Price().Sub(req.Price().Mul(pair.Spread()))
-		}
-		log.Debugf("order bail price is %s", price.String())
 	case Downward:
 		// Try to get bail price from pair service
 		price, err = pairSvc.HighestOpenSellFirstPrice()
 		// If price is zero, use reversal as base
-		if err != nil {
-			log.WithError(err).Warn("could not find bail price from open orders. falling back to reversal spread")
+		if err != nil || price == decimal.Zero {
+			log.WithError(err).Warn("could not find bail price from open orders. bailing to spread based price")
+			price = req.Price().Add(req.Price().Mul(targetSpread))
 		}
-		if price == decimal.Zero {
-			log.Warn("bail price zero. falling back to reversal spread")
-			price = req.Price().Add(req.Price().Mul(failSpread))
-		} else {
-			// Build price from target spread
-			price = req.Price().Add(req.Price().Mul(pair.Spread()))
-		}
-		log.Debugf("order bail price is %s", price.String())
 	}
+	log.Debugf("order bail price is %s", price.String())
 	return
 }
