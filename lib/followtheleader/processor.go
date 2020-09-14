@@ -444,7 +444,11 @@ func bailPrice(pair *orderpair.OrderPair) (price decimal.Decimal) {
 	var err error
 	req := pair.FirstRequest()
 	targetSpread, err := spread()
-	backupSpread := targetSpread.Mul(decimal.NewFromFloat(viper.GetFloat64("followtheleader.reversalSpreadPercentage")))
+	reversalPercentage := decimal.NewFromFloat(viper.GetFloat64("followtheleader.reversalSpreadPercentage"))
+	if reversalPercentage.Equal(decimal.Zero) {
+		reversalPercentage = decimal.NewFromFloat(0.25)
+	}
+	backupSpread := targetSpread.Mul(reversalPercentage)
 	if err != nil {
 		log.WithError(err).Warn("could not get target spread. bailing to default reversal spread")
 		targetSpread = decimal.NewFromFloat(viper.GetFloat64("followtheleader.defaultReversalSpread"))
