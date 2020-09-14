@@ -444,11 +444,10 @@ func bailPrice(pair *orderpair.OrderPair) (price decimal.Decimal) {
 	var err error
 	req := pair.FirstRequest()
 	targetSpread, err := spread()
+	backupSpread := targetSpread.Mul(decimal.NewFromFloat(viper.GetFloat64("followtheleader.reversalSpreadPercentage")))
 	if err != nil {
 		log.WithError(err).Warn("could not get target spread. bailing to default reversal spread")
 		targetSpread = decimal.NewFromFloat(viper.GetFloat64("followtheleader.defaultReversalSpread"))
-	} else {
-		targetSpread = targetSpread.Mul(decimal.NewFromFloat(viper.GetFloat64("followtheleader.reversalSpreadPercentage")))
 	}
 	switch direction {
 	case Downward:
@@ -460,7 +459,7 @@ func bailPrice(pair *orderpair.OrderPair) (price decimal.Decimal) {
 			if err != nil {
 				log.WithError(err).Warn("could not find bail price from open orders. bailing to spread based price")
 			}
-			price = targetPrice
+			lowestPrice = req.Price().Add(req.Price().Mul(backupSpread))
 		} else {
 			if lowestPrice.LessThan(targetPrice) {
 				price = lowestPrice
@@ -478,7 +477,7 @@ func bailPrice(pair *orderpair.OrderPair) (price decimal.Decimal) {
 			if err != nil {
 				log.WithError(err).Warn("could not find bail price from open orders. bailing to spread based price")
 			}
-			price = targetPrice
+			highestPrice = req.Price().Sub(req.Price().Mul(backupSpread))
 		} else {
 			if highestPrice.GreaterThan(targetPrice) {
 				price = highestPrice
