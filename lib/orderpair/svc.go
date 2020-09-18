@@ -101,6 +101,9 @@ func (svc *Service) LoadOpenPairs() (pairs []*OrderPair, err error) {
 			return nil, fmt.Errorf("could not load open order: %w", err)
 		}
 		pairs = append(pairs, pair)
+
+		// Throttle calls to API
+		<-time.NewTimer(time.Second).C
 	}
 	return
 }
