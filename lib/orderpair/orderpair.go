@@ -21,8 +21,8 @@ var (
 	Success  Status = "SUCCESS"
 	Failed   Status = "FAILED"
 	Canceled Status = "CANCELED"
-	Missed   Status = "MISSED"
 	Broken   Status = "BROKEN"
+	Reversed Status = "REVERSED"
 )
 
 type OrderPair struct {
@@ -41,6 +41,7 @@ type OrderPair struct {
 	createdAt     time.Time
 	endedAt       time.Time
 	status        Status
+	reversalOrder types.Order
 }
 
 func (o *OrderPair) Execute(stop <-chan bool) <-chan bool {
@@ -192,6 +193,110 @@ func (o *OrderPair) Save() error {
 	o.mutex.RUnlock()
 
 	return o.svc.Save(dao)
+}
+
+func (o *OrderPair) IsMissedOrder(price decimal.Decimal) bool {
+	if o.firstRequest.Side() == order.Buy {
+		if price.GreaterThan(o.missPrice()) {
+			return true
+		}
+	} else {
+		if price.LessThan(o.missPrice()) {
+			return true
+		}
+	}
+	return false
+}
+
+func (o *OrderPair) IsPassedOrder(price decimal.Decimal) bool {
+	if o.firstRequest.Side() == order.Buy {
+		if price.GreaterThan(o.secondRequest.Price()) {
+			return true
+		}
+	} else {
+		if price.LessThan(o.secondRequest.Price()) {
+			return true
+		}
+	}
+	return false
+}
+
+func (o *OrderPair) CancelAndTakeLosses() error {
+	// First cancel the pair
+	err := o.Cancel()
+	if err != nil {
+		return fmt.Errorf("could not cancel pair: %w", err)
+	}
+
+	// Wait for the pair to mark itself done
+	<-o.Done()
+
+	// Lock the mutex before we begin work
+	o.mutex.Lock()
+	defer o.mutex.Unlock()
+
+	// Wait for the first order to be done
+	if o.firstOrder != nil && !o.firstOrder.IsDone() {
+		<-o.firstOrder.Done()
+	}
+
+	// Cancel second order if it's been placed and still running
+	if o.secondOrder != nil && !o.secondOrder.IsDone() {
+		err := o.svc.trader.OrderSvc().CancelOrder(o.secondOrder)
+		if err != nil {
+			log.WithError(err).Error("error when canceling second order: %s", err)
+		}
+	}
+
+	// Wait for the second order to be done
+	if o.secondOrder != nil && !o.secondOrder.IsDone() {
+		<-o.secondOrder.Done()
+	}
+
+	// If the first order was filled, we need to reverse the trade
+	if o.firstOrder.Status() == order.Filled && o.secondOrder.Status() != order.Filled {
+		// Get the current ticker
+		ticker, err := o.svc.market.Ticker()
+		if err != nil {
+			return fmt.Errorf("could not get ticker: %w", err)
+		}
+
+		// Get the second order filled amount
+		var filled decimal.Decimal
+		if o.secondOrder != nil {
+			filled = o.secondOrder.Filled()
+		}
+
+		// Determine the size of the order
+		size := o.FirstRequest().Quantity().Sub(filled)
+
+		// Build reversal order
+		req := order.NewRequest(o.svc.market, o.SecondRequest().Type(),
+			o.SecondRequest().Side(), size, ticker.Ask())
+
+		// Place the reversal order
+		order, err := o.svc.market.AttemptOrder(req)
+		if err != nil {
+			return fmt.Errorf("could not place reversal order: %w", err)
+		}
+
+		// Set the reversal order
+		o.reversalOrder = order
+		o.svc.Save(o.ToDAO())
+
+		// Wait for the reversal order to be filled
+		<-order.Done()
+
+		// Set the status to reversed
+		o.status = Reversed
+
+		// Save the reversal order
+		err = o.svc.Save(o.ToDAO())
+		if err != nil {
+			return fmt.Errorf("could not save order pair: %w", err)
+		}
+	}
+	return nil
 }
 
 func (o *OrderPair) executeWorkflow() {
@@ -526,32 +631,6 @@ func (o *OrderPair) missPrice() decimal.Decimal {
 	} else {
 		return o.firstRequest.Price().Sub(o.firstRequest.Price().Mul(o.maxSpread()))
 	}
-}
-
-func (o *OrderPair) IsMissedOrder(price decimal.Decimal) bool {
-	if o.firstRequest.Side() == order.Buy {
-		if price.GreaterThan(o.missPrice()) {
-			return true
-		}
-	} else {
-		if price.LessThan(o.missPrice()) {
-			return true
-		}
-	}
-	return false
-}
-
-func (o *OrderPair) IsPassedOrder(price decimal.Decimal) bool {
-	if o.firstRequest.Side() == order.Buy {
-		if price.GreaterThan(o.secondRequest.Price()) {
-			return true
-		}
-	} else {
-		if price.LessThan(o.secondRequest.Price()) {
-			return true
-		}
-	}
-	return false
 }
 
 func (o *OrderPair) recalculateSecondOrderSizeFromFilled() {

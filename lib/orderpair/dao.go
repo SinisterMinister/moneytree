@@ -10,18 +10,20 @@ import (
 )
 
 type OrderPairDAO struct {
-	Uuid          string                `json:"uuid"`
-	FirstRequest  types.OrderRequestDTO `json:"firstRequest"`
-	SecondRequest types.OrderRequestDTO `json:"secondRequest"`
-	FirstOrderID  string                `json:"firstOrderID"`
-	FirstOrder    types.OrderDTO        `json:"firstOrder"`
-	SecondOrderID string                `json:"secondOrderID"`
-	SecondOrder   types.OrderDTO        `json:"secondOrder"`
-	Done          bool                  `json:"done"`
-	Failed        bool                  `json:"failed"`
-	CreatedAt     time.Time             `json:"createdAt"`
-	EndedAt       time.Time             `json:"endedAt"`
-	Status        Status                `json:"status"`
+	Uuid            string                `json:"uuid"`
+	FirstRequest    types.OrderRequestDTO `json:"firstRequest"`
+	SecondRequest   types.OrderRequestDTO `json:"secondRequest"`
+	FirstOrderID    string                `json:"firstOrderID"`
+	FirstOrder      types.OrderDTO        `json:"firstOrder"`
+	SecondOrderID   string                `json:"secondOrderID"`
+	SecondOrder     types.OrderDTO        `json:"secondOrder"`
+	Done            bool                  `json:"done"`
+	Failed          bool                  `json:"failed"`
+	CreatedAt       time.Time             `json:"createdAt"`
+	EndedAt         time.Time             `json:"endedAt"`
+	Status          Status                `json:"status"`
+	ReversalOrderId string                `json:"reversalOrderId"`
+	ReversalOrder   types.OrderDTO        `json:"reversalOrder"`
 }
 
 func (o OrderPairDAO) Value() (driver.Value, error) {

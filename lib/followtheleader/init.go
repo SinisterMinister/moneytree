@@ -6,12 +6,12 @@ import (
 
 func init() {
 	viper.SetDefault("followtheleader.orderTTL", "5m")
-	viper.SetDefault("followtheleader.reversalSpread", 0.005)
+	viper.SetDefault("followtheleader.reversalSpread", 0.0020)
 	viper.SetDefault("followtheleader.reversalBufferPercent", 0.001)
 	viper.SetDefault("followtheleader.waitAfterCancelStalledPair", "5s")
 
 	// Divide the funds into this many equal trades and use that trade size as the maximum trade size
-	viper.SetDefault("followtheleader.maxTradesFundsRatio", 4)
+	viper.SetDefault("followtheleader.maxOpenOrders", 8)
 
 	// Set the expected return per trade pair
 	viper.SetDefault("followtheleader.targetReturn", 0.001)

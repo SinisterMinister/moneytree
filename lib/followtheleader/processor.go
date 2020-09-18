@@ -33,6 +33,7 @@ var (
 	pairSvc   *orderpair.Service
 	stopChan  <-chan bool
 	direction Direction
+	baseSize  decimal.Decimal
 )
 
 func (p *Processor) Process(db *sql.DB, trader types.Trader, market types.Market, stop <-chan bool) {
@@ -43,6 +44,12 @@ func (p *Processor) Process(db *sql.DB, trader types.Trader, market types.Market
 	go restoreDoneOpenOrders()
 
 	for {
+		// Make room for the next order if necessary
+		err := makeRoom()
+		if err != nil {
+			log.WithError(err).Fatal("could not make room for new orders")
+		}
+
 		// Load the next pair to execute
 		pair := nextPair()
 
@@ -293,6 +300,13 @@ func buildUpwardPair() (*orderpair.OrderPair, error) {
 }
 
 func size(ticker types.Ticker) (decimal.Decimal, error) {
+	if !baseSize.Equal(decimal.Zero) {
+		return baseSize, nil
+	}
+
+	// Get the max order size ration from max number of open orders plus 1 to add a buffer
+	ratio := decimal.NewFromFloat(viper.GetFloat64("followtheleader.maxOpenOrders")).Add(decimal.NewFromFloat(1))
+
 	// Determine order size from average volume
 	size, err := market.AverageTradeVolume()
 	if err != nil {
@@ -303,15 +317,18 @@ func size(ticker types.Ticker) (decimal.Decimal, error) {
 	baseWallet := market.BaseCurrency().Wallet()
 	quoteWallet := market.QuoteCurrency().Wallet()
 
-	// Get the maximum trade size by wallet
-	baseMax := baseWallet.Available().Div(decimal.NewFromFloat(viper.GetFloat64("followtheleader.maxTradesFundsRatio")))
-	quoteMax := quoteWallet.Available().Div(decimal.NewFromFloat(viper.GetFloat64("followtheleader.maxTradesFundsRatio"))).Div(ticker.Bid())
+	// Get the maximum trade size by the ratio
+	baseMax := baseWallet.Available().Div(ratio)
+	quoteMax := quoteWallet.Available().Div(ratio).Div(ticker.Bid())
 
 	// Normalize the size to available funds
 	if size.Equal(decimal.Zero) {
 		size = decimal.Min(baseMax, quoteMax)
 	}
-	return decimal.Min(size, baseMax, quoteMax), nil
+
+	// Set the base seize
+	baseSize = decimal.Min(size, baseMax, quoteMax)
+	return baseSize, nil
 }
 
 func spread() (decimal.Decimal, error) {
@@ -485,4 +502,30 @@ func bailPrice(pair *orderpair.OrderPair) (price decimal.Decimal) {
 	}
 	log.Debugf("order bail price is %s", price.String())
 	return
+}
+
+func makeRoom() error {
+	// Get the maximum number of open orders
+	maxOpen := viper.GetInt("followtheleader.maxOpenOrders")
+
+	// Get open orders
+	pairs, err := pairSvc.LoadOpenPairs()
+	if err != nil {
+		return fmt.Errorf("could not load open pairs: %w", err)
+	}
+
+	// Cancel enough orders so that there's enough room for one more
+	if len(pairs) >= maxOpen {
+		toCancel := len(pairs) - maxOpen
+		oldPairs := pairs[:toCancel]
+		for _, pair := range oldPairs {
+			log.Info("canceling pair %s to make room for new pairs", pair)
+			err := pair.CancelAndTakeLosses()
+			if err != nil {
+				return fmt.Errorf("could not cancel pair: %w", err)
+			}
+		}
+	}
+
+	return nil
 }
