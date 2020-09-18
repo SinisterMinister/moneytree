@@ -283,11 +283,13 @@ func (o *OrderPair) CancelAndTakeLosses() error {
 		// Set the reversal order
 		o.reversalOrder = order
 		o.svc.Save(o.ToDAO())
+		o.mutex.Unlock()
 
 		// Wait for the reversal order to be filled
 		<-order.Done()
 
 		// Set the status to reversed
+		o.mutex.Lock()
 		o.status = Reversed
 
 		// Save the reversal order
