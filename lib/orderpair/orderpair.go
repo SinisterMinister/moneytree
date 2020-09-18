@@ -405,28 +405,43 @@ func (o *OrderPair) endWorkflow() {
 	// Record the timestamp
 	o.endedAt = time.Now()
 
-	// If the orders are still open, launch routines to save when they close and update
-	if !o.firstOrder.IsDone() {
-		go func() {
-			o.mutex.RLock()
-			ord := o.firstOrder
-			o.mutex.RUnlock()
+	// launch routines to save when they close and update
+	go func() {
+		o.mutex.RLock()
+		ord := o.firstOrder
+		o.mutex.RUnlock()
 
-			<-ord.Done()
-			o.Save()
-		}()
-	}
+		<-ord.Done()
 
-	if o.secondOrder != nil && !o.secondOrder.IsDone() {
-		go func() {
-			o.mutex.RLock()
-			ord := o.secondOrder
-			o.mutex.RUnlock()
+		o.mutex.Lock()
+		freshOrd, err := o.svc.trader.OrderSvc().Order(o.svc.market, ord.ID())
+		if err != nil {
+			log.WithError(err).Warn("could not load fresh order data to save for first order")
+		} else {
+			o.firstOrder = freshOrd
+		}
+		o.mutex.Unlock()
 
-			<-ord.Done()
-			o.Save()
-		}()
-	}
+		o.Save()
+	}()
+	go func() {
+		o.mutex.RLock()
+		ord := o.secondOrder
+		o.mutex.RUnlock()
+
+		<-ord.Done()
+
+		o.mutex.Lock()
+		freshOrd, err := o.svc.trader.OrderSvc().Order(o.svc.market, ord.ID())
+		if err != nil {
+			log.WithError(err).Warn("could not load fresh order data to save for second order")
+		} else {
+			o.secondOrder = freshOrd
+		}
+		o.mutex.Unlock()
+
+		o.Save()
+	}()
 }
 
 func (o *OrderPair) placeFirstOrder() (err error) {
