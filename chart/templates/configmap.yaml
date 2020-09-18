@@ -18,10 +18,7 @@ data:
       passphrase: u0w273x7hw
       secret: cFqrTqWLw3nS/wTalxoLKLLGvWVD/fAMcg8T1a0YPTCbnjOyC0M9c4Mqt4THWx0vrSXa2EyfoKxy6plwC9KKIg==
 
-    disableFees: true
-
-    followtheleader: 
-      orderTTL: 1m
+    disableFees: {{ .Values.moneytree.disableFees }}
 
     debug: true
 

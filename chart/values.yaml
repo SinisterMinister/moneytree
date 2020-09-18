@@ -6,6 +6,7 @@ dependencies:
     enable: true
 
 moneytree:
+  disableFees: true
   postgresql:
     database: moneytree
     password: password
