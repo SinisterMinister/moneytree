@@ -85,7 +85,7 @@ func (svc *Service) LoadMostRecentOpenPair() (pair *OrderPair, err error) {
 
 func (svc *Service) LoadOpenPairs() (pairs []*OrderPair, err error) {
 	pairs = []*OrderPair{}
-	rows, err := svc.db.Query("SELECT data FROM orderpairs WHERE data->>'status' = 'OPEN'")
+	rows, err := svc.db.Query("SELECT data FROM orderpairs WHERE data->>'status' = 'OPEN' ORDER BY data->>'createdAt'")
 	if err != nil {
 		return nil, fmt.Errorf("could not load open order pairs from database: %w", err)
 	}
@@ -180,11 +180,11 @@ func (svc *Service) NewFromDAO(dao OrderPairDAO) (orderPair *OrderPair, err erro
 		status:        dao.Status,
 	}
 
-	if dao.FirstOrderID != "" {
-		order, err := svc.trader.OrderSvc().Order(svc.market, dao.FirstOrderID)
+	if dao.FirstOrder.ID != "" {
+		order, err := svc.trader.OrderSvc().Order(svc.market, dao.FirstOrder.ID)
 		if err != nil {
 			if strings.Contains(err.Error(), "NotFound") {
-				log.Warnf("could not load first order %s, closing as failed", dao.FirstOrderID)
+				log.Warnf("could not load first order %s, closing as failed", dao.FirstOrder.ID)
 				orderPair.failed = true
 				orderPair.status = Failed
 				select {
@@ -199,16 +199,28 @@ func (svc *Service) NewFromDAO(dao OrderPairDAO) (orderPair *OrderPair, err erro
 		orderPair.firstOrder = order
 	}
 
-	if dao.SecondOrderID != "" {
-		order, err := svc.trader.OrderSvc().Order(svc.market, dao.SecondOrderID)
+	if dao.SecondOrder.ID != "" {
+		order, err := svc.trader.OrderSvc().Order(svc.market, dao.SecondOrder.ID)
 		if err != nil {
 			if strings.Contains(err.Error(), "NotFound") {
-				log.Warnf("could not load second order %s, ignoring", dao.SecondOrderID)
+				log.Warnf("could not load second order %s, ignoring", dao.SecondOrder.ID)
 			} else {
 				return nil, err
 			}
 		}
 		orderPair.secondOrder = order
+	}
+
+	if dao.ReversalOrder.ID != "" {
+		order, err := svc.trader.OrderSvc().Order(svc.market, dao.ReversalOrder.ID)
+		if err != nil {
+			if strings.Contains(err.Error(), "NotFound") {
+				log.Warnf("could not load reversal order %s, ignoring", dao.ReversalOrder.ID)
+			} else {
+				return nil, err
+			}
+		}
+		orderPair.reversalOrder = order
 	}
 	svc.Save(orderPair.ToDAO())
 	return orderPair, nil

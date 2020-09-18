@@ -11,7 +11,7 @@ func init() {
 	viper.SetDefault("followtheleader.waitAfterCancelStalledPair", "5s")
 
 	// Divide the funds into this many equal trades and use that trade size as the maximum trade size
-	viper.SetDefault("followtheleader.maxTradesFundsRatio", 4)
+	viper.SetDefault("followtheleader.maxOpenOrders", 8)
 
 	// Set the expected return per trade pair
 	viper.SetDefault("followtheleader.targetReturn", 0.001)
