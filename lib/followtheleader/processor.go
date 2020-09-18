@@ -519,7 +519,7 @@ func makeRoom() error {
 		toCancel := len(pairs) - maxOpen
 		oldPairs := pairs[:toCancel]
 		for _, pair := range oldPairs {
-			log.Info("canceling pair %s to make room for new pairs", pair)
+			log.Info("canceling pair %s to make room for new pairs", pair.ToDAO().Uuid)
 			err := pair.CancelAndTakeLosses()
 			if err != nil {
 				return fmt.Errorf("could not cancel pair: %w", err)
