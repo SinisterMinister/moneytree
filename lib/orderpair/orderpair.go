@@ -421,6 +421,9 @@ func (o *OrderPair) endWorkflow() {
 		o.mutex.RLock()
 		ord := o.firstOrder
 		o.mutex.RUnlock()
+		if ord == nil {
+			return
+		}
 
 		<-ord.Done()
 
@@ -439,6 +442,9 @@ func (o *OrderPair) endWorkflow() {
 		o.mutex.RLock()
 		ord := o.secondOrder
 		o.mutex.RUnlock()
+		if ord == nil {
+			return
+		}
 
 		<-ord.Done()
 
