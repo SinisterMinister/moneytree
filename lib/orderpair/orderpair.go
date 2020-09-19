@@ -228,20 +228,24 @@ func (o *OrderPair) CancelAndTakeLosses() error {
 		return fmt.Errorf("could not cancel pair: %w", err)
 	}
 
-	// Wait for the pair to mark itself done
-	<-o.Done()
-
 	// Lock the mutex before we begin work
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
 
+	// Wait for the pair to mark itself done
+	log.Infof("canceled pair %s to end workflow. waiting for it to complete", o.uuid)
+	<-o.done
+
 	// Wait for the first order to be done
 	if o.firstOrder != nil && !o.firstOrder.IsDone() {
+		log.Infof("waiting for first order to complete")
 		<-o.firstOrder.Done()
 	}
 
 	// Cancel second order if it's been placed and still running
 	if o.secondOrder != nil && !o.secondOrder.IsDone() {
+
+		log.Infof("canceling second order to reverse it")
 		err := o.svc.trader.OrderSvc().CancelOrder(o.secondOrder)
 		if err != nil {
 			log.WithError(err).Error("error when canceling second order: %s", err)
@@ -250,16 +254,19 @@ func (o *OrderPair) CancelAndTakeLosses() error {
 
 	// Wait for the second order to be done
 	if o.secondOrder != nil && !o.secondOrder.IsDone() {
+		log.Infof("waiting for second order to complete")
 		<-o.secondOrder.Done()
 	}
 
 	// If the first order was filled, we need to reverse the trade
 	if o.firstOrder.Status() == order.Filled && o.secondOrder.Status() != order.Filled {
+		log.Infof("begin reversing order pair")
 		// Get the current ticker
 		ticker, err := o.svc.market.Ticker()
 		if err != nil {
 			return fmt.Errorf("could not get ticker: %w", err)
 		}
+		log.Infof("using price %s for reversal order", ticker.Ask().StringFixed(2))
 
 		// Get the second order filled amount
 		var filled decimal.Decimal
@@ -268,13 +275,15 @@ func (o *OrderPair) CancelAndTakeLosses() error {
 		}
 
 		// Determine the size of the order
-		size := o.FirstRequest().Quantity().Sub(filled)
+		size := o.firstRequest.Quantity().Sub(filled)
+		log.Infof("use quantity %s for reversal order", size.StringFixed(8))
 
 		// Build reversal order
-		req := order.NewRequest(o.svc.market, o.SecondRequest().Type(),
-			o.SecondRequest().Side(), size, ticker.Ask())
+		req := order.NewRequest(o.svc.market, o.secondRequest.Type(),
+			o.secondRequest.Side(), size, ticker.Ask())
 
 		// Place the reversal order
+		log.Info("placing reversal order")
 		order, err := o.svc.market.AttemptOrder(req)
 		if err != nil {
 			return fmt.Errorf("could not place reversal order: %w", err)
@@ -283,13 +292,13 @@ func (o *OrderPair) CancelAndTakeLosses() error {
 		// Set the reversal order
 		o.reversalOrder = order
 		o.svc.Save(o.ToDAO())
-		o.mutex.Unlock()
 
 		// Wait for the reversal order to be filled
+		log.Info("waiting for reversal order to complete")
 		<-order.Done()
 
 		// Set the status to reversed
-		o.mutex.Lock()
+		log.Infof("setting status for pair %s to REVERSED", o.uuid)
 		o.status = Reversed
 
 		// Save the reversal order
