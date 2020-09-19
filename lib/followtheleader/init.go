@@ -6,7 +6,7 @@ import (
 
 func init() {
 	viper.SetDefault("followtheleader.orderTTL", "5m")
-	viper.SetDefault("followtheleader.reversalSpread", 0.0005)
+	viper.SetDefault("followtheleader.reversalSpread", 0.00075)
 	viper.SetDefault("followtheleader.reversalBufferPercent", 0.001)
 	viper.SetDefault("followtheleader.waitAfterCancelStalledPair", "5s")
 
