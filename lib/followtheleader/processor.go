@@ -143,7 +143,7 @@ func nextPair() *orderpair.OrderPair {
 	}
 
 	// Use colliding open order if exists
-	collidingPair, err := pairSvc.CollidingOpenPair(pair)
+	collidingPair, err := pairSvc.ResumeCollidingOpenPair(pair)
 	if err != nil {
 		log.WithError(err).Warn("could not load colliding open pair")
 	}

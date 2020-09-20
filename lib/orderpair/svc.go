@@ -318,7 +318,7 @@ func (svc *Service) RefreshDatabasePairs() error {
 	return nil
 }
 
-func (svc *Service) CollidingOpenPair(newPair *OrderPair) (pair *OrderPair, err error) {
+func (svc *Service) ResumeCollidingOpenPair(newPair *OrderPair) (pair *OrderPair, err error) {
 	// Get the pairs from cache
 	pairs, err := svc.LoadOpenPairs()
 	if err != nil {
@@ -340,6 +340,7 @@ func (svc *Service) CollidingOpenPair(newPair *OrderPair) (pair *OrderPair, err 
 
 				// Return colliding pair
 				pair = p
+				pair.done = make(chan bool)
 				return
 			}
 		}
