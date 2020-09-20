@@ -184,6 +184,7 @@ func (o *OrderPair) ToDAO() OrderPairDAO {
 		Status:        o.status,
 		CreatedAt:     o.createdAt,
 		EndedAt:       o.endedAt,
+		ReversalOrder: o.reversalOrder.ToDTO(),
 	}
 }
 
