@@ -43,6 +43,9 @@ func (p *Processor) Process(db *sql.DB, trader types.Trader, market types.Market
 	// Restore the open orders
 	go restoreDoneOpenOrders()
 
+	// Refresh database pairs
+	go refreshDatabasePairs()
+
 	for {
 		// Make room for the next order if necessary
 		err := makeRoom()
@@ -105,6 +108,13 @@ func restoreDoneOpenOrders() {
 		if o.IsDone() {
 			o.Execute(stopChan)
 		}
+	}
+}
+
+func refreshDatabasePairs() {
+	err := pairSvc.RefreshDatabasePairs()
+	if err != nil {
+		log.WithError(err).Error("error encountered while refreshing database pairs")
 	}
 }
 

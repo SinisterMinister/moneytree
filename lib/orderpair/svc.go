@@ -228,3 +228,26 @@ func (svc *Service) NewFromDAO(dao OrderPairDAO) (orderPair *OrderPair, err erro
 	svc.Save(orderPair.ToDAO())
 	return orderPair, nil
 }
+
+func (svc *Service) RefreshDatabasePairs() error {
+	rows, err := svc.db.Query("SELECT data FROM orderpairs ORDER BY data->>'createdAt' DESC")
+	if err != nil {
+		return fmt.Errorf("could not load order pairs from database: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		dao := OrderPairDAO{}
+		err = rows.Scan(&dao)
+		if err != nil {
+			return fmt.Errorf("could not load order pair from database: %w", err)
+		}
+		_, err := svc.NewFromDAO(dao)
+		if err != nil {
+			return fmt.Errorf("could not load order: %w", err)
+		}
+
+		// Throttle calls to API
+		<-time.NewTimer(time.Second).C
+	}
+	return nil
+}
