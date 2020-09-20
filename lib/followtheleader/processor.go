@@ -483,7 +483,17 @@ func bailOnMiss(pair *orderpair.OrderPair) {
 }
 
 func bailPrice(pair *orderpair.OrderPair) (price decimal.Decimal) {
-	req := pair.FirstRequest()
+	var reqPrice decimal.Decimal
+
+	// Get the current ticker
+	ticker, err := market.Ticker()
+	if err != nil {
+		log.WithError(err).Warn("could not get ticker for bail price")
+		reqPrice = pair.FirstRequest().Price()
+	} else {
+		reqPrice = ticker.Price()
+	}
+
 	orderSpread := pair.Spread()
 	reversalSpread := decimal.NewFromFloat(viper.GetFloat64("followtheleader.reversalSpread"))
 	reversalBufferPercent := decimal.NewFromFloat(viper.GetFloat64("followtheleader.reversalBufferPercent"))
@@ -492,13 +502,13 @@ func bailPrice(pair *orderpair.OrderPair) (price decimal.Decimal) {
 	case Downward:
 		// Try to get bail price from pair service
 		lowestPrice, err := pairSvc.LowestOpenBuyFirstPrice()
-		targetPrice := req.Price().Add(req.Price().Mul(reversalSpread))
+		targetPrice := reqPrice.Add(reqPrice.Mul(reversalSpread))
 		// If price is zero, use reversal as base
 		if lowestPrice.Equal(decimal.Zero) {
 			if err != nil {
 				log.WithError(err).Warn("could not find bail price from open orders. bailing to spread based price")
 			}
-			lowestPrice = req.Price().Add(req.Price().Mul(orderSpread)).Add(req.Price().Mul(reversalBufferPercent))
+			lowestPrice = reqPrice.Add(reqPrice.Mul(orderSpread)).Add(reqPrice.Mul(reversalBufferPercent))
 		}
 		if lowestPrice.LessThan(targetPrice) {
 			price = lowestPrice
@@ -508,14 +518,14 @@ func bailPrice(pair *orderpair.OrderPair) (price decimal.Decimal) {
 	case Upward:
 		// Try to get bail price from pair service
 		highestPrice, err := pairSvc.HighestOpenSellFirstPrice()
-		targetPrice := req.Price().Sub(req.Price().Mul(reversalSpread))
+		targetPrice := reqPrice.Sub(reqPrice.Mul(reversalSpread))
 
 		// If price is zero, use reversal as base
 		if highestPrice.Equal(decimal.Zero) {
 			if err != nil {
 				log.WithError(err).Warn("could not find bail price from open orders. bailing to spread based price")
 			}
-			highestPrice = req.Price().Sub(req.Price().Mul(orderSpread)).Sub(req.Price().Mul(reversalBufferPercent))
+			highestPrice = reqPrice.Sub(reqPrice.Mul(orderSpread)).Sub(reqPrice.Mul(reversalBufferPercent))
 		}
 		if highestPrice.GreaterThan(targetPrice) {
 			price = highestPrice
