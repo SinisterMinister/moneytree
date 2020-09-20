@@ -25,9 +25,10 @@ type Service struct {
 
 func NewService(db *sql.DB, trader types.Trader, market types.Market) (svc *Service, err error) {
 	svc = &Service{
-		db:     db,
-		trader: trader,
-		market: market,
+		db:        db,
+		trader:    trader,
+		market:    market,
+		openPairs: make(map[string]*OrderPair),
 	}
 	err = svc.setupDB()
 	return
