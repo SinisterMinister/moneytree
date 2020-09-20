@@ -304,13 +304,17 @@ func (o *OrderPair) CancelAndTakeLosses() error {
 		// Set the status to reversed
 		log.Infof("setting status for pair %s to REVERSED", o.uuid)
 		o.status = Reversed
-
-		// Save the reversal order
-		err = o.svc.Save(o.ToDAO())
-		if err != nil {
-			return fmt.Errorf("could not save order pair: %w", err)
-		}
 	}
+
+	// Set the end date to now
+	o.endedAt = time.Now()
+
+	// Save the pair
+	err = o.svc.Save(o.ToDAO())
+	if err != nil {
+		return fmt.Errorf("could not save order pair: %w", err)
+	}
+
 	return nil
 }
 
