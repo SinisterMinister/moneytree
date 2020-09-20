@@ -525,7 +525,7 @@ func makeRoom() error {
 	}
 
 	// Cancel enough orders so that there's enough room for one more
-	if len(pairs) >= maxOpen {
+	if len(pairs) >= maxOpen+1 {
 		toCancel := len(pairs) - maxOpen
 		oldPairs := pairs[:toCancel]
 		for _, pair := range oldPairs {
