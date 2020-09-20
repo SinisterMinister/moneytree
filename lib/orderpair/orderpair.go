@@ -163,12 +163,15 @@ func (o *OrderPair) ToDAO() OrderPairDAO {
 	default:
 		done = false
 	}
-	var firstOrder, secondOrder types.OrderDTO
+	var firstOrder, secondOrder, reversalOrder types.OrderDTO
 	if o.firstOrder != nil {
 		firstOrder = o.firstOrder.ToDTO()
 	}
 	if o.secondOrder != nil {
 		secondOrder = o.secondOrder.ToDTO()
+	}
+	if o.reversalOrder != nil {
+		reversalOrder = o.reversalOrder.ToDTO()
 	}
 
 	return OrderPairDAO{
@@ -184,7 +187,7 @@ func (o *OrderPair) ToDAO() OrderPairDAO {
 		Status:        o.status,
 		CreatedAt:     o.createdAt,
 		EndedAt:       o.endedAt,
-		ReversalOrder: o.reversalOrder.ToDTO(),
+		ReversalOrder: reversalOrder,
 	}
 }
 
