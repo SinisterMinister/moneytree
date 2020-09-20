@@ -167,8 +167,10 @@ func recoverRunningPair() (*orderpair.OrderPair, bool) {
 func nextPairDirection() Direction {
 	// Get the most recent open pair
 	pair, err := pairSvc.LoadMostRecentOpenPair()
-	if err != nil {
-		log.WithError(err).Warn("could not load most recent open pair")
+	if pair == nil {
+		if err != nil {
+			log.WithError(err).Warn("could not load most recent open pair")
+		}
 		return currentMarketDirection()
 	}
 	if pair.FirstRequest().Side() == order.Buy {
@@ -252,7 +254,7 @@ func buildDownwardPair() (*orderpair.OrderPair, error) {
 		return nil, err
 	}
 	bidSize := size.Round(int32(baseCurrency.Precision()))
-	askSize := size.Div(decimal.NewFromFloat(2)).Mul(bidPrice).Div(askPrice).Add(size.Div(decimal.NewFromFloat(2))).Round(int32(baseCurrency.Precision()))
+	askSize := size.Div(decimal.NewFromFloat(2)).Mul(bidPrice).Div(askPrice).Add(bidSize.Div(decimal.NewFromFloat(2))).Round(int32(baseCurrency.Precision()))
 
 	// Build the order requests
 	askReq := order.NewRequest(market, order.Limit, order.Sell, askSize, askPrice)
@@ -349,7 +351,7 @@ func size(ticker types.Ticker) (decimal.Decimal, error) {
 		size = decimal.Min(baseMax, quoteMax)
 	}
 
-	// Set the base seize
+	// Set the base size
 	baseSize = decimal.Min(size, baseMax, quoteMax)
 	return baseSize, nil
 }
