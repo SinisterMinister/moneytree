@@ -678,7 +678,7 @@ func (o *OrderPair) recalculateSecondOrderSizeFromFilled() {
 	ratio := o.secondRequest.Quantity().Div(o.firstRequest.Quantity())
 
 	// Calculate the new size
-	size := o.firstOrder.Filled().Mul(ratio).Round(int32(o.svc.market.QuoteCurrency().Precision()))
+	size := o.firstOrder.Filled().Mul(ratio).Round(int32(o.svc.market.BaseCurrency().Precision()))
 
 	// Build updated DTO
 	dto := o.secondRequest.ToDTO()
