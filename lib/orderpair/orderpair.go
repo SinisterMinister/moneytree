@@ -73,6 +73,24 @@ func (o *OrderPair) Done() <-chan bool {
 	return o.done
 }
 
+func (o *OrderPair) UUID() uuid.UUID {
+	o.mutex.RLock()
+	defer o.mutex.RUnlock()
+	return o.uuid
+}
+
+func (o *OrderPair) CreatedAt() time.Time {
+	o.mutex.RLock()
+	defer o.mutex.RUnlock()
+	return o.createdAt
+}
+
+func (o *OrderPair) EndedAt() time.Time {
+	o.mutex.RLock()
+	defer o.mutex.RUnlock()
+	return o.endedAt
+}
+
 func (o *OrderPair) FirstOrder() types.Order {
 	o.mutex.RLock()
 	defer o.mutex.RUnlock()

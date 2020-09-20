@@ -16,4 +16,7 @@ func init() {
 	// Set the expected return per trade pair
 	viper.SetDefault("followtheleader.targetReturn", 0.001)
 	viper.SetDefault("followtheleader.cycleDelay", "5s")
+
+	// Don't refresh pairs by default
+	viper.SetDefault("followtheleader.refreshDatabasePairs", false)
 }

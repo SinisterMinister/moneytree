@@ -43,8 +43,10 @@ func (p *Processor) Process(db *sql.DB, trader types.Trader, market types.Market
 	// Restore the open orders
 	go restoreDoneOpenOrders()
 
-	// Refresh database pairs
-	go refreshDatabasePairs()
+	if viper.GetBool("followtheleader.refreshDatabasePairs") {
+		// Refresh database pairs
+		go refreshDatabasePairs()
+	}
 
 	for {
 		// Make room for the next order if necessary
@@ -127,16 +129,27 @@ func nextPair() *orderpair.OrderPair {
 		} else {
 			direction = Downward
 		}
-	} else {
-		// Get the direction the next order should go
-		direction = nextPairDirection()
+		return pair
+	}
 
-		// Build pair based on that direction
-		var err error
-		pair, err = buildPair(direction)
-		if err != nil {
-			log.WithError(err).Fatal("could not build the order pair")
-		}
+	// Get the direction the next order should go
+	direction = nextPairDirection()
+
+	// Build pair based on that direction
+	var err error
+	pair, err = buildPair(direction)
+	if err != nil {
+		log.WithError(err).Fatal("could not build the order pair")
+	}
+
+	// Use colliding open order if exists
+	collidingPair, err := pairSvc.CollidingOpenPair(pair)
+	if err != nil {
+		log.WithError(err).Warn("could not load colliding open pair")
+	}
+	if collidingPair != nil {
+		log.Infof("using open pair %s", pair.UUID().String())
+		pair = collidingPair
 	}
 	return pair
 }

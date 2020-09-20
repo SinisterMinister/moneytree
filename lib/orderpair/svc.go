@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-playground/log/v7"
@@ -17,6 +18,9 @@ type Service struct {
 	trader types.Trader
 	market types.Market
 	db     *sql.DB
+
+	mutex     sync.RWMutex
+	openPairs map[string]*OrderPair
 }
 
 func NewService(db *sql.DB, trader types.Trader, market types.Market) (svc *Service, err error) {
@@ -73,14 +77,62 @@ func (svc *Service) LoadMostRecentRunningPair() (pair *OrderPair, err error) {
 }
 
 func (svc *Service) LoadMostRecentOpenPair() (pair *OrderPair, err error) {
-	dao := OrderPairDAO{}
-	err = svc.db.QueryRow("SELECT data FROM orderpairs WHERE data->>'status' = 'OPEN' ORDER BY data->>'createdAt' DESC LIMIT 1").Scan(&dao)
+	// Load up the open pairs from cache
+	pairs, err := svc.LoadOpenPairs()
 	if err != nil {
-		return nil, fmt.Errorf("could not load order pair from database: %w", err)
+		return
 	}
 
-	pair, err = svc.NewFromDAO(dao)
+	// Find the newest one
+	for _, p := range pairs {
+		if pair == nil {
+			pair = p
+			continue
+		}
+
+		if pair.CreatedAt().Before(p.CreatedAt()) {
+			pair = p
+		}
+	}
+
 	return
+}
+
+func (svc *Service) RegisterOpenPair(pair *OrderPair) {
+	svc.mutex.Lock()
+	defer svc.mutex.Unlock()
+
+	// Add pair to open pairs
+	svc.openPairs[pair.UUID().String()] = pair
+
+	// Remove the pair from open when it closes out
+	go func(pair *OrderPair) {
+		// Wait for the pair to close
+		<-pair.Done()
+
+		// Wait for the first order if it exists
+		if pair.FirstOrder() != nil {
+			<-pair.FirstOrder().Done()
+		}
+
+		// Wait for the second order if it exists
+		if pair.SecondOrder() != nil {
+			<-pair.SecondOrder().Done()
+		}
+
+		// Remove the order from open orders
+		svc.mutex.Lock()
+		delete(svc.openPairs, pair.UUID().String())
+		svc.mutex.Unlock()
+	}(pair)
+}
+
+func (svc *Service) OpenPair(uuid string) (*OrderPair, bool) {
+	svc.mutex.RLock()
+	defer svc.mutex.RUnlock()
+	pair, ok := svc.openPairs[uuid]
+
+	return pair, ok
 }
 
 func (svc *Service) LoadOpenPairs() (pairs []*OrderPair, err error) {
@@ -96,14 +148,27 @@ func (svc *Service) LoadOpenPairs() (pairs []*OrderPair, err error) {
 		if err != nil {
 			return nil, fmt.Errorf("could not load open order pair from database: %w", err)
 		}
-		pair, err := svc.NewFromDAO(dao)
-		if err != nil {
-			return nil, fmt.Errorf("could not load open order: %w", err)
-		}
-		pairs = append(pairs, pair)
 
-		// Throttle calls to API
-		<-time.NewTimer(time.Second).C
+		// Use existing open pair if already loaded
+		var pair *OrderPair
+		if openPair, ok := svc.OpenPair(dao.Uuid); ok {
+			pair = openPair
+		} else {
+			// Throttle calls to API
+			<-time.NewTimer(time.Second).C
+
+			// Load the pair from the database and API
+			pair, err = svc.NewFromDAO(dao)
+			if err != nil {
+				return nil, fmt.Errorf("could not load open order: %w", err)
+			}
+
+			// Add pair to open pairs
+			svc.RegisterOpenPair(pair)
+		}
+
+		// Add to return
+		pairs = append(pairs, pair)
 	}
 	return
 }
@@ -250,4 +315,33 @@ func (svc *Service) RefreshDatabasePairs() error {
 		<-time.NewTimer(time.Second).C
 	}
 	return nil
+}
+
+func (svc *Service) CollidingOpenPair(newPair *OrderPair) (pair *OrderPair, err error) {
+	// Get the pairs from cache
+	pairs, err := svc.LoadOpenPairs()
+	if err != nil {
+		return
+	}
+
+	// Search the pairs for a colliding one
+	for _, p := range pairs {
+		// Only check the ones going in the same direction
+		if newPair.FirstRequest().Side() == p.FirstRequest().Side() {
+			buyPrice := newPair.BuyRequest().Price()
+			sellPrice := newPair.SellRequest().Price()
+			lower := p.BuyRequest().Price()
+			upper := p.SellRequest().Price()
+
+			// If the buy or the sell of the new order is between the buy and sell of the order, it's colliding
+			if (buyPrice.GreaterThanOrEqual(lower) && buyPrice.LessThanOrEqual(upper)) ||
+				(sellPrice.GreaterThanOrEqual(lower) && sellPrice.LessThanOrEqual(upper)) {
+
+				// Return colliding pair
+				pair = p
+				return
+			}
+		}
+	}
+	return
 }
