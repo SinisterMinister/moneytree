@@ -391,8 +391,8 @@ func spread() (decimal.Decimal, error) {
 	// Set the profit target
 	target := decimal.NewFromFloat(viper.GetFloat64("followtheleader.targetReturn"))
 
-	// Add the taker fees twice for the two orders
-	rate := f.TakerRate().Add(f.TakerRate())
+	// Add the taker and maker fees for the orders
+	rate := f.TakerRate().Add(f.MakerRate())
 
 	// Calculate spread
 	spread := target.Add(rate)
