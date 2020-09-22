@@ -376,6 +376,8 @@ func size(ticker types.Ticker) (decimal.Decimal, error) {
 
 func spread() (decimal.Decimal, error) {
 	var f types.Fees
+
+	// Allow disabling of fees to let the system work the raw algorithm
 	if viper.GetBool("disableFees") == true {
 		f = fees.ZeroFee()
 	} else {
@@ -391,7 +393,9 @@ func spread() (decimal.Decimal, error) {
 	// Set the profit target
 	target := decimal.NewFromFloat(viper.GetFloat64("followtheleader.targetReturn"))
 
-	// Add the taker and maker fees for the orders
+	// Add the taker and maker fees for the orders. We add both as while the first order can be
+	// either a maker or a taker depending on configuration and/or timing, the second order is
+	// always a maker order due to the nature of the application.
 	rate := f.TakerRate().Add(f.MakerRate())
 
 	// Calculate spread
