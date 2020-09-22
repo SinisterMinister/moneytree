@@ -734,8 +734,14 @@ func (o *OrderPair) validate() error {
 	}
 
 	// Determin the fees
-	baseFee := o.BuyRequest().Quantity().Mul(rates.TakerRate())
-	quoteFee := o.SellRequest().Price().Mul(o.SellRequest().Quantity()).Mul(rates.TakerRate())
+	var baseFee, quoteFee decimal.Decimal
+	if o.FirstRequest().Side() == order.Buy {
+		baseFee = o.BuyRequest().Quantity().Mul(rates.TakerRate())
+		quoteFee = o.SellRequest().Price().Mul(o.SellRequest().Quantity()).Mul(rates.MakerRate())
+	} else {
+		baseFee = o.BuyRequest().Quantity().Mul(rates.MakerRate())
+		quoteFee = o.SellRequest().Price().Mul(o.SellRequest().Quantity()).Mul(rates.TakerRate())
+	}
 
 	// Make sure we're not losing currency
 	if baseRes.LessThanOrEqual(baseFee) {
