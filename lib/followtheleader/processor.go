@@ -494,44 +494,15 @@ func bailPrice(pair *orderpair.OrderPair) (price decimal.Decimal) {
 		reqPrice = ticker.Price()
 	}
 
-	orderSpread := pair.Spread()
 	reversalSpread := decimal.NewFromFloat(viper.GetFloat64("followtheleader.reversalSpread"))
-	reversalBufferPercent := decimal.NewFromFloat(viper.GetFloat64("followtheleader.reversalBufferPercent"))
 
 	switch direction {
 	case Downward:
-		// Try to get bail price from pair service
-		lowestPrice, err := pairSvc.LowestOpenBuyFirstPrice()
-		targetPrice := reqPrice.Add(reqPrice.Mul(reversalSpread))
-		// If price is zero, use reversal as base
-		if lowestPrice.Equal(decimal.Zero) {
-			if err != nil {
-				log.WithError(err).Warn("could not find bail price from open orders. bailing to spread based price")
-			}
-			lowestPrice = reqPrice.Add(reqPrice.Mul(orderSpread)).Add(reqPrice.Mul(reversalBufferPercent))
-		}
-		if lowestPrice.LessThan(targetPrice) {
-			price = lowestPrice
-		} else {
-			price = targetPrice
-		}
+		// Set price based on reversal spread
+		price = reqPrice.Add(reqPrice.Mul(reversalSpread))
 	case Upward:
-		// Try to get bail price from pair service
-		highestPrice, err := pairSvc.HighestOpenSellFirstPrice()
-		targetPrice := reqPrice.Sub(reqPrice.Mul(reversalSpread))
-
-		// If price is zero, use reversal as base
-		if highestPrice.Equal(decimal.Zero) {
-			if err != nil {
-				log.WithError(err).Warn("could not find bail price from open orders. bailing to spread based price")
-			}
-			highestPrice = reqPrice.Sub(reqPrice.Mul(orderSpread)).Sub(reqPrice.Mul(reversalBufferPercent))
-		}
-		if highestPrice.GreaterThan(targetPrice) {
-			price = highestPrice
-		} else {
-			price = targetPrice
-		}
+		// Set price based on reversal spread
+		price = reqPrice.Sub(reqPrice.Mul(reversalSpread))
 	default:
 		log.Error("invalid direction for bail price")
 	}
