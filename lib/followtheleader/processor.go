@@ -245,7 +245,16 @@ func buildDownwardPair() (*orderpair.OrderPair, error) {
 	spread = decimal.NewFromFloat(1).Add(spread)
 
 	// Set the prices
-	askPrice := ticker.Ask()
+	var askPrice decimal.Decimal
+
+	// Force taker orders
+	if viper.GetBool("followtheleader.forceTakerOrders") {
+		askPrice = ticker.Bid()
+	} else {
+		askPrice = ticker.Ask()
+	}
+
+	// Set the bid price from the ask price
 	bidPrice := askPrice.Sub(askPrice.Mul(spread).Sub(askPrice)).Round(int32(quoteCurrency.Precision()))
 
 	// Set the sizes
@@ -295,7 +304,16 @@ func buildUpwardPair() (*orderpair.OrderPair, error) {
 	spread = decimal.NewFromFloat(1).Add(spread)
 
 	// Set the prices
-	bidPrice := ticker.Bid()
+	var bidPrice decimal.Decimal
+
+	// Force taker orders
+	if viper.GetBool("followtheleader.forceTakerOrders") {
+		bidPrice = ticker.Ask()
+	} else {
+		bidPrice = ticker.Bid()
+	}
+
+	// Set the ask price from the bid price
 	askPrice := bidPrice.Mul(spread).Round(int32(quoteCurrency.Precision()))
 
 	// Set the sizes
@@ -494,8 +512,10 @@ func bailPrice(pair *orderpair.OrderPair) (price decimal.Decimal) {
 		reqPrice = ticker.Price()
 	}
 
+	// Get the reversal spread from config
 	reversalSpread := decimal.NewFromFloat(viper.GetFloat64("followtheleader.reversalSpread"))
 
+	// Adjust price with spread based on direction
 	switch direction {
 	case Downward:
 		// Set price based on reversal spread
@@ -506,7 +526,9 @@ func bailPrice(pair *orderpair.OrderPair) (price decimal.Decimal) {
 	default:
 		log.Error("invalid direction for bail price")
 	}
+
 	log.Debugf("order bail price is %s", price.String())
+
 	return
 }
 
