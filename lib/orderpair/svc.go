@@ -341,6 +341,10 @@ func (svc *Service) ResumeCollidingOpenPair(newPair *OrderPair) (pair *OrderPair
 				// Return colliding pair
 				pair = p
 				pair.done = make(chan bool)
+
+				// Save pair
+				pair.Save()
+
 				return
 			}
 		}
