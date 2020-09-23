@@ -235,48 +235,55 @@ func buildDownwardPair() (*orderpair.OrderPair, error) {
 		return nil, err
 	}
 
-	// Determine prices using the spread
+	// Get spread
 	spread, err := spread()
 	if err != nil {
 		return nil, err
 	}
 
-	// Prepare the spread to be applied
-	spread = decimal.NewFromFloat(1).Add(spread)
+	// Get the fees
+	orderFees, err := getFees()
+	if err != nil {
+		return nil, err
+	}
 
-	// Set the prices
-	var askPrice decimal.Decimal
+	// Set the sell price
+	var sellPrice decimal.Decimal
 
 	// Force taker orders
 	if viper.GetBool("followtheleader.forceTakerOrders") {
-		askPrice = ticker.Bid()
+		sellPrice = ticker.Bid()
 	} else {
-		askPrice = ticker.Ask()
+		sellPrice = ticker.Ask()
 	}
 
-	// Set the bid price from the ask price
-	bidPrice := askPrice.Sub(askPrice.Mul(spread).Sub(askPrice)).Round(int32(quoteCurrency.Precision()))
+	// Determine buy price
+	buyPrice := sellPrice.Sub(sellPrice.Mul(spread)).Round(int32(quoteCurrency.Precision()))
 
-	// Set the sizes
+	// Set the base size
 	size, err := size(ticker)
 	if err != nil {
 		return nil, err
 	}
-	bidSize := size.Round(int32(baseCurrency.Precision()))
-	askSize := size.Div(decimal.NewFromFloat(2)).Mul(bidPrice).Div(askPrice).Add(bidSize.Div(decimal.NewFromFloat(2))).Round(int32(baseCurrency.Precision()))
+
+	// Set sell size to base size
+	buySize := size.Round(int32(baseCurrency.Precision()))
+
+	// Determine buy size
+	sellSize := size.Div(decimal.NewFromFloat(2)).Mul(buyPrice).Div(sellPrice).Add(buySize.Div(decimal.NewFromFloat(2)).Mul(orderFees.TakerRate())).Round(int32(baseCurrency.Precision()))
 
 	// Build the order requests
-	askReq := order.NewRequest(market, order.Limit, order.Sell, askSize, askPrice)
-	bidReq := order.NewRequest(market, order.Limit, order.Buy, bidSize, bidPrice)
+	sellReq := order.NewRequest(market, order.Limit, order.Sell, sellSize, sellPrice)
+	buyReq := order.NewRequest(market, order.Limit, order.Buy, buySize, buyPrice)
 	log.WithFields(
-		log.F("askSize", askSize.String()),
-		log.F("askPrice", askPrice.String()),
-		log.F("bidSize", bidSize.String()),
-		log.F("bidPrice", bidPrice.String()),
+		log.F("sellSize", sellSize.String()),
+		log.F("sellPrice", sellPrice.String()),
+		log.F("buySize", buySize.String()),
+		log.F("buyPrice", buyPrice.String()),
 	).Info("downward trending order data")
 
 	// Create order pair
-	op, err := pairSvc.New(askReq, bidReq)
+	op, err := pairSvc.New(sellReq, buyReq)
 	if err != nil {
 		return nil, fmt.Errorf("could not create order pair: %w", err)
 	}
@@ -300,42 +307,45 @@ func buildUpwardPair() (*orderpair.OrderPair, error) {
 		return nil, err
 	}
 
-	// Prepare the spread to be applied
-	spread = decimal.NewFromFloat(1).Add(spread)
+	// Get the fees
+	orderFees, err := getFees()
+	if err != nil {
+		return nil, err
+	}
 
 	// Set the prices
-	var bidPrice decimal.Decimal
+	var buyPrice decimal.Decimal
 
 	// Force taker orders
 	if viper.GetBool("followtheleader.forceTakerOrders") {
-		bidPrice = ticker.Ask()
+		buyPrice = ticker.Ask()
 	} else {
-		bidPrice = ticker.Bid()
+		buyPrice = ticker.Bid()
 	}
 
 	// Set the ask price from the bid price
-	askPrice := bidPrice.Mul(spread).Round(int32(quoteCurrency.Precision()))
+	sellPrice := buyPrice.Add(buyPrice.Mul(spread)).Round(int32(quoteCurrency.Precision()))
 
 	// Set the sizes
 	size, err := size(ticker)
 	if err != nil {
 		return nil, err
 	}
-	bidSize := size.Round(int32(baseCurrency.Precision()))
-	askSize := size.Div(decimal.NewFromFloat(2)).Mul(bidPrice).Div(askPrice).Add(size.Div(decimal.NewFromFloat(2))).Round(int32(baseCurrency.Precision()))
+	buySize := size.Round(int32(baseCurrency.Precision()))
+	sellSize := size.Div(decimal.NewFromFloat(2)).Mul(buyPrice).Div(sellPrice).Add(size.Div(decimal.NewFromFloat(2)).Mul(orderFees.MakerRate())).Round(int32(baseCurrency.Precision()))
 
 	// Build the order requests
-	askReq := order.NewRequest(market, order.Limit, order.Sell, askSize, askPrice)
-	bidReq := order.NewRequest(market, order.Limit, order.Buy, bidSize, bidPrice)
+	sellReq := order.NewRequest(market, order.Limit, order.Sell, sellSize, sellPrice)
+	buyReq := order.NewRequest(market, order.Limit, order.Buy, buySize, buyPrice)
 	log.WithFields(
-		log.F("askSize", askSize.String()),
-		log.F("askPrice", askPrice.String()),
-		log.F("bidSize", bidSize.String()),
-		log.F("bidPrice", bidPrice.String()),
+		log.F("askSize", sellSize.String()),
+		log.F("sellPrice", sellPrice.String()),
+		log.F("bidSize", buySize.String()),
+		log.F("buyPrice", buyPrice.String()),
 	).Info("upward trending order data")
 
 	// Create order pair
-	op, err := pairSvc.New(bidReq, askReq)
+	op, err := pairSvc.New(buyReq, sellReq)
 	if err != nil {
 		return nil, fmt.Errorf("could not create order pair: %w", err)
 	}
@@ -353,7 +363,7 @@ func size(ticker types.Ticker) (decimal.Decimal, error) {
 	// Determine order size from average volume
 	size, err := market.AverageTradeVolume()
 	if err != nil {
-		return size, err
+		return decimal.Zero, err
 	}
 
 	// Get wallets
@@ -374,9 +384,7 @@ func size(ticker types.Ticker) (decimal.Decimal, error) {
 	return baseSize, nil
 }
 
-func spread() (decimal.Decimal, error) {
-	var f types.Fees
-
+func getFees() (f types.Fees, err error) {
 	// Allow disabling of fees to let the system work the raw algorithm
 	if viper.GetBool("disableFees") == true {
 		f = fees.ZeroFee()
@@ -386,8 +394,17 @@ func spread() (decimal.Decimal, error) {
 		f, err = trader.AccountSvc().Fees()
 		if err != nil {
 			log.WithError(err).Error("failed to get fees")
-			return decimal.Zero, err
+			return fees.ZeroFee(), err
 		}
+	}
+	return
+}
+
+func spread() (decimal.Decimal, error) {
+	f, err := getFees()
+	if err != nil {
+		log.WithError(err).Error("failed to get fees")
+		return decimal.Zero, err
 	}
 
 	// Set the profit target
