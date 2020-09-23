@@ -713,7 +713,7 @@ func (o *OrderPair) validate() error {
 	}
 
 	// Figure out the net result of the trades against our currency balance
-	baseRes := o.BuyRequest().Quantity().Sub(o.SellRequest().Quantity())
+	baseRes := o.SellRequest().Quantity().Sub(o.BuyRequest().Quantity())
 	quoteRes := o.SellRequest().Price().Mul(o.SellRequest().Quantity()).Sub(o.BuyRequest().Price().Mul(o.BuyRequest().Quantity()))
 
 	// Make sure we're not losing currency
