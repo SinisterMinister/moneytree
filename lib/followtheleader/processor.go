@@ -270,7 +270,7 @@ func buildDownwardPair() (*orderpair.OrderPair, error) {
 	buySize := size.Round(int32(baseCurrency.Precision()))
 
 	// Determine buy size
-	sellSize := size.Div(decimal.NewFromFloat(2)).Mul(buyPrice).Div(sellPrice).Add(buySize.Div(decimal.NewFromFloat(2)).Mul(orderFees.TakerRate())).Round(int32(baseCurrency.Precision()))
+	sellSize := size.Add(size.Mul(spread)).Add(size.Add(size.Mul(orderFees.MakerRate()))).Div(decimal.NewFromFloat(2))
 
 	// Build the order requests
 	sellReq := order.NewRequest(market, order.Limit, order.Sell, sellSize, sellPrice)
@@ -332,13 +332,14 @@ func buildUpwardPair() (*orderpair.OrderPair, error) {
 		return nil, err
 	}
 	buySize := size.Round(int32(baseCurrency.Precision()))
-	sellSize := size.Div(decimal.NewFromFloat(2)).Mul(buyPrice).Div(sellPrice).Add(size.Div(decimal.NewFromFloat(2)).Mul(orderFees.MakerRate())).Round(int32(baseCurrency.Precision()))
+	sellSize := size.Add(size.Mul(spread)).Add(size.Add(size.Mul(orderFees.MakerRate()))).Div(decimal.NewFromFloat(2))
+	// sellSize := size.Div(two).Mul(buyPrice).Div(sellPrice).Add(size.Div(decimal.NewFromFloat(2)).Mul(orderFees.MakerRate())).Round(int32(baseCurrency.Precision()))
 
 	// Build the order requests
 	sellReq := order.NewRequest(market, order.Limit, order.Sell, sellSize, sellPrice)
 	buyReq := order.NewRequest(market, order.Limit, order.Buy, buySize, buyPrice)
 	log.WithFields(
-		log.F("askSize", sellSize.String()),
+		log.F("sellSize", sellSize.String()),
 		log.F("sellPrice", sellPrice.String()),
 		log.F("bidSize", buySize.String()),
 		log.F("buyPrice", buyPrice.String()),
