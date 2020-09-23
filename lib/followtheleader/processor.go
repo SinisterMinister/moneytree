@@ -271,7 +271,7 @@ func buildDownwardPair() (*orderpair.OrderPair, error) {
 
 	// Determine buy size
 	two := decimal.NewFromFloat(2)
-	buySize := size.Sub(size.Mul(spread)).Add(size.Sub(size.Mul(orderFees.MakerRate()))).Div(two)
+	buySize := size.Sub(size.Mul(spread)).Add(size.Sub(size.Mul(orderFees.MakerRate()))).Div(two).Round(int32(baseCurrency.Precision()))
 
 	// Build the order requests
 	sellReq := order.NewRequest(market, order.Limit, order.Sell, sellSize, sellPrice)
@@ -338,7 +338,7 @@ func buildUpwardPair() (*orderpair.OrderPair, error) {
 
 	// Determine buy size
 	two := decimal.NewFromFloat(2)
-	buySize := size.Sub(size.Mul(spread)).Add(size.Sub(size.Mul(orderFees.MakerRate()))).Div(two)
+	buySize := size.Sub(size.Mul(spread)).Add(size.Sub(size.Mul(orderFees.MakerRate()))).Div(two).Round(int32(baseCurrency.Precision()))
 
 	// Build the order requests
 	sellReq := order.NewRequest(market, order.Limit, order.Sell, sellSize, sellPrice)
