@@ -241,12 +241,6 @@ func buildDownwardPair() (*orderpair.OrderPair, error) {
 		return nil, err
 	}
 
-	// Get the fees
-	orderFees, err := getFees()
-	if err != nil {
-		return nil, err
-	}
-
 	// Set the sell price
 	var sellPrice decimal.Decimal
 
@@ -266,12 +260,14 @@ func buildDownwardPair() (*orderpair.OrderPair, error) {
 		return nil, err
 	}
 
-	// Set sell size to base size
+	// Set buy size to base size
 	buySize := size.Round(int32(baseCurrency.Precision()))
 
-	// Determine buy size
+	// Determine sell size so that both currencies gain
 	two := decimal.NewFromFloat(2)
-	sellSize := size.Sub(size.Mul(spread)).Add(size.Sub(size.Mul(orderFees.MakerRate()))).Div(two).Round(int32(baseCurrency.Precision()))
+	quoteGainSize := size.Sub(size.Mul(spread)).Div(two)
+	baseGainSize := buySize.Sub(spread).Mul(buyPrice).Div(sellPrice).Div(two)
+	sellSize := quoteGainSize.Add(baseGainSize).Round(int32(baseCurrency.Precision()))
 
 	// Build the order requests
 	sellReq := order.NewRequest(market, order.Limit, order.Sell, sellSize, sellPrice)
@@ -308,12 +304,6 @@ func buildUpwardPair() (*orderpair.OrderPair, error) {
 		return nil, err
 	}
 
-	// Get the fees
-	orderFees, err := getFees()
-	if err != nil {
-		return nil, err
-	}
-
 	// Set the prices
 	var buyPrice decimal.Decimal
 
@@ -333,12 +323,14 @@ func buildUpwardPair() (*orderpair.OrderPair, error) {
 		return nil, err
 	}
 
-	// Set sell size to base size
+	// Set buy size to base size
 	buySize := size.Round(int32(baseCurrency.Precision()))
 
-	// Determine buy size
+	// Determine sell size so that both currencies gain
 	two := decimal.NewFromFloat(2)
-	sellSize := size.Sub(size.Mul(spread)).Add(size.Sub(size.Mul(orderFees.MakerRate()))).Div(two).Round(int32(baseCurrency.Precision()))
+	quoteGainSize := size.Sub(size.Mul(spread)).Div(two)
+	baseGainSize := buySize.Sub(spread).Mul(buyPrice).Div(sellPrice).Div(two)
+	sellSize := quoteGainSize.Add(baseGainSize).Round(int32(baseCurrency.Precision()))
 
 	// Build the order requests
 	sellReq := order.NewRequest(market, order.Limit, order.Sell, sellSize, sellPrice)
