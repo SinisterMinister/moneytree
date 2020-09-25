@@ -287,7 +287,7 @@ func buildDownwardPair() (*orderpair.OrderPair, error) {
 	s4 := four.Mul(buySize).Mul(sellPrice).Mul(fee2)
 	s5 := sixteen.Mul(buySize.Pow(two)).Mul(buyPrice).Mul(sellPrice)
 	// ((-4 * a * d) + (4 * e * a * d) + (4 * a * d * f) + (4 * a * d * g) + sqrt(pow((4 * a * d) - (4 * e * a * d) - (4 * a * d * f) - (4 * a * d * g), 2) - 16 * pow(a, 2) * b * d)) / 4 * d
-	sellSize := s1.Neg().Add(s2).Add(s3).Add(s4).Add(s1.Sub(s2).Sub(s3).Sub(s4).Pow(two).Sub(s5).Pow(half)).Div(four.Mul(sellPrice)).Neg()
+	sellSize := s1.Neg().Add(s2).Add(s3).Add(s4).Add(s1.Sub(s2).Sub(s3).Sub(s4).Pow(two).Sub(s5).Pow(half)).Div(four.Mul(sellPrice)).Neg().Round(int32(baseCurrency.Precision()))
 
 	// Build the order requests
 	sellReq := order.NewRequest(market, order.Limit, order.Sell, sellSize, sellPrice)
@@ -370,7 +370,7 @@ func buildUpwardPair() (*orderpair.OrderPair, error) {
 	s4 := four.Mul(buySize).Mul(sellPrice).Mul(fee2)
 	s5 := sixteen.Mul(buySize.Pow(two)).Mul(buyPrice).Mul(sellPrice)
 	// ((-4 * a * d) + (4 * e * a * d) + (4 * a * d * f) + (4 * a * d * g) + sqrt(pow((4 * a * d) - (4 * e * a * d) - (4 * a * d * f) - (4 * a * d * g), 2) - 16 * pow(a, 2) * b * d)) / 4 * d
-	sellSize := s1.Neg().Add(s2).Add(s3).Add(s4).Add(s1.Sub(s2).Sub(s3).Sub(s4).Pow(two).Sub(s5).Pow(half)).Div(four.Mul(sellPrice)).Neg()
+	sellSize := s1.Neg().Add(s2).Add(s3).Add(s4).Add(s1.Sub(s2).Sub(s3).Sub(s4).Pow(two).Sub(s5).Pow(half)).Div(four.Mul(sellPrice)).Neg().Round(int32(baseCurrency.Precision()))
 
 	// Build the order requests
 	sellReq := order.NewRequest(market, order.Limit, order.Sell, sellSize, sellPrice)
