@@ -269,8 +269,8 @@ func buildDownwardPair() (*orderpair.OrderPair, error) {
 		return nil, fmt.Errorf("could not load fees: %w", err)
 	}
 	two := decimal.NewFromFloat(2)
-	fee1 := orderFee.TakerRate()
-	fee2 := orderFee.MakerRate()
+	fee1 := orderFee.MakerRate()
+	fee2 := orderFee.TakerRate()
 	// -2ad + 2adf + 2adg
 	sellSize1 := decimal.NewFromFloat(-2).Mul(buySize).Mul(sellPrice).Add(two.Mul(buySize).Mul(sellPrice).Mul(fee1)).Add(two.Mul(buySize).Mul(sellPrice).Mul(fee2))
 	// (2ad - 2adf -2adg)^2
