@@ -264,14 +264,20 @@ func buildDownwardPair() (*orderpair.OrderPair, error) {
 	buySize := size.Round(int32(baseCurrency.Precision()))
 
 	// Determine sell size so that both currencies gain
-	// Set the profit target
-	target := decimal.NewFromFloat(viper.GetFloat64("followtheleader.targetReturn"))
 	orderFee, err := getFees()
 	if err != nil {
 		return nil, fmt.Errorf("could not load fees: %w", err)
 	}
 	two := decimal.NewFromFloat(2)
-	sellSize := two.Add(target).Sub(orderFee.MakerRate()).Sub(orderFee.TakerRate()).Add(buyPrice.Mul(buySize).Div(sellPrice)).Mul(buySize)
+	fee1 := orderFee.TakerRate()
+	fee2 := orderFee.MakerRate()
+	// -2ad + 2adf + 2adg
+	sellSize1 := decimal.NewFromFloat(-2).Mul(buySize).Mul(sellPrice).Add(two.Mul(buySize).Mul(sellPrice).Mul(fee1)).Add(two.Mul(buySize).Mul(sellPrice).Mul(fee2))
+	// (2ad - 2adf -2adg)^2
+	sellSize2 := two.Mul(buySize).Mul(sellPrice).Sub(two.Mul(buySize).Mul(sellPrice).Mul(fee1)).Sub(two.Mul(buySize).Mul(sellPrice).Mul(fee2)).Pow(two)
+	// (-2ad + 2adf + 2adg + sqrt((2ad - 2adf -2adg)^2 - 4a^2bd)/2d
+	sellSize := sellSize1.Add(sellSize2.Sub(decimal.NewFromFloat(4).Mul(buySize.Pow(two)).Mul(buyPrice).Mul(sellPrice)).Pow(decimal.NewFromFloat(1 / 2))).Div(two.Mul(sellPrice))
+	sellSize = sellSize.Round(int32(baseCurrency.Precision()))
 
 	// Build the order requests
 	sellReq := order.NewRequest(market, order.Limit, order.Sell, sellSize, sellPrice)
@@ -331,15 +337,20 @@ func buildUpwardPair() (*orderpair.OrderPair, error) {
 	buySize := size.Round(int32(baseCurrency.Precision()))
 
 	// Determine sell size so that both currencies gain
-
-	// Set the profit target
-	target := decimal.NewFromFloat(viper.GetFloat64("followtheleader.targetReturn"))
 	orderFee, err := getFees()
 	if err != nil {
 		return nil, fmt.Errorf("could not load fees: %w", err)
 	}
 	two := decimal.NewFromFloat(2)
-	sellSize := two.Add(target).Sub(orderFee.MakerRate()).Sub(orderFee.TakerRate()).Add(buyPrice.Mul(buySize).Div(sellPrice)).Mul(buySize)
+	fee1 := orderFee.TakerRate()
+	fee2 := orderFee.MakerRate()
+	// -2ad + 2adf + 2adg
+	sellSize1 := decimal.NewFromFloat(-2).Mul(buySize).Mul(sellPrice).Add(two.Mul(buySize).Mul(sellPrice).Mul(fee1)).Add(two.Mul(buySize).Mul(sellPrice).Mul(fee2))
+	// (2ad - 2adf -2adg)^2
+	sellSize2 := two.Mul(buySize).Mul(sellPrice).Sub(two.Mul(buySize).Mul(sellPrice).Mul(fee1)).Sub(two.Mul(buySize).Mul(sellPrice).Mul(fee2)).Pow(two)
+	// (-2ad + 2adf + 2adg + sqrt((2ad - 2adf -2adg)^2 - 4a^2bd)/2d
+	sellSize := sellSize1.Add(sellSize2.Sub(decimal.NewFromFloat(4).Mul(buySize.Pow(two)).Mul(buyPrice).Mul(sellPrice)).Pow(decimal.NewFromFloat(1 / 2))).Div(two.Mul(sellPrice))
+	sellSize = sellSize.Round(int32(baseCurrency.Precision()))
 
 	// Build the order requests
 	sellReq := order.NewRequest(market, order.Limit, order.Sell, sellSize, sellPrice)
