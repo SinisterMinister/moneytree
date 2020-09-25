@@ -274,8 +274,8 @@ func buildDownwardPair() (*orderpair.OrderPair, error) {
 	four := decimal.NewFromFloat(4)
 
 	// Get the fees
-	fee1 := orderFee.TakerRate()
-	fee2 := orderFee.MakerRate()
+	fee1 := orderFee.MakerRate()
+	fee2 := orderFee.TakerRate()
 
 	// Get the target return
 	target := decimal.NewFromFloat(viper.GetFloat64("followtheleader.targetReturn"))
