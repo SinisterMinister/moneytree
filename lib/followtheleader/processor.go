@@ -275,8 +275,8 @@ func buildDownwardPair() (*orderpair.OrderPair, error) {
 	sellSize1 := decimal.NewFromFloat(-2).Mul(buySize).Mul(sellPrice).Add(two.Mul(buySize).Mul(sellPrice).Mul(fee1)).Add(two.Mul(buySize).Mul(sellPrice).Mul(fee2))
 	// (2ad - 2adf -2adg)^2
 	sellSize2 := two.Mul(buySize).Mul(sellPrice).Sub(two.Mul(buySize).Mul(sellPrice).Mul(fee1)).Sub(two.Mul(buySize).Mul(sellPrice).Mul(fee2)).Pow(two)
-	// (-2ad + 2adf + 2adg + sqrt((2ad - 2adf -2adg)^2 - 4a^2bd)/2d
-	sellSize := sellSize1.Add(sellSize2.Sub(decimal.NewFromFloat(4).Mul(buySize.Pow(two)).Mul(buyPrice).Mul(sellPrice)).Pow(decimal.NewFromFloat(1 / 2))).Div(two.Mul(sellPrice))
+	// (-2ad + 2adf + 2adg - sqrt((2ad - 2adf -2adg)^2 - 4a^2bd)/2d
+	sellSize := sellSize1.Sub(sellSize2.Sub(decimal.NewFromFloat(4).Mul(buySize.Pow(two)).Mul(buyPrice).Mul(sellPrice)).Pow(decimal.NewFromFloat(1 / 2))).Div(two.Mul(sellPrice))
 	sellSize = sellSize.Round(int32(baseCurrency.Precision()))
 
 	// Build the order requests
@@ -348,8 +348,8 @@ func buildUpwardPair() (*orderpair.OrderPair, error) {
 	sellSize1 := decimal.NewFromFloat(-2).Mul(buySize).Mul(sellPrice).Add(two.Mul(buySize).Mul(sellPrice).Mul(fee1)).Add(two.Mul(buySize).Mul(sellPrice).Mul(fee2))
 	// (2ad - 2adf -2adg)^2
 	sellSize2 := two.Mul(buySize).Mul(sellPrice).Sub(two.Mul(buySize).Mul(sellPrice).Mul(fee1)).Sub(two.Mul(buySize).Mul(sellPrice).Mul(fee2)).Pow(two)
-	// (-2ad + 2adf + 2adg + sqrt((2ad - 2adf -2adg)^2 - 4a^2bd)/2d
-	sellSize := sellSize1.Add(sellSize2.Sub(decimal.NewFromFloat(4).Mul(buySize.Pow(two)).Mul(buyPrice).Mul(sellPrice)).Pow(decimal.NewFromFloat(1 / 2))).Div(two.Mul(sellPrice))
+	// (-2ad + 2adf + 2adg - sqrt((2ad - 2adf -2adg)^2 - 4a^2bd)/2d
+	sellSize := sellSize1.Sub(sellSize2.Sub(decimal.NewFromFloat(4).Mul(buySize.Pow(two)).Mul(buyPrice).Mul(sellPrice)).Pow(decimal.NewFromFloat(1 / 2))).Div(two.Mul(sellPrice))
 	sellSize = sellSize.Round(int32(baseCurrency.Precision()))
 
 	// Build the order requests
