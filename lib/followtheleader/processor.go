@@ -270,8 +270,6 @@ func buildDownwardPair() (*orderpair.OrderPair, error) {
 	}
 	// Setup the numbers we need
 	two := decimal.NewFromFloat(2)
-	three := decimal.NewFromFloat(3)
-	four := decimal.NewFromFloat(4)
 
 	// Get the fees
 	fee1 := orderFee.MakerRate()
@@ -280,12 +278,21 @@ func buildDownwardPair() (*orderpair.OrderPair, error) {
 	// Get the target return
 	target := decimal.NewFromFloat(viper.GetFloat64("followtheleader.targetReturn"))
 
-	s1 := four.Mul(buySize).Mul(buyPrice).Mul(fee1)
-	s2 := three.Mul(target).Mul(buySize).Mul(buyPrice)
-	s3 := two.Mul(buySize).Mul(buyPrice).Mul(fee2)
-	s4 := s1.Add(s2).Add(s3)
-	s5 := two.Mul(buyPrice).Sub(two.Mul(sellPrice).Add(target.Mul(sellPrice)).Add(two.Mul(sellPrice).Mul(fee2))).Round(int32(baseCurrency.Precision()))
-	sellSize := s4.Div(s5)
+	n1 := two.Mul(target).Mul(buySize).Mul(sellPrice).Mul(buyPrice)
+	n2 := two.Mul(buySize).Mul(sellPrice).Mul(buyPrice).Mul(fee1)
+	n3 := two.Mul(buySize).Mul(sellPrice).Mul(buyPrice).Mul(fee2)
+	n4 := two.Mul(buySize.Pow(two)).Mul(buyPrice)
+	n5 := target.Mul(buySize.Pow(two)).Mul(buyPrice)
+	n6 := two.Mul(buySize.Pow(two)).Mul(buyPrice).Mul(fee1)
+	n7 := two.Mul(buySize).Mul(sellPrice).Mul(buyPrice)
+	n := n1.Add(n2).Add(n3).Sub(n4.Add(n5).Add(n6).Add(n7))
+
+	d1 := two.Neg().Mul(sellPrice.Pow(two))
+	d2 := target.Mul(sellPrice.Pow(two))
+	d3 := two.Mul(sellPrice.Pow(two)).Mul(fee2)
+	d4 := two.Mul(buySize).Mul(buyPrice)
+	d := d1.Add(d2).Add(d3).Add(d4)
+	sellSize := n.Div(d).Round(int32(baseCurrency.Precision()))
 
 	// Build the order requests
 	sellReq := order.NewRequest(market, order.Limit, order.Sell, sellSize, sellPrice)
@@ -351,8 +358,6 @@ func buildUpwardPair() (*orderpair.OrderPair, error) {
 	}
 	// Setup the numbers we need
 	two := decimal.NewFromFloat(2)
-	three := decimal.NewFromFloat(3)
-	four := decimal.NewFromFloat(4)
 
 	// Get the fees
 	fee1 := orderFee.TakerRate()
@@ -361,12 +366,21 @@ func buildUpwardPair() (*orderpair.OrderPair, error) {
 	// Get the target return
 	target := decimal.NewFromFloat(viper.GetFloat64("followtheleader.targetReturn"))
 
-	s1 := four.Mul(buySize).Mul(buyPrice).Mul(fee1)
-	s2 := three.Mul(target).Mul(buySize).Mul(buyPrice)
-	s3 := two.Mul(buySize).Mul(buyPrice).Mul(fee2)
-	s4 := s1.Add(s2).Add(s3)
-	s5 := two.Mul(buyPrice).Sub(two.Mul(sellPrice).Add(target.Mul(sellPrice)).Add(two.Mul(sellPrice).Mul(fee2))).Round(int32(baseCurrency.Precision()))
-	sellSize := s4.Div(s5)
+	n1 := two.Mul(target).Mul(buySize).Mul(sellPrice).Mul(buyPrice)
+	n2 := two.Mul(buySize).Mul(sellPrice).Mul(buyPrice).Mul(fee1)
+	n3 := two.Mul(buySize).Mul(sellPrice).Mul(buyPrice).Mul(fee2)
+	n4 := two.Mul(buySize.Pow(two)).Mul(buyPrice)
+	n5 := target.Mul(buySize.Pow(two)).Mul(buyPrice)
+	n6 := two.Mul(buySize.Pow(two)).Mul(buyPrice).Mul(fee1)
+	n7 := two.Mul(buySize).Mul(sellPrice).Mul(buyPrice)
+	n := n1.Add(n2).Add(n3).Sub(n4.Add(n5).Add(n6).Add(n7))
+
+	d1 := two.Neg().Mul(sellPrice.Pow(two))
+	d2 := target.Mul(sellPrice.Pow(two))
+	d3 := two.Mul(sellPrice.Pow(two)).Mul(fee2)
+	d4 := two.Mul(buySize).Mul(buyPrice)
+	d := d1.Add(d2).Add(d3).Add(d4)
+	sellSize := n.Div(d).Round(int32(baseCurrency.Precision()))
 
 	// Build the order requests
 	sellReq := order.NewRequest(market, order.Limit, order.Sell, sellSize, sellPrice)
