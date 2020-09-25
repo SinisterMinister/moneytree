@@ -264,10 +264,14 @@ func buildDownwardPair() (*orderpair.OrderPair, error) {
 	buySize := size.Round(int32(baseCurrency.Precision()))
 
 	// Determine sell size so that both currencies gain
+	// Set the profit target
+	target := decimal.NewFromFloat(viper.GetFloat64("followtheleader.targetReturn"))
+	orderFee, err := getFees()
+	if err != nil {
+		return nil, fmt.Errorf("could not load fees: %w", err)
+	}
 	two := decimal.NewFromFloat(2)
-	quoteGainSize := size.Sub(size.Mul(spread)).Div(two)
-	baseGainSize := buySize.Sub(spread).Mul(buyPrice).Div(sellPrice).Div(two)
-	sellSize := quoteGainSize.Add(baseGainSize).Round(int32(baseCurrency.Precision()))
+	sellSize := two.Add(target).Sub(orderFee.MakerRate()).Sub(orderFee.TakerRate()).Add(buyPrice.Mul(buySize).Div(sellPrice)).Mul(buySize)
 
 	// Build the order requests
 	sellReq := order.NewRequest(market, order.Limit, order.Sell, sellSize, sellPrice)
@@ -327,10 +331,15 @@ func buildUpwardPair() (*orderpair.OrderPair, error) {
 	buySize := size.Round(int32(baseCurrency.Precision()))
 
 	// Determine sell size so that both currencies gain
+
+	// Set the profit target
+	target := decimal.NewFromFloat(viper.GetFloat64("followtheleader.targetReturn"))
+	orderFee, err := getFees()
+	if err != nil {
+		return nil, fmt.Errorf("could not load fees: %w", err)
+	}
 	two := decimal.NewFromFloat(2)
-	quoteGainSize := size.Sub(size.Mul(spread)).Div(two)
-	baseGainSize := buySize.Sub(spread).Mul(buyPrice).Div(sellPrice).Div(two)
-	sellSize := quoteGainSize.Add(baseGainSize).Round(int32(baseCurrency.Precision()))
+	sellSize := two.Add(target).Sub(orderFee.MakerRate()).Sub(orderFee.TakerRate()).Add(buyPrice.Mul(buySize).Div(sellPrice)).Mul(buySize)
 
 	// Build the order requests
 	sellReq := order.NewRequest(market, order.Limit, order.Sell, sellSize, sellPrice)
