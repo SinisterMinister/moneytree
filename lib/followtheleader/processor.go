@@ -284,7 +284,7 @@ func buildDownwardPair() (*orderpair.OrderPair, error) {
 	s2 := three.Mul(target).Mul(buySize).Mul(buyPrice)
 	s3 := two.Mul(buySize).Mul(buyPrice).Mul(fee2)
 	s4 := s1.Add(s2).Add(s3)
-	s5 := two.Mul(buyPrice).Sub(two.Mul(sellPrice).Add(target.Mul(sellPrice).Add(two.Mul(sellPrice).Mul(fee2))))
+	s5 := two.Mul(buyPrice).Sub(two.Mul(sellPrice).Add(target.Mul(sellPrice)).Add(two.Mul(sellPrice).Mul(fee2))).Round(int32(baseCurrency.Precision()))
 	sellSize := s4.Div(s5)
 
 	// Build the order requests
@@ -365,7 +365,7 @@ func buildUpwardPair() (*orderpair.OrderPair, error) {
 	s2 := three.Mul(target).Mul(buySize).Mul(buyPrice)
 	s3 := two.Mul(buySize).Mul(buyPrice).Mul(fee2)
 	s4 := s1.Add(s2).Add(s3)
-	s5 := two.Mul(buyPrice).Sub(two.Mul(sellPrice).Add(target.Mul(sellPrice).Add(two.Mul(sellPrice).Mul(fee2))))
+	s5 := two.Mul(buyPrice).Sub(two.Mul(sellPrice).Add(target.Mul(sellPrice)).Add(two.Mul(sellPrice).Mul(fee2))).Round(int32(baseCurrency.Precision()))
 	sellSize := s4.Div(s5)
 
 	// Build the order requests
