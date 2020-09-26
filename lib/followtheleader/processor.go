@@ -279,25 +279,26 @@ func buildDownwardPair() (*orderpair.OrderPair, error) {
 	// Setup the numbers we need
 	half := decimal.NewFromFloat(1 / 2)
 	two := decimal.NewFromFloat(2)
-	three := decimal.NewFromFloat(3)
 	four := decimal.NewFromFloat(4)
-	eight := decimal.NewFromFloat(8)
 	sixteen := decimal.NewFromFloat(16)
 
-	// 8g + 4t
-	n := eight.Mul(fee2).Add(four.Mul(target))
+	// 4adt
+	n1 := four.Mul(buySize).Mul(sellPrice).Mul(target)
+	// 4ad
+	n2 := four.Mul(buySize).Mul(sellPrice)
+	// 4adf
+	n3 := four.Mul(buySize).Mul(sellPrice).Mul(fee1)
+	// 4adg
+	n4 := four.Mul(buySize).Mul(sellPrice).Mul(fee2)
+	// (-4adt + 4ad - 4adf - 4adg)^2
+	n5 := n1.Neg().Add(n2).Sub(n3).Sub(n4).Pow(two)
+	// 16a^2*db
+	n6 := sixteen.Mul(buySize.Pow(two)).Mul(sellPrice).Mul(buyPrice)
+	n := n1.Sub(n2).Add(n3).Add(n4).Add(n5.Sub(n6).Pow(half))
 
-	// 8f^2*g + 4f^2*t + 8fgt
-	d1 := eight.Mul(fee1.Pow(two)).Mul(fee2).Add(four.Mul(fee1.Pow(two)).Mul(target)).Add(eight.Mul(fee1).Mul(fee2).Mul(target))
-	// 4ft^2 + 2gt^2 + t^3
-	d2 := four.Mul(fee1).Mul(target.Pow(two)).Add(two.Mul(fee2).Mul(target.Pow(two))).Add(target.Pow(three))
-	// 16fg + 8ft + 8gt
-	d3 := sixteen.Mul(fee1).Mul(fee2).Add(eight.Mul(fee1).Mul(target)).Add(eight.Mul(fee2).Mul(target))
-	// 4t^2 + 8g + 4t
-	d4 := four.Mul(target.Pow(two)).Add(eight.Mul(fee2)).Add(four.Mul(target))
-	//  +
-	d := d1.Add(d2).Add(d3).Add(d4)
-	sellSize := n.Div(d).Pow(half)
+	// 4d
+	d := four.Mul(sellPrice)
+	sellSize := n.Div(d)
 
 	// Build the order requests
 	sellReq := order.NewRequest(market, order.Limit, order.Sell, sellSize, sellPrice)
@@ -372,25 +373,26 @@ func buildUpwardPair() (*orderpair.OrderPair, error) {
 	// Setup the numbers we need
 	half := decimal.NewFromFloat(1 / 2)
 	two := decimal.NewFromFloat(2)
-	three := decimal.NewFromFloat(3)
 	four := decimal.NewFromFloat(4)
-	eight := decimal.NewFromFloat(8)
 	sixteen := decimal.NewFromFloat(16)
 
-	// 8g + 4t
-	n := eight.Mul(fee2).Add(four.Mul(target))
+	// 4adt
+	n1 := four.Mul(buySize).Mul(sellPrice).Mul(target)
+	// 4ad
+	n2 := four.Mul(buySize).Mul(sellPrice)
+	// 4adf
+	n3 := four.Mul(buySize).Mul(sellPrice).Mul(fee1)
+	// 4adg
+	n4 := four.Mul(buySize).Mul(sellPrice).Mul(fee2)
+	// (-4adt + 4ad - 4adf - 4adg)^2
+	n5 := n1.Neg().Add(n2).Sub(n3).Sub(n4).Pow(two)
+	// 16a^2*db
+	n6 := sixteen.Mul(buySize.Pow(two)).Mul(sellPrice).Mul(buyPrice)
+	n := n1.Sub(n2).Add(n3).Add(n4).Add(n5.Sub(n6).Pow(half))
 
-	// 8f^2*g + 4f^2*t + 8fgt
-	d1 := eight.Mul(fee1.Pow(two)).Mul(fee2).Add(four.Mul(fee1.Pow(two)).Mul(target)).Add(eight.Mul(fee1).Mul(fee2).Mul(target))
-	// 4ft^2 + 2gt^2 + t^3
-	d2 := four.Mul(fee1).Mul(target.Pow(two)).Add(two.Mul(fee2).Mul(target.Pow(two))).Add(target.Pow(three))
-	// 16fg + 8ft + 8gt
-	d3 := sixteen.Mul(fee1).Mul(fee2).Add(eight.Mul(fee1).Mul(target)).Add(eight.Mul(fee2).Mul(target))
-	// 4t^2 + 8g + 4t
-	d4 := four.Mul(target.Pow(two)).Add(eight.Mul(fee2)).Add(four.Mul(target))
-	//  +
-	d := d1.Add(d2).Add(d3).Add(d4)
-	sellSize := n.Div(d).Pow(half)
+	// 4d
+	d := four.Mul(sellPrice)
+	sellSize := n.Div(d)
 
 	// Build the order requests
 	sellReq := order.NewRequest(market, order.Limit, order.Sell, sellSize, sellPrice)
