@@ -291,7 +291,7 @@ func buildDownwardPair() (*orderpair.OrderPair, error) {
 	n := n1.Add(n2.Sub(n3).Pow(half))
 
 	// 2d
-	d := two.Mul(two.Mul(sellPrice))
+	d := two.Mul(sellPrice)
 
 	// Set sell size
 	sellSize := n.Div(d)
@@ -384,7 +384,7 @@ func buildUpwardPair() (*orderpair.OrderPair, error) {
 	n := n1.Add(n2.Sub(n3).Pow(half))
 
 	// 2d
-	d := two.Mul(two.Mul(sellPrice))
+	d := two.Mul(sellPrice)
 
 	// Set sell size
 	sellSize := n.Div(d)
