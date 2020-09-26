@@ -290,7 +290,7 @@ func buildDownwardPair() (*orderpair.OrderPair, error) {
 	// (-a^2*bt + 2a^2*b - 2a^2*bf)
 	n4 := buySize.Pow(two).Mul(buyPrice).Mul(target).Neg().Add(two.Mul(buySize.Pow(two)).Mul(buyPrice)).Sub(two.Mul(buySize.Pow(two)).Mul(buyPrice).Mul(fee1))
 	// n1 + sqrt(n2 - n3*n4)
-	n := n1.Add(n2.Sub(n3.Mul(n4)).Pow(half))
+	n := n1.Sub(n2.Sub(n3.Mul(n4)).Pow(half))
 
 	// 2(-dt + 2d - 2dg)
 	d := two.Mul(sellPrice.Mul(target).Neg().Add(two.Mul(sellPrice)).Sub(two.Mul(sellPrice).Mul(fee2)))
@@ -384,8 +384,8 @@ func buildUpwardPair() (*orderpair.OrderPair, error) {
 	n3 := four.Mul(sellPrice.Mul(target).Neg().Add(two.Mul(sellPrice)).Sub(two.Mul(sellPrice).Mul(fee2)))
 	// (-a^2*bt + 2a^2*b - 2a^2*bf)
 	n4 := buySize.Pow(two).Mul(buyPrice).Mul(target).Neg().Add(two.Mul(buySize.Pow(two)).Mul(buyPrice)).Sub(two.Mul(buySize.Pow(two)).Mul(buyPrice).Mul(fee1))
-	// n1 + sqrt(n2 - n3*n4)
-	n := n1.Add(n2.Sub(n3.Mul(n4)).Pow(half))
+	// n1 - sqrt(n2 - n3*n4)
+	n := n1.Sub(n2.Sub(n3.Mul(n4)).Pow(half))
 
 	// 2(-dt + 2d - 2dg)
 	d := two.Mul(sellPrice.Mul(target).Neg().Add(two.Mul(sellPrice)).Sub(two.Mul(sellPrice).Mul(fee2)))
