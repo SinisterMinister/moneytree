@@ -281,21 +281,20 @@ func buildDownwardPair() (*orderpair.OrderPair, error) {
 	two := decimal.NewFromFloat(2)
 	four := decimal.NewFromFloat(4)
 
-	// 4abt + 4ab + 2abf + 2abg
-	n1 := four.Mul(buySize).Mul(buyPrice).Mul(target).Add(four.Mul(buySize).Mul(buyPrice)).Add(two.Mul(buySize).Mul(buyPrice).Mul(fee1)).Add(two.Mul(buySize).Mul(buyPrice).Mul(fee2))
-	// (-4abt - 4ab - 2abf - 2abg)^2
-	n2 := four.Mul(buySize).Mul(buyPrice).Mul(target).Neg().Sub(four.Mul(buySize).Mul(buyPrice)).Sub(two.Mul(buySize).Mul(buyPrice).Mul(fee1)).Sub(two.Mul(buySize).Mul(buyPrice).Mul(fee2)).Pow(two)
-	// 4(2d - 2dg)
-	n3 := four.Mul(two.Mul(sellPrice).Sub(two.Mul(sellPrice).Mul(fee2)))
-	// 2a^2*b - 2a^2bf
-	n4 := two.Mul(buySize.Pow(two).Mul(buyPrice)).Sub(two.Mul(buySize.Pow(two).Mul(buyPrice).Mul(fee1)))
-	n := n1.Add(n2.Sub(n3.Mul(n4)).Pow(half))
+	// 2ab + abt + abf + abg
+	n1 := two.Mul(buySize).Mul(buyPrice).Add(buySize.Mul(buyPrice).Mul(target)).Add(buySize.Mul(buyPrice).Mul(fee1)).Add(buySize.Mul(buyPrice).Mul(fee2))
+	// (-2ab -abt - abf -abg)^2
+	n2 := two.Neg().Mul(buySize).Mul(buyPrice).Sub(buySize.Mul(buyPrice).Mul(target)).Sub(buySize.Mul(buyPrice).Mul(fee1)).Sub(buySize.Mul(buyPrice).Mul(fee2))
+	// 4a^2*db
+	n3 := four.Mul(buySize.Pow(two)).Mul(sellPrice).Mul(buyPrice)
+	// 2ab + abt + abf + abg + sqrt((-2ab - abt - abf - abg)^2 - 4a^2*db)
+	n := n1.Add(n2.Sub(n3).Pow(half))
 
-	// 2(2d - 2dg)
-	d := two.Mul(two.Mul(sellPrice).Sub(two.Mul(sellPrice).Mul(fee2)))
+	// 2d
+	d := two.Mul(two.Mul(sellPrice))
 
 	// Set sell size
-	sellSize := n.Div(d).Neg()
+	sellSize := n.Div(d)
 
 	// Round to correct precision
 	sellSize = sellSize.Round(int32(baseCurrency.Precision()))
@@ -375,18 +374,17 @@ func buildUpwardPair() (*orderpair.OrderPair, error) {
 	two := decimal.NewFromFloat(2)
 	four := decimal.NewFromFloat(4)
 
-	// 4abt + 4ab + 2abf + 2abg
-	n1 := four.Mul(buySize).Mul(buyPrice).Mul(target).Add(four.Mul(buySize).Mul(buyPrice)).Add(two.Mul(buySize).Mul(buyPrice).Mul(fee1)).Add(two.Mul(buySize).Mul(buyPrice).Mul(fee2))
-	// (-4abt - 4ab - 2abf - 2abg)^2
-	n2 := four.Mul(buySize).Mul(buyPrice).Mul(target).Neg().Sub(four.Mul(buySize).Mul(buyPrice)).Sub(two.Mul(buySize).Mul(buyPrice).Mul(fee1)).Sub(two.Mul(buySize).Mul(buyPrice).Mul(fee2)).Pow(two)
-	// 4(2d - 2dg)
-	n3 := four.Mul(two.Mul(sellPrice).Sub(two.Mul(sellPrice).Mul(fee2)))
-	// 2a^2*b - 2a^2bf
-	n4 := two.Mul(buySize.Pow(two).Mul(buyPrice)).Sub(two.Mul(buySize.Pow(two).Mul(buyPrice).Mul(fee1)))
-	n := n1.Add(n2.Sub(n3.Mul(n4)).Pow(half))
+	// 2ab + abt + abf + abg
+	n1 := two.Mul(buySize).Mul(buyPrice).Add(buySize.Mul(buyPrice).Mul(target)).Add(buySize.Mul(buyPrice).Mul(fee1)).Add(buySize.Mul(buyPrice).Mul(fee2))
+	// (-2ab -abt - abf -abg)^2
+	n2 := two.Neg().Mul(buySize).Mul(buyPrice).Sub(buySize.Mul(buyPrice).Mul(target)).Sub(buySize.Mul(buyPrice).Mul(fee1)).Sub(buySize.Mul(buyPrice).Mul(fee2))
+	// 4a^2*db
+	n3 := four.Mul(buySize.Pow(two)).Mul(sellPrice).Mul(buyPrice)
+	// 2ab + abt + abf + abg + sqrt((-2ab - abt - abf - abg)^2 - 4a^2*db)
+	n := n1.Add(n2.Sub(n3).Pow(half))
 
-	// 2(2d - 2dg)
-	d := two.Mul(two.Mul(sellPrice).Sub(two.Mul(sellPrice).Mul(fee2)))
+	// 2d
+	d := two.Mul(two.Mul(sellPrice))
 
 	// Set sell size
 	sellSize := n.Div(d)
