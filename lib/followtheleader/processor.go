@@ -300,6 +300,9 @@ func buildDownwardPair() (*orderpair.OrderPair, error) {
 	d := four.Mul(sellPrice)
 	sellSize := n.Div(d).Neg()
 
+	// Round to correct precision
+	sellSize = sellSize.Round(int32(baseCurrency.Precision()))
+
 	// Build the order requests
 	sellReq := order.NewRequest(market, order.Limit, order.Sell, sellSize, sellPrice)
 	buyReq := order.NewRequest(market, order.Limit, order.Buy, buySize, buyPrice)
