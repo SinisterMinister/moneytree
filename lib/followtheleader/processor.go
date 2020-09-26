@@ -282,19 +282,21 @@ func buildDownwardPair() (*orderpair.OrderPair, error) {
 	four := decimal.NewFromFloat(4)
 	sixteen := decimal.NewFromFloat(16)
 
-	// 4adt
-	n1 := four.Mul(buySize).Mul(sellPrice).Mul(target)
+	// 2adt
+	n1 := two.Mul(buySize).Mul(sellPrice).Mul(target)
 	// 4ad
 	n2 := four.Mul(buySize).Mul(sellPrice)
-	// 4adf
-	n3 := four.Mul(buySize).Mul(sellPrice).Mul(fee1)
-	// 4adg
-	n4 := four.Mul(buySize).Mul(sellPrice).Mul(fee2)
-	// (-4adt + 4ad - 4adf - 4adg)^2
-	n5 := n1.Neg().Add(n2).Sub(n3).Sub(n4).Pow(two)
+	// 2adf
+	n3 := two.Mul(buySize).Mul(sellPrice).Mul(fee1)
+	// 2adg
+	n4 := two.Mul(buySize).Mul(sellPrice).Mul(fee2)
+	// 2ads
+	n5 := two.Mul(buySize).Mul(sellPrice).Mul(spread)
+	// (-2adt + 4ad - 2adf - 2adg - 2ads)^2
+	n6 := n1.Neg().Add(n2).Sub(n3).Sub(n4).Sub(n5).Pow(two)
 	// 16a^2*db
-	n6 := sixteen.Mul(buySize.Pow(two)).Mul(sellPrice).Mul(buyPrice)
-	n := n1.Sub(n2).Add(n3).Add(n4).Add(n5.Sub(n6).Pow(half))
+	n7 := sixteen.Mul(buySize.Pow(two)).Mul(sellPrice).Mul(buyPrice)
+	n := n1.Sub(n2).Add(n3).Add(n4).Add(n5).Add(n6.Sub(n7).Pow(half))
 
 	// 4d
 	d := four.Mul(sellPrice)
@@ -379,19 +381,21 @@ func buildUpwardPair() (*orderpair.OrderPair, error) {
 	four := decimal.NewFromFloat(4)
 	sixteen := decimal.NewFromFloat(16)
 
-	// 4adt
-	n1 := four.Mul(buySize).Mul(sellPrice).Mul(target)
+	// 2adt
+	n1 := two.Mul(buySize).Mul(sellPrice).Mul(target)
 	// 4ad
 	n2 := four.Mul(buySize).Mul(sellPrice)
-	// 4adf
-	n3 := four.Mul(buySize).Mul(sellPrice).Mul(fee1)
-	// 4adg
-	n4 := four.Mul(buySize).Mul(sellPrice).Mul(fee2)
-	// (-4adt + 4ad - 4adf - 4adg)^2
-	n5 := n1.Neg().Add(n2).Sub(n3).Sub(n4).Pow(two)
+	// 2adf
+	n3 := two.Mul(buySize).Mul(sellPrice).Mul(fee1)
+	// 2adg
+	n4 := two.Mul(buySize).Mul(sellPrice).Mul(fee2)
+	// 2ads
+	n5 := two.Mul(buySize).Mul(sellPrice).Mul(spread)
+	// (-2adt + 4ad - 2adf - 2adg - 2ads)^2
+	n6 := n1.Neg().Add(n2).Sub(n3).Sub(n4).Sub(n5).Pow(two)
 	// 16a^2*db
-	n6 := sixteen.Mul(buySize.Pow(two)).Mul(sellPrice).Mul(buyPrice)
-	n := n1.Sub(n2).Add(n3).Add(n4).Add(n5.Sub(n6).Pow(half))
+	n7 := sixteen.Mul(buySize.Pow(two)).Mul(sellPrice).Mul(buyPrice)
+	n := n1.Sub(n2).Add(n3).Add(n4).Add(n5).Add(n6.Sub(n7).Pow(half))
 
 	// 4d
 	d := four.Mul(sellPrice)
