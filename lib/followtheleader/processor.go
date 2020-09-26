@@ -281,10 +281,10 @@ func buildDownwardPair() (*orderpair.OrderPair, error) {
 	two := decimal.NewFromFloat(2)
 	four := decimal.NewFromFloat(4)
 
-	// 4ab + 2abt + 2abf +2abg
-	n1 := four.Mul(buySize).Mul(buyPrice).Add(two.Mul(buySize).Mul(buyPrice).Mul(target)).Add(two.Mul(buySize).Mul(buyPrice).Mul(fee1)).Add(two.Mul(buySize).Mul(buyPrice).Mul(fee2))
-	// (-4ab - 2abt - 2abf - 2abg)^2
-	n2 := four.Mul(buySize).Mul(buyPrice).Neg().Sub(two.Mul(buySize).Mul(buyPrice).Mul(target)).Sub(two.Mul(buySize).Mul(buyPrice).Mul(fee1)).Sub(two.Mul(buySize).Mul(buyPrice).Mul(fee2)).Pow(two)
+	// 4ab + 2abs
+	n1 := four.Mul(buySize).Mul(buyPrice).Add(two.Mul(buySize).Mul(buyPrice).Mul(spread))
+	// (-4ab - 2abs)^2
+	n2 := four.Mul(buySize).Mul(buyPrice).Neg().Sub(two.Mul(buySize).Mul(buyPrice).Mul(spread)).Pow(two)
 	// 4(-dt + 2d - 2dg)
 	n3 := four.Mul(sellPrice.Mul(target).Neg().Add(two.Mul(sellPrice)).Sub(two.Mul(sellPrice).Mul(fee2)))
 	// (-a^2*bt + 2a^2*b - 2a^2*bf)
@@ -376,10 +376,10 @@ func buildUpwardPair() (*orderpair.OrderPair, error) {
 	two := decimal.NewFromFloat(2)
 	four := decimal.NewFromFloat(4)
 
-	// 4ab + 2abt + 2abf +2abg
-	n1 := four.Mul(buySize).Mul(buyPrice).Add(two.Mul(buySize).Mul(buyPrice).Mul(target)).Add(two.Mul(buySize).Mul(buyPrice).Mul(fee1)).Add(two.Mul(buySize).Mul(buyPrice).Mul(fee2))
-	// (-4ab - 2abt - 2abf - 2abg)^2
-	n2 := four.Mul(buySize).Mul(buyPrice).Neg().Sub(two.Mul(buySize).Mul(buyPrice).Mul(target)).Sub(two.Mul(buySize).Mul(buyPrice).Mul(fee1)).Sub(two.Mul(buySize).Mul(buyPrice).Mul(fee2)).Pow(two)
+	// 4ab + 2abs
+	n1 := four.Mul(buySize).Mul(buyPrice).Add(two.Mul(buySize).Mul(buyPrice).Mul(spread))
+	// (-4ab - 2abs)^2
+	n2 := four.Mul(buySize).Mul(buyPrice).Neg().Sub(two.Mul(buySize).Mul(buyPrice).Mul(spread)).Pow(two)
 	// 4(-dt + 2d - 2dg)
 	n3 := four.Mul(sellPrice.Mul(target).Neg().Add(two.Mul(sellPrice)).Sub(two.Mul(sellPrice).Mul(fee2)))
 	// (-a^2*bt + 2a^2*b - 2a^2*bf)
