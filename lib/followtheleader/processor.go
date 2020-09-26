@@ -270,48 +270,34 @@ func buildDownwardPair() (*orderpair.OrderPair, error) {
 	}
 
 	// Get the fees
-	fee1 := orderFee.MakerRate()
-	fee2 := orderFee.TakerRate()
+	fee1 := orderFee.TakerRate()
+	fee2 := orderFee.MakerRate()
 
 	// Get the target return
 	target := decimal.NewFromFloat(viper.GetFloat64("followtheleader.targetReturn"))
 
 	// Setup the numbers we need
 	half := decimal.NewFromFloat(1 / 2)
-	one := decimal.NewFromFloat(1)
 	two := decimal.NewFromFloat(2)
+	three := decimal.NewFromFloat(3)
 	four := decimal.NewFromFloat(4)
 	eight := decimal.NewFromFloat(8)
 	sixteen := decimal.NewFromFloat(16)
 
-	// -b - f - 1
-	n1 := buyPrice.Neg().Sub(fee1).Sub(one)
-	// f^2 + 8ef
-	n2 := fee1.Pow(two).Add(eight.Mul(target).Mul(fee1))
-	// 2bf + 2f + 8e^2 + 8e + b^2
-	n3 := two.Mul(buyPrice).Mul(fee1).Add(two.Mul(fee1)).Add(eight.Mul(target.Pow(two))).Add(eight.Mul(target)).Add(buyPrice.Pow(two))
-	// 2b
-	n4 := two.Mul(buyPrice)
-	// 8eg^2 + 16eg
-	n5 := eight.Mul(target).Mul(fee2.Pow(two)).Add(sixteen.Mul(target).Mul(fee2))
-	// 8e^2g + 1
-	n6 := eight.Mul(target.Pow(two)).Mul(fee2).Add(one)
-	// -b - f - 1 + sqrt(f^2 + 8ef - 2bf + 2f + 8e^2 + 8e + b^2 - 2b - 8eg^2 + 16eg - 8e^2*g + 1)
-	n := n1.Add(n2.Sub(n3).Sub(n4).Sub(n5).Sub(n6).Pow(half))
+	// 8g + 4t
+	n := eight.Mul(fee2).Add(four.Mul(target))
 
-	// -2e^2
-	d1 := two.Neg().Mul(target).Pow(two)
-	// 2e + b + bf
-	d2 := two.Mul(target).Add(buyPrice).Add(buyPrice.Mul(fee1))
-	// 2ef + 2eg^2
-	d3 := two.Mul(target).Mul(fee1).Add(two.Mul(target).Mul(fee2.Pow(two)))
-	// 4eg + 2e^2*g
-	d4 := four.Mul(target).Mul(fee2).Add(two.Mul(target.Pow(two)).Mul(fee2))
-	// 2(-2e^2 - 2e + b + bf - 2ef + 2eg^2 - 4eg + 2e^2g)
-	d := two.Mul(d1.Sub(d2).Sub(d3).Sub(d4))
-
-	// (-b - f - 1 + sqrt(f^2 + 8ef - 2bf + 2f + 8e^2 + 8e + b^2 - 2b - 8eg^2 + 16eg - 8e^2*g + 1)) / (2(-2e^2 - 2e + b + bf - 2ef + 2eg^2 - 4eg + 2e^2g))
-	sellSize := n.Div(d).Round(int32(baseCurrency.Precision()))
+	// 8f^2*g + 4f^2*t + 8fgt
+	d1 := eight.Mul(fee1.Pow(two)).Mul(fee2).Add(four.Mul(fee1.Pow(two)).Mul(target)).Add(eight.Mul(fee1).Mul(fee2).Mul(target))
+	// 4ft^2 + 2gt^2 + t^3
+	d2 := four.Mul(fee1).Mul(target.Pow(two)).Add(two.Mul(fee2).Mul(target.Pow(two))).Add(target.Pow(three))
+	// 16fg + 8ft + 8gt
+	d3 := sixteen.Mul(fee1).Mul(fee2).Add(eight.Mul(fee1).Mul(target)).Add(eight.Mul(fee2).Mul(target))
+	// 4t^2 + 8g + 4t
+	d4 := four.Mul(target.Pow(two)).Add(eight.Mul(fee2)).Add(four.Mul(target))
+	//  +
+	d := d1.Add(d2).Add(d3).Add(d4)
+	sellSize := n.Div(d).Pow(half)
 
 	// Build the order requests
 	sellReq := order.NewRequest(market, order.Limit, order.Sell, sellSize, sellPrice)
@@ -377,48 +363,34 @@ func buildUpwardPair() (*orderpair.OrderPair, error) {
 	}
 
 	// Get the fees
-	fee1 := orderFee.TakerRate()
-	fee2 := orderFee.MakerRate()
+	fee1 := orderFee.MakerRate()
+	fee2 := orderFee.TakerRate()
 
 	// Get the target return
 	target := decimal.NewFromFloat(viper.GetFloat64("followtheleader.targetReturn"))
 
 	// Setup the numbers we need
 	half := decimal.NewFromFloat(1 / 2)
-	one := decimal.NewFromFloat(1)
 	two := decimal.NewFromFloat(2)
+	three := decimal.NewFromFloat(3)
 	four := decimal.NewFromFloat(4)
 	eight := decimal.NewFromFloat(8)
 	sixteen := decimal.NewFromFloat(16)
 
-	// -b - f - 1
-	n1 := buyPrice.Neg().Sub(fee1).Sub(one)
-	// f^2 + 8ef
-	n2 := fee1.Pow(two).Add(eight.Mul(target).Mul(fee1))
-	// 2bf + 2f + 8e^2 + 8e + b^2
-	n3 := two.Mul(buyPrice).Mul(fee1).Add(two.Mul(fee1)).Add(eight.Mul(target.Pow(two))).Add(eight.Mul(target)).Add(buyPrice.Pow(two))
-	// 2b
-	n4 := two.Mul(buyPrice)
-	// 8eg^2 + 16eg
-	n5 := eight.Mul(target).Mul(fee2.Pow(two)).Add(sixteen.Mul(target).Mul(fee2))
-	// 8e^2g + 1
-	n6 := eight.Mul(target.Pow(two)).Mul(fee2).Add(one)
-	// -b - f - 1 + sqrt(f^2 + 8ef - 2bf + 2f + 8e^2 + 8e + b^2 - 2b - 8eg^2 + 16eg - 8e^2*g + 1)
-	n := n1.Add(n2.Sub(n3).Sub(n4).Sub(n5).Sub(n6).Pow(half))
+	// 8g + 4t
+	n := eight.Mul(fee2).Add(four.Mul(target))
 
-	// -2e^2
-	d1 := two.Neg().Mul(target).Pow(two)
-	// 2e + b + bf
-	d2 := two.Mul(target).Add(buyPrice).Add(buyPrice.Mul(fee1))
-	// 2ef + 2eg^2
-	d3 := two.Mul(target).Mul(fee1).Add(two.Mul(target).Mul(fee2.Pow(two)))
-	// 4eg + 2e^2*g
-	d4 := four.Mul(target).Mul(fee2).Add(two.Mul(target.Pow(two)).Mul(fee2))
-	// 2(-2e^2 - 2e + b + bf - 2ef + 2eg^2 - 4eg + 2e^2g)
-	d := two.Mul(d1.Sub(d2).Sub(d3).Sub(d4))
-
-	// (-b - f - 1 + sqrt(f^2 + 8ef - 2bf + 2f + 8e^2 + 8e + b^2 - 2b - 8eg^2 + 16eg - 8e^2*g + 1)) / (2(-2e^2 - 2e + b + bf - 2ef + 2eg^2 - 4eg + 2e^2g))
-	sellSize := n.Div(d).Round(int32(baseCurrency.Precision()))
+	// 8f^2*g + 4f^2*t + 8fgt
+	d1 := eight.Mul(fee1.Pow(two)).Mul(fee2).Add(four.Mul(fee1.Pow(two)).Mul(target)).Add(eight.Mul(fee1).Mul(fee2).Mul(target))
+	// 4ft^2 + 2gt^2 + t^3
+	d2 := four.Mul(fee1).Mul(target.Pow(two)).Add(two.Mul(fee2).Mul(target.Pow(two))).Add(target.Pow(three))
+	// 16fg + 8ft + 8gt
+	d3 := sixteen.Mul(fee1).Mul(fee2).Add(eight.Mul(fee1).Mul(target)).Add(eight.Mul(fee2).Mul(target))
+	// 4t^2 + 8g + 4t
+	d4 := four.Mul(target.Pow(two)).Add(eight.Mul(fee2)).Add(four.Mul(target))
+	//  +
+	d := d1.Add(d2).Add(d3).Add(d4)
+	sellSize := n.Div(d).Pow(half)
 
 	// Build the order requests
 	sellReq := order.NewRequest(market, order.Limit, order.Sell, sellSize, sellPrice)
