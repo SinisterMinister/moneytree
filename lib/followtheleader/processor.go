@@ -298,7 +298,7 @@ func buildDownwardPair() (*orderpair.OrderPair, error) {
 
 	// 4d
 	d := four.Mul(sellPrice)
-	sellSize := n.Div(d)
+	sellSize := n.Div(d).Neg()
 
 	// Build the order requests
 	sellReq := order.NewRequest(market, order.Limit, order.Sell, sellSize, sellPrice)
@@ -392,7 +392,7 @@ func buildUpwardPair() (*orderpair.OrderPair, error) {
 
 	// 4d
 	d := four.Mul(sellPrice)
-	sellSize := n.Div(d)
+	sellSize := n.Div(d).Neg()
 
 	// Build the order requests
 	sellReq := order.NewRequest(market, order.Limit, order.Sell, sellSize, sellPrice)
