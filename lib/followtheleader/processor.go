@@ -278,13 +278,11 @@ func buildDownwardPair() (*orderpair.OrderPair, error) {
 
 	// Setup the numbers we need
 	two := decimal.NewFromFloat(2)
-	three := decimal.NewFromFloat(3)
-	four := decimal.NewFromFloat(4)
 
-	// 3abt + 4abf + 2abg
-	n := three.Mul(buySize).Mul(buyPrice).Mul(target).Add(four.Mul(buySize).Mul(buyPrice).Mul(fee1)).Add(two.Mul(buySize).Mul(buyPrice).Mul(fee2))
+	// 2abs + abt + 2abf
+	n := two.Mul(buySize).Mul(buyPrice).Mul(spread).Add(buySize.Mul(buyPrice).Mul(target)).Add(two.Mul(buySize).Mul(buyPrice).Mul(fee1))
 	//-2d + 2b + dt + 2dg
-	d := two.Neg().Mul(sellPrice).Add(two.Mul(buyPrice)).Add(sellPrice.Mul(target)).Add(two.Mul(sellPrice).Mul(fee2))
+	d := two.Mul(sellPrice).Neg().Add(two.Mul(buyPrice)).Add(sellPrice.Mul(target)).Add(two.Mul(sellPrice).Mul(fee2))
 
 	// Set sell size
 	sellSize := n.Div(d).Neg()
@@ -364,13 +362,11 @@ func buildUpwardPair() (*orderpair.OrderPair, error) {
 
 	// Setup the numbers we need
 	two := decimal.NewFromFloat(2)
-	three := decimal.NewFromFloat(3)
-	four := decimal.NewFromFloat(4)
 
-	// 3abt + 4abf + 2abg
-	n := three.Mul(buySize).Mul(buyPrice).Mul(target).Add(four.Mul(buySize).Mul(buyPrice).Mul(fee1)).Add(two.Mul(buySize).Mul(buyPrice).Mul(fee2))
+	// 2abs + abt + 2abf
+	n := two.Mul(buySize).Mul(buyPrice).Mul(spread).Add(buySize.Mul(buyPrice).Mul(target)).Add(two.Mul(buySize).Mul(buyPrice).Mul(fee1))
 	//-2d + 2b + dt + 2dg
-	d := two.Neg().Mul(sellPrice).Add(two.Mul(buyPrice)).Add(sellPrice.Mul(target)).Add(two.Mul(sellPrice).Mul(fee2))
+	d := two.Mul(sellPrice).Neg().Add(two.Mul(buyPrice)).Add(sellPrice.Mul(target)).Add(two.Mul(sellPrice).Mul(fee2))
 
 	// Set sell size
 	sellSize := n.Div(d).Neg()
