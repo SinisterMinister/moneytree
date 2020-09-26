@@ -270,8 +270,8 @@ func buildDownwardPair() (*orderpair.OrderPair, error) {
 	}
 
 	// Get the fees
-	fee1 := orderFee.TakerRate()
-	fee2 := orderFee.MakerRate()
+	fee1 := orderFee.MakerRate()
+	fee2 := orderFee.TakerRate()
 
 	// Get the target return
 	target := decimal.NewFromFloat(viper.GetFloat64("followtheleader.targetReturn"))
@@ -364,8 +364,8 @@ func buildUpwardPair() (*orderpair.OrderPair, error) {
 	}
 
 	// Get the fees
-	fee1 := orderFee.MakerRate()
-	fee2 := orderFee.TakerRate()
+	fee1 := orderFee.TakerRate()
+	fee2 := orderFee.MakerRate()
 
 	// Get the target return
 	target := decimal.NewFromFloat(viper.GetFloat64("followtheleader.targetReturn"))
@@ -393,6 +393,9 @@ func buildUpwardPair() (*orderpair.OrderPair, error) {
 	// 4d
 	d := four.Mul(sellPrice)
 	sellSize := n.Div(d).Neg()
+
+	// Round to correct precision
+	sellSize = sellSize.Round(int32(baseCurrency.Precision()))
 
 	// Build the order requests
 	sellReq := order.NewRequest(market, order.Limit, order.Sell, sellSize, sellPrice)
