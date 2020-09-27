@@ -277,21 +277,12 @@ func buildDownwardPair() (*orderpair.OrderPair, error) {
 	target := decimal.NewFromFloat(viper.GetFloat64("followtheleader.targetReturn"))
 
 	// Setup the numbers we need
-	half := decimal.NewFromFloat(1 / 2)
 	two := decimal.NewFromFloat(2)
-	four := decimal.NewFromFloat(4)
 
-	// 2ab + abt + abf + abg
-	n1 := two.Mul(buySize).Mul(buyPrice).Add(buySize.Mul(buyPrice).Mul(target)).Add(buySize.Mul(buyPrice).Mul(fee1)).Add(buySize.Mul(buyPrice).Mul(fee2))
-	// (-2ab -abt - abf -abg)^2
-	n2 := two.Neg().Mul(buySize).Mul(buyPrice).Sub(buySize.Mul(buyPrice).Mul(target)).Sub(buySize.Mul(buyPrice).Mul(fee1)).Sub(buySize.Mul(buyPrice).Mul(fee2))
-	// 4a^2*db
-	n3 := four.Mul(buySize.Pow(two)).Mul(sellPrice).Mul(buyPrice)
-	// 2ab + abt + abf + abg + sqrt((-2ab - abt - abf - abg)^2 - 4a^2*db)
-	n := n1.Add(n2.Sub(n3).Pow(half))
-
-	// 2d
-	d := two.Mul(sellPrice)
+	// 2a - 2ab - abt - 2abg
+	n := two.Mul(buySize).Sub(two.Mul(buySize).Mul(buyPrice)).Sub(buySize.Mul(buyPrice).Mul(target)).Sub(two.Mul(buySize).Mul(buyPrice).Mul(fee2))
+	// t + 2f + 2 - 2d
+	d := target.Add(two.Mul(fee1)).Add(two).Sub(two.Mul(sellPrice))
 
 	// Set sell size
 	sellSize := n.Div(d)
@@ -370,21 +361,12 @@ func buildUpwardPair() (*orderpair.OrderPair, error) {
 	target := decimal.NewFromFloat(viper.GetFloat64("followtheleader.targetReturn"))
 
 	// Setup the numbers we need
-	half := decimal.NewFromFloat(1 / 2)
 	two := decimal.NewFromFloat(2)
-	four := decimal.NewFromFloat(4)
 
-	// 2ab + abt + abf + abg
-	n1 := two.Mul(buySize).Mul(buyPrice).Add(buySize.Mul(buyPrice).Mul(target)).Add(buySize.Mul(buyPrice).Mul(fee1)).Add(buySize.Mul(buyPrice).Mul(fee2))
-	// (-2ab -abt - abf -abg)^2
-	n2 := two.Neg().Mul(buySize).Mul(buyPrice).Sub(buySize.Mul(buyPrice).Mul(target)).Sub(buySize.Mul(buyPrice).Mul(fee1)).Sub(buySize.Mul(buyPrice).Mul(fee2))
-	// 4a^2*db
-	n3 := four.Mul(buySize.Pow(two)).Mul(sellPrice).Mul(buyPrice)
-	// 2ab + abt + abf + abg + sqrt((-2ab - abt - abf - abg)^2 - 4a^2*db)
-	n := n1.Add(n2.Sub(n3).Pow(half))
-
-	// 2d
-	d := two.Mul(sellPrice)
+	// 2a - 2ab - abt - 2abg
+	n := two.Mul(buySize).Sub(two.Mul(buySize).Mul(buyPrice)).Sub(buySize.Mul(buyPrice).Mul(target)).Sub(two.Mul(buySize).Mul(buyPrice).Mul(fee2))
+	// t + 2f + 2 - 2d
+	d := target.Add(two.Mul(fee1)).Add(two).Sub(two.Mul(sellPrice))
 
 	// Set sell size
 	sellSize := n.Div(d)
