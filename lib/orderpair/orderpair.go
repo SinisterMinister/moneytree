@@ -516,6 +516,12 @@ func (o *OrderPair) waitForFirstOrder() {
 	select {
 	case <-orderStop:
 	case <-ord.Done():
+		// Load the order from the API to get the latest data in case the status is out of sync
+		ord, err = o.svc.trader.OrderSvc().Order(o.svc.market, ord.ID())
+		if err != nil {
+			log.WithError(err).Error("could not load fresh order; falling back to pair order")
+			ord = o.firstOrder
+		}
 		log.Infof("first order done processing. status is %s", ord.Status())
 
 		// Make sure the order completed successfully
@@ -620,6 +626,13 @@ func (o *OrderPair) waitForSecondOrder() {
 	// Wait for the order to complete
 	<-ord.Done()
 	log.Info("second order done processing")
+
+	// Load the order from the API to get the latest data in case the status is out of sync
+	ord, err := o.svc.trader.OrderSvc().Order(o.svc.market, ord.ID())
+	if err != nil {
+		log.WithError(err).Error("could not load fresh order; falling back to pair order")
+		ord = o.secondOrder
+	}
 
 	// Make sure the order completed successfully
 	switch ord.Status() {
