@@ -40,15 +40,15 @@ func (p *Processor) Process(db *sql.DB, trader types.Trader, market types.Market
 	// Store the local vars
 	storeLocalVars(db, trader, market, stop)
 
-	// Restore the open orders
-	go restoreDoneOpenOrders()
-
 	if viper.GetBool("followtheleader.refreshDatabasePairs") {
 		// Refresh database pairs
 		go refreshDatabasePairs()
 	}
 
 	for {
+		// Restore the open orders
+		go restoreDoneOpenOrders()
+
 		// Make room for the next order if necessary
 		err := makeRoom()
 		if err != nil {
@@ -393,7 +393,7 @@ func buildUpwardPair() (*orderpair.OrderPair, error) {
 }
 
 func size(ticker types.Ticker) (decimal.Decimal, error) {
-	if !baseSize.Equal(decimal.Zero) {
+	if !baseSize.IsZero() {
 		return baseSize, nil
 	}
 
@@ -593,6 +593,7 @@ func bailPrice(pair *orderpair.OrderPair) (price decimal.Decimal) {
 	return
 }
 
+// makeRoom will cancel the oldest outstanding pair if there isn't enough room for a new order
 func makeRoom() error {
 	// Get the maximum number of open orders
 	maxOpen := viper.GetInt("followtheleader.maxOpenOrders")

@@ -143,8 +143,9 @@ func (o *OrderPair) Cancel() error {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
 
+	// Don't cancel the pair if the first order is already complete
 	if o.firstOrder.IsDone() {
-		// Close the done channel if necessary
+		// Close the done channel if necessary to allow the next cycle to progress
 		select {
 		case <-o.done:
 		default:
@@ -152,6 +153,8 @@ func (o *OrderPair) Cancel() error {
 		}
 		return o.svc.Save(o.ToDAO())
 	}
+
+	// Cancel the first order
 	err := o.svc.trader.OrderSvc().CancelOrder(o.firstOrder)
 	if err != nil {
 		return err
@@ -244,6 +247,15 @@ func (o *OrderPair) IsPassedOrder(price decimal.Decimal) bool {
 }
 
 func (o *OrderPair) CancelAndTakeLosses() error {
+	// Skip if the order is an incompatible state
+	o.mutex.RLock()
+	if o.status != Canceled && o.status != Broken {
+		// Nothing to do here
+		o.mutex.Unlock()
+		return nil
+	}
+	o.mutex.Unlock()
+
 	// First cancel the pair
 	err := o.Cancel()
 	if err != nil {
@@ -281,7 +293,7 @@ func (o *OrderPair) CancelAndTakeLosses() error {
 	}
 
 	// If the first order was filled, we need to reverse the trade
-	if o.firstOrder.Status() == order.Filled && o.secondOrder.Status() != order.Filled {
+	if !o.firstOrder.Filled().IsZero() {
 		log.Infof("begin reversing order pair")
 		// Get the current ticker
 		ticker, err := o.svc.market.Ticker()
@@ -343,7 +355,7 @@ func (o *OrderPair) executeWorkflow() {
 	o.mutex.Lock()
 	if o.running {
 		o.mutex.Unlock()
-		log.Warn("order already executing. bailing")
+		log.Debug("order already executing. bailing on new execution")
 		return
 	}
 	// Mark workflow as running
@@ -403,6 +415,9 @@ func (o *OrderPair) executeWorkflow() {
 
 	// Wait for the second order to complete
 	o.waitForSecondOrder()
+
+	// Handle any recoverable failures
+	o.recoverFromFailures()
 
 	// End the workflow
 	o.endWorkflow()
@@ -519,72 +534,46 @@ func (o *OrderPair) waitForFirstOrder() {
 		// Load the order from the API to get the latest data in case the status is out of sync
 		ord, err = o.svc.trader.OrderSvc().Order(o.svc.market, ord.ID())
 		if err != nil {
-			log.WithError(err).Error("could not load fresh order; falling back to pair order")
+			log.WithError(err).Error("could not load fresh order. falling back to pair order")
 			ord = o.firstOrder
+		} else {
+			// Store the updated order to the pair
+			o.mutex.Lock()
+			o.firstOrder = ord
+			o.mutex.Unlock()
 		}
 		log.Infof("first order done processing. status is %s", ord.Status())
 
-		// Make sure the order completed successfully
+		// Make sure the order is really done
 		switch ord.Status() {
-		case order.Filled:
-			o.mutex.Lock()
-			o.status = Open
-			o.mutex.Unlock()
-		case order.Canceled:
-			o.mutex.Lock()
-			o.status = Canceled
-			o.mutex.Unlock()
 		case order.Partial:
-			log.Warn("first order status was partial when closed. attempting to cancel")
-			o.mutex.Lock()
-			o.status = Open
+			log.Warn("first order status was PARTIAL when closed. attempting to cancel")
 			err = o.svc.trader.OrderSvc().CancelOrder(ord)
-			if err != nil {
-				log.WithError(err).Warn("could not cancel order")
-			}
-			o.mutex.Unlock()
+
 		case order.Unknown:
 			log.Warn("first order status was UNKNOWN when closed. attempting to cancel")
-			o.mutex.Lock()
-			o.status = Canceled
 			err = o.svc.trader.OrderSvc().CancelOrder(ord)
-			if err != nil {
-				log.WithError(err).Warn("could not cancel order")
-				o.status = Failed
-			}
-			o.mutex.Unlock()
+
 		case order.Pending:
-			log.Warn("first order status was pending when closed. attempting to cancel")
-			o.mutex.Lock()
-			o.status = Canceled
+			log.Warn("first order status was PENDING when closed. attempting to cancel")
 			err = o.svc.trader.OrderSvc().CancelOrder(ord)
-			if err != nil {
-				log.WithError(err).Warn("could not cancel order")
-				o.status = Failed
-			}
-			o.mutex.Unlock()
-		case order.Rejected:
-			log.Warn("first order status was rejected when closed. attempting to cancel")
-			o.mutex.Lock()
-			o.status = Failed
-			o.mutex.Unlock()
 
 		case order.Updated:
-			log.Warn("first order status was updated when closed. attempting to cancel")
-			o.mutex.Lock()
-			o.status = Canceled
+			log.Warn("first order status was UPDATED when closed. attempting to cancel")
 			err = o.svc.trader.OrderSvc().CancelOrder(ord)
-			if err != nil {
-				log.WithError(err).Warn("could not cancel order")
-				o.status = Failed
-			}
-			o.mutex.Unlock()
-		case order.Expired:
-			log.Warn("first order status was expired when closed. attempting to cancel")
-			o.mutex.Lock()
-			o.status = Failed
-			o.mutex.Unlock()
 		}
+		if err != nil {
+			log.WithError(err).Warn("could not cancel order")
+		}
+
+		// The order is only open if something was filled
+		o.mutex.Lock()
+		if !ord.Filled().IsZero() {
+			o.status = Open
+		} else {
+			o.status = Broken
+		}
+		o.mutex.Unlock()
 	}
 }
 
@@ -593,16 +582,16 @@ func (o *OrderPair) placeSecondOrder() (err error) {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
 
-	// Don't execute the order if it already exists
-	if o.secondOrder != nil {
-		log.Warn("second order exists. skipping.")
-		return
-	}
-
 	// Bail if pair is no longer open
 	if o.status != Open {
 		log.Warnf("pair status is %s. skipping second order", o.status)
 		return &SkipSecondOrderError{}
+	}
+
+	// Don't execute the order if it already exists
+	if o.secondOrder != nil {
+		log.Warn("second order exists. skipping.")
+		return
 	}
 
 	// Place second order
@@ -635,54 +624,14 @@ func (o *OrderPair) waitForSecondOrder() {
 	}
 
 	// Make sure the order completed successfully
-	switch ord.Status() {
-	case order.Filled:
-		o.mutex.Lock()
+	o.mutex.Lock()
+	if ord.Status() == order.Filled {
 		o.status = Success
-		o.mutex.Unlock()
-
-	case order.Canceled:
-		log.Warn("second order status was CANCELED when closed")
-		o.mutex.Lock()
+	} else {
+		log.Warnf("second order status was %s when closed", ord.Status())
 		o.status = Broken
-		o.mutex.Unlock()
-
-	case order.Partial:
-		log.Warn("second order status was PARTIAL when closed")
-		o.mutex.Lock()
-		o.status = Broken
-		o.mutex.Unlock()
-
-	case order.Unknown:
-		log.Warn("second order status was UNKNOWN when closed")
-		o.mutex.Lock()
-		o.status = Broken
-		o.mutex.Unlock()
-
-	case order.Pending:
-		log.Warn("second order status was PENDING when closed")
-		o.mutex.Lock()
-		o.status = Broken
-		o.mutex.Unlock()
-
-	case order.Rejected:
-		log.Warn("second order status was REJECTED when closed")
-		o.mutex.Lock()
-		o.status = Broken
-		o.mutex.Unlock()
-
-	case order.Updated:
-		log.Warn("second order status was UPDATED when closed")
-		o.mutex.Lock()
-		o.status = Broken
-		o.mutex.Unlock()
-
-	case order.Expired:
-		log.Warn("second order status was EXPIRED when closed")
-		o.mutex.Lock()
-		o.status = Broken
-		o.mutex.Unlock()
 	}
+	o.mutex.Unlock()
 
 	// Save the pair
 	o.Save()
@@ -765,4 +714,44 @@ func (o *OrderPair) validate() error {
 	}
 
 	return nil
+}
+
+func (o *OrderPair) recoverFromFailures() {
+	// Setup local vars to work with
+	o.mutex.RLock()
+	firstOrder := o.firstOrder
+	secondOrder := o.secondOrder
+	secondRequest := o.secondRequest
+	status := o.status
+	o.mutex.RUnlock()
+
+	switch {
+	// Check to see if there's anything to recover. Skip if first order wasn't filled or second order was filled correctly
+	case status != Broken || firstOrder == nil || firstOrder.Filled().IsZero():
+		// Nothing to recover
+		return
+
+	// Check if order was successful but just got marked as failed
+	case secondOrder != nil && secondOrder.Filled().Equal(secondRequest.Quantity()):
+		// This order is successful as the second order request is completely filled
+		o.mutex.Lock()
+		o.status = Success
+		o.mutex.Unlock()
+		return
+
+	// Check to see if second order was placed
+	case secondOrder == nil:
+		// Second order wasn't placed. Reopen the pair
+		o.mutex.Lock()
+		o.status = Open
+		o.mutex.Unlock()
+		return
+
+	// Second order wasn't fully filled. Reverse remaining order
+	case secondOrder != nil && secondOrder.Filled().LessThan(secondRequest.Quantity()):
+		err := o.CancelAndTakeLosses()
+		if err != nil {
+			log.WithError(err).Error("could not reverse order")
+		}
+	}
 }
