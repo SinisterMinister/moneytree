@@ -473,6 +473,7 @@ func bailOnDirectionChange(pair *orderpair.OrderPair) {
 
 					// Set price based on reversal spread
 					bailPrice = minPrice.Add(minPrice.Mul(reversalSpread))
+					log.Infof("new price minimum. setting bail price to %s", bailPrice)
 				}
 				if tick.Price().GreaterThanOrEqual(bailPrice) {
 					// Cancel the order
@@ -485,6 +486,7 @@ func bailOnDirectionChange(pair *orderpair.OrderPair) {
 
 					// Set price based on reversal spread
 					bailPrice = maxPrice.Sub(maxPrice.Mul(reversalSpread))
+					log.Infof("new price maximum. setting bail price to %s", bailPrice)
 				}
 				if tick.Price().LessThanOrEqual(bailPrice) {
 					// Cancel the order
