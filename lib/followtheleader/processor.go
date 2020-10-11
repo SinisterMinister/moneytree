@@ -11,7 +11,6 @@ import (
 	"github.com/sinisterminister/currencytrader/types/candle"
 	"github.com/sinisterminister/currencytrader/types/fees"
 	"github.com/sinisterminister/currencytrader/types/order"
-	"github.com/sinisterminister/moneytree/lib/notifier"
 	"github.com/sinisterminister/moneytree/lib/orderpair"
 	"github.com/sinisterminister/moneytree/lib/trix"
 	"github.com/spf13/viper"
@@ -462,31 +461,66 @@ func spread() (decimal.Decimal, error) {
 }
 
 func bailOnDirectionChange(pair *orderpair.OrderPair) {
-	var (
-		notify <-chan bool
-	)
-	price := bailPrice(pair)
-	if direction == Upward {
-		// Start a price notifier for us to cancel if the falls below
-		notify = notifier.NewPriceBelowNotifier(stopChan, market, price).Receive()
-		log.Infof("waiting for price to fall below %s to signal direction change", price.StringFixed(2))
-	} else {
-		// Start a price notifier for us to cancel if the rises above
-		notify = notifier.NewPriceAboveNotifier(stopChan, market, price).Receive()
-		log.Infof("waiting for price to rise above %s to signal direction change", price.StringFixed(2))
-	}
+	var minPrice, maxPrice, bailPrice decimal.Decimal
+	var cancel bool
 
-	select {
-	case <-notify: // Price went to low, time to bail and transition to opposite state
-		// Cancel the order
-		log.Infof("price direction changed. price passed %s. canceling order", price.StringFixed(2))
-		err := pair.Cancel()
-		if err != nil {
-			log.WithError(err).Error("could not cancel order")
+	// Get the reversal spread from config
+	reversalSpread := decimal.NewFromFloat(viper.GetFloat64("followtheleader.reversalSpread"))
+
+	// Get the price ticker stream
+	stop := make(chan bool)
+	ticker := market.TickerStream(stop)
+
+	for {
+		// Watch for price changes and act accordingly
+		select {
+		// Bail out if we're exiting
+		case <-stopChan:
+			close(stop)
+			return
+
+		// Process new ticks
+		case tick := <-ticker:
+			switch direction {
+			case Downward:
+				if tick.Price().LessThan(minPrice) {
+					minPrice = tick.Price()
+
+					// Set price based on reversal spread
+					bailPrice = minPrice.Add(minPrice.Mul(reversalSpread))
+				}
+				if tick.Price().GreaterThanOrEqual(bailPrice) {
+					// Cancel the order
+					cancel = true
+				}
+			case Upward:
+				if tick.Price().GreaterThan(maxPrice) {
+					maxPrice = tick.Price()
+
+					// Set price based on reversal spread
+					bailPrice = maxPrice.Sub(maxPrice.Mul(reversalSpread))
+				}
+				if tick.Price().LessThanOrEqual(bailPrice) {
+					// Cancel the order
+					cancel = true
+				}
+			default:
+				log.Error("invalid direction for bail price")
+			}
 		}
+		// Bail out when time to cancel
+		if cancel {
+			// Cancel the order
+			log.Infof("price direction changed. price passed %s. canceling order", bailPrice.StringFixed(2))
+			err := pair.Cancel()
+			if err != nil {
+				log.WithError(err).Error("could not cancel order")
+			}
 
-	case <-pair.Done(): // Order completed successfully, nothing to do here
-	case <-stopChan: // Bail on stop
+			// Stop the ticker stream
+			close(stop)
+			return
+		}
 	}
 }
 
@@ -558,38 +592,6 @@ func bailOnMiss(pair *orderpair.OrderPair) {
 	}
 	// Close ticker stream
 	close(stop)
-	return
-}
-
-func bailPrice(pair *orderpair.OrderPair) (price decimal.Decimal) {
-	var reqPrice decimal.Decimal
-
-	// Get the current ticker
-	ticker, err := market.Ticker()
-	if err != nil {
-		log.WithError(err).Warn("could not get ticker for bail price")
-		reqPrice = pair.FirstRequest().Price()
-	} else {
-		reqPrice = ticker.Price()
-	}
-
-	// Get the reversal spread from config
-	reversalSpread := decimal.NewFromFloat(viper.GetFloat64("followtheleader.reversalSpread"))
-
-	// Adjust price with spread based on direction
-	switch direction {
-	case Downward:
-		// Set price based on reversal spread
-		price = reqPrice.Add(reqPrice.Mul(reversalSpread))
-	case Upward:
-		// Set price based on reversal spread
-		price = reqPrice.Sub(reqPrice.Mul(reversalSpread))
-	default:
-		log.Error("invalid direction for bail price")
-	}
-
-	log.Debugf("order bail price is %s", price.String())
-
 	return
 }
 
