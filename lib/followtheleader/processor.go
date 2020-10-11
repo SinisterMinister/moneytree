@@ -44,6 +44,9 @@ func (p *Processor) Process(db *sql.DB, trader types.Trader, market types.Market
 		go refreshDatabasePairs()
 	}
 
+	// Set the initial direction
+	direction = currentMarketDirection()
+
 	for {
 		// Restore the open orders
 		go restoreDoneOpenOrders()
@@ -131,10 +134,7 @@ func nextPair() *orderpair.OrderPair {
 		return pair
 	}
 
-	// Get the direction the next order should go
-	direction = nextPairDirection()
-
-	// Build pair based on that direction
+	// Build pair based on the current direction
 	var err error
 	pair, err = buildPair(direction)
 	if err != nil {
@@ -161,21 +161,6 @@ func recoverRunningPair() (*orderpair.OrderPair, bool) {
 	}
 
 	return pair, true
-}
-
-func nextPairDirection() Direction {
-	// Get the most recent open pair
-	pair, err := pairSvc.LoadMostRecentOpenPair()
-	if pair == nil {
-		if err != nil {
-			log.WithError(err).Warn("could not load most recent open pair")
-		}
-		return currentMarketDirection()
-	}
-	if pair.FirstRequest().Side() == order.Buy {
-		return Downward
-	}
-	return Upward
 }
 
 func currentMarketDirection() Direction {
@@ -492,6 +477,7 @@ func bailOnDirectionChange(pair *orderpair.OrderPair) {
 				if tick.Price().GreaterThanOrEqual(bailPrice) {
 					// Cancel the order
 					cancel = true
+					direction = Upward
 				}
 			case Upward:
 				if tick.Price().GreaterThan(maxPrice) || maxPrice.IsZero() {
@@ -503,6 +489,7 @@ func bailOnDirectionChange(pair *orderpair.OrderPair) {
 				if tick.Price().LessThanOrEqual(bailPrice) {
 					// Cancel the order
 					cancel = true
+					direction = Downward
 				}
 			default:
 				log.Error("invalid direction for bail price")
