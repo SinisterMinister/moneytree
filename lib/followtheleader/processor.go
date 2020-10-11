@@ -483,7 +483,7 @@ func bailOnDirectionChange(pair *orderpair.OrderPair) {
 		case tick := <-ticker:
 			switch direction {
 			case Downward:
-				if tick.Price().LessThan(minPrice) {
+				if tick.Price().LessThan(minPrice) || minPrice.IsZero() {
 					minPrice = tick.Price()
 
 					// Set price based on reversal spread
@@ -494,7 +494,7 @@ func bailOnDirectionChange(pair *orderpair.OrderPair) {
 					cancel = true
 				}
 			case Upward:
-				if tick.Price().GreaterThan(maxPrice) {
+				if tick.Price().GreaterThan(maxPrice) || maxPrice.IsZero() {
 					maxPrice = tick.Price()
 
 					// Set price based on reversal spread
