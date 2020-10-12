@@ -251,10 +251,10 @@ func (o *OrderPair) CancelAndTakeLosses() error {
 	o.mutex.RLock()
 	if o.status != Canceled && o.status != Broken {
 		// Nothing to do here
-		o.mutex.Unlock()
+		o.mutex.RUnlock()
 		return nil
 	}
-	o.mutex.Unlock()
+	o.mutex.RUnlock()
 
 	// First cancel the pair
 	err := o.Cancel()
