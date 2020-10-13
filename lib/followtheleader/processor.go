@@ -136,7 +136,7 @@ func nextPair() *orderpair.OrderPair {
 
 	// Build pair based on the current direction
 	var err error
-	pair, err = buildPair(direction)
+	pair, err = buildPair()
 	if err != nil {
 		log.WithError(err).Fatal("could not build the order pair")
 	}
@@ -198,7 +198,7 @@ func isMarketUpwardTrending() bool {
 	return osc > 0
 }
 
-func buildPair(dir Direction) (pair *orderpair.OrderPair, err error) {
+func buildPair() (pair *orderpair.OrderPair, err error) {
 	// Get the currencies
 	quoteCurrency := market.QuoteCurrency()
 	baseCurrency := market.BaseCurrency()
@@ -220,7 +220,7 @@ func buildPair(dir Direction) (pair *orderpair.OrderPair, err error) {
 
 	// Set the prices and fees
 	var buyPrice, sellPrice, fee1, fee2 decimal.Decimal
-	if dir == Upward {
+	if direction == Upward {
 		fee2 = orderFee.MakerRate()
 
 		// Force maker orders
@@ -296,7 +296,7 @@ func buildPair(dir Direction) (pair *orderpair.OrderPair, err error) {
 		log.F("sellPrice", sellPrice.String()),
 		log.F("buySize", buySize.String()),
 		log.F("buyPrice", buyPrice.String()),
-	).Infof("%s trending order data", dir)
+	).Infof("%s trending order data", direction)
 
 	// Create order pair
 	var op *orderpair.OrderPair
@@ -305,6 +305,7 @@ func buildPair(dir Direction) (pair *orderpair.OrderPair, err error) {
 	} else {
 		op, err = pairSvc.New(sellReq, buyReq)
 	}
+
 	if err != nil {
 		return nil, fmt.Errorf("could not create order pair: %w", err)
 	}
