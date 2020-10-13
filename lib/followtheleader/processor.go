@@ -199,16 +199,6 @@ func isMarketUpwardTrending() bool {
 }
 
 func buildPair(dir Direction) (pair *orderpair.OrderPair, err error) {
-	switch dir {
-	case Upward:
-		pair, err = buildUpwardPair()
-	case Downward:
-		pair, err = buildDownwardPair()
-	}
-	return
-}
-
-func buildDownwardPair() (*orderpair.OrderPair, error) {
 	// Get the currencies
 	quoteCurrency := market.QuoteCurrency()
 	baseCurrency := market.BaseCurrency()
@@ -218,34 +208,6 @@ func buildDownwardPair() (*orderpair.OrderPair, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// Get spread
-	spread, err := spread()
-	if err != nil {
-		return nil, err
-	}
-
-	// Set the sell price
-	var sellPrice decimal.Decimal
-
-	// Force maker orders
-	if viper.GetBool("followtheleader.forceMakerOrders") {
-		sellPrice = ticker.Bid()
-	} else {
-		sellPrice = ticker.Ask()
-	}
-
-	// Determine buy price
-	buyPrice := sellPrice.Sub(sellPrice.Mul(spread)).Round(int32(quoteCurrency.Precision()))
-
-	// Set the base size
-	size, err := size(ticker)
-	if err != nil {
-		return nil, err
-	}
-
-	// Set buy size to base size
-	buySize := size.Round(int32(baseCurrency.Precision()))
 
 	// Determine sell size so that both currencies gain
 	orderFee, err := getFees()
@@ -253,74 +215,52 @@ func buildDownwardPair() (*orderpair.OrderPair, error) {
 		return nil, fmt.Errorf("could not load fees: %w", err)
 	}
 
-	// Get the fees
-	fee1 := orderFee.MakerRate()
-	fee2 := orderFee.TakerRate()
+	// Set the profit target
+	targetReturn := decimal.NewFromFloat(viper.GetFloat64("followtheleader.targetReturn"))
 
-	// Get the target return
-	target := decimal.NewFromFloat(viper.GetFloat64("followtheleader.targetReturn"))
+	// Set the prices and fees
+	var buyPrice, sellPrice, fee1, fee2 decimal.Decimal
+	if dir == Upward {
+		fee2 = orderFee.MakerRate()
 
-	// Setup the numbers we need
-	two := decimal.NewFromFloat(2)
+		// Force maker orders
+		if viper.GetBool("followtheleader.forceMakerOrders") {
+			fee1 = orderFee.MakerRate()
+			buyPrice = ticker.Bid()
+		} else {
+			fee1 = orderFee.TakerRate()
+			buyPrice = ticker.Ask()
+		}
 
-	// 2a - 2ab - abt - 2abg
-	n := two.Mul(buySize).Sub(two.Mul(buySize).Mul(buyPrice)).Sub(buySize.Mul(buyPrice).Mul(target)).Sub(two.Mul(buySize).Mul(buyPrice).Mul(fee2))
-	// t + 2f + 2 - 2d
-	d := target.Add(two.Mul(fee1)).Add(two).Sub(two.Mul(sellPrice))
+		// Determine the fee rate
+		rate := fee1.Add(fee2)
 
-	// Set sell size
-	sellSize := n.Div(d)
+		// Calculate spread
+		spread := targetReturn.Add(rate)
 
-	// Round to correct precision
-	sellSize = sellSize.Round(int32(baseCurrency.Precision()))
-
-	// Build the order requests
-	sellReq := order.NewRequest(market, order.Limit, order.Sell, sellSize, sellPrice, viper.GetBool("followtheleader.forceMakerOrders"))
-	buyReq := order.NewRequest(market, order.Limit, order.Buy, buySize, buyPrice, viper.GetBool("followtheleader.forceMakerOrders"))
-	log.WithFields(
-		log.F("sellSize", sellSize.String()),
-		log.F("sellPrice", sellPrice.String()),
-		log.F("buySize", buySize.String()),
-		log.F("buyPrice", buyPrice.String()),
-	).Info("downward trending order data")
-
-	// Create order pair
-	op, err := pairSvc.New(sellReq, buyReq)
-	if err != nil {
-		return nil, fmt.Errorf("could not create order pair: %w", err)
-	}
-	return op, nil
-}
-
-func buildUpwardPair() (*orderpair.OrderPair, error) {
-	// Get the currencies
-	quoteCurrency := market.QuoteCurrency()
-	baseCurrency := market.BaseCurrency()
-
-	// Get the ticker for the current prices
-	ticker, err := market.Ticker()
-	if err != nil {
-		return nil, err
-	}
-
-	// Determine prices using the spread
-	spread, err := spread()
-	if err != nil {
-		return nil, err
-	}
-
-	// Set the prices
-	var buyPrice decimal.Decimal
-
-	// Force maker orders
-	if viper.GetBool("followtheleader.forceMakerOrders") {
-		buyPrice = ticker.Bid()
+		// Determine sell price from spread
+		sellPrice = buyPrice.Add(buyPrice.Mul(spread)).Round(int32(quoteCurrency.Precision()))
 	} else {
-		buyPrice = ticker.Ask()
-	}
+		fee1 = orderFee.MakerRate()
 
-	// Set the ask price from the bid price
-	sellPrice := buyPrice.Add(buyPrice.Mul(spread)).Round(int32(quoteCurrency.Precision()))
+		// Force maker orders
+		if viper.GetBool("followtheleader.forceMakerOrders") {
+			fee2 = orderFee.MakerRate()
+			sellPrice = ticker.Bid()
+		} else {
+			fee2 = orderFee.TakerRate()
+			sellPrice = ticker.Ask()
+		}
+
+		// Determine the fee rate
+		rate := fee1.Add(fee2)
+
+		// Calculate spread
+		spread := targetReturn.Add(rate)
+
+		// Determine buy price from spread
+		buyPrice = sellPrice.Sub(sellPrice.Mul(spread)).Round(int32(quoteCurrency.Precision()))
+	}
 
 	// Set the sizes
 	size, err := size(ticker)
@@ -331,16 +271,6 @@ func buildUpwardPair() (*orderpair.OrderPair, error) {
 	// Set buy size to base size
 	buySize := size.Round(int32(baseCurrency.Precision()))
 
-	// Determine sell size so that both currencies gain
-	orderFee, err := getFees()
-	if err != nil {
-		return nil, fmt.Errorf("could not load fees: %w", err)
-	}
-
-	// Get the fees
-	fee1 := orderFee.TakerRate()
-	fee2 := orderFee.MakerRate()
-
 	// Get the target return
 	target := decimal.NewFromFloat(viper.GetFloat64("followtheleader.targetReturn"))
 
@@ -366,10 +296,15 @@ func buildUpwardPair() (*orderpair.OrderPair, error) {
 		log.F("sellPrice", sellPrice.String()),
 		log.F("buySize", buySize.String()),
 		log.F("buyPrice", buyPrice.String()),
-	).Info("upward trending order data")
+	).Infof("%s trending order data", dir)
 
 	// Create order pair
-	op, err := pairSvc.New(buyReq, sellReq)
+	var op *orderpair.OrderPair
+	if direction == Upward {
+		op, err = pairSvc.New(buyReq, sellReq)
+	} else {
+		op, err = pairSvc.New(sellReq, buyReq)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("could not create order pair: %w", err)
 	}
@@ -422,27 +357,6 @@ func getFees() (f types.Fees, err error) {
 		}
 	}
 	return
-}
-
-func spread() (decimal.Decimal, error) {
-	f, err := getFees()
-	if err != nil {
-		log.WithError(err).Error("failed to get fees")
-		return decimal.Zero, err
-	}
-
-	// Set the profit target
-	target := decimal.NewFromFloat(viper.GetFloat64("followtheleader.targetReturn"))
-
-	// Add the taker and maker fees for the orders. We add both as while the first order can be
-	// either a maker or a taker depending on configuration and/or timing, the second order is
-	// always a maker order due to the nature of the application.
-	rate := f.TakerRate().Add(f.MakerRate())
-
-	// Calculate spread
-	spread := target.Add(rate)
-
-	return spread, nil
 }
 
 func bailOnDirectionChange(pair *orderpair.OrderPair) {
