@@ -22,6 +22,9 @@ data:
 
     debug: true
 
+    followtheleader:
+      forceMakerOrders: {{ .Values.moneytree.forceMakerOrders}}
+
     postgres:
       host: {{ .Chart.Name }}-postgresql
       password: {{ .Values.moneytree.postgresql.password }}
