@@ -698,11 +698,19 @@ func (o *OrderPair) validate() error {
 	// Determin the fees
 	var baseFee, quoteFee decimal.Decimal
 	if o.FirstRequest().Side() == order.Buy {
-		baseFee = o.BuyRequest().Quantity().Mul(rates.TakerRate())
+		if viper.GetBool("moneytree.forceMakerOrders") {
+			baseFee = o.BuyRequest().Quantity().Mul(rates.MakerRate())
+		} else {
+			baseFee = o.BuyRequest().Quantity().Mul(rates.TakerRate())
+		}
 		quoteFee = o.SellRequest().Price().Mul(o.SellRequest().Quantity()).Mul(rates.MakerRate())
 	} else {
+		if viper.GetBool("moneytree.forceMakerOrders") {
+			quoteFee = o.SellRequest().Price().Mul(o.SellRequest().Quantity()).Mul(rates.MakerRate())
+		} else {
+			quoteFee = o.SellRequest().Price().Mul(o.SellRequest().Quantity()).Mul(rates.TakerRate())
+		}
 		baseFee = o.BuyRequest().Quantity().Mul(rates.MakerRate())
-		quoteFee = o.SellRequest().Price().Mul(o.SellRequest().Quantity()).Mul(rates.TakerRate())
 	}
 
 	// Make sure we're not losing currency

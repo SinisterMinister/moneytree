@@ -224,7 +224,7 @@ func buildPair(dir Direction) (pair *orderpair.OrderPair, err error) {
 		fee2 = orderFee.MakerRate()
 
 		// Force maker orders
-		if viper.GetBool("followtheleader.forceMakerOrders") {
+		if viper.GetBool("moneytree.forceMakerOrders") {
 			fee1 = orderFee.MakerRate()
 			buyPrice = ticker.Bid()
 		} else {
@@ -244,7 +244,7 @@ func buildPair(dir Direction) (pair *orderpair.OrderPair, err error) {
 		fee1 = orderFee.MakerRate()
 
 		// Force maker orders
-		if viper.GetBool("followtheleader.forceMakerOrders") {
+		if viper.GetBool("moneytree.forceMakerOrders") {
 			fee2 = orderFee.MakerRate()
 			sellPrice = ticker.Bid()
 		} else {
@@ -289,8 +289,8 @@ func buildPair(dir Direction) (pair *orderpair.OrderPair, err error) {
 	sellSize = sellSize.Round(int32(baseCurrency.Precision()))
 
 	// Build the order requests
-	sellReq := order.NewRequest(market, order.Limit, order.Sell, sellSize, sellPrice, viper.GetBool("followtheleader.forceMakerOrders"))
-	buyReq := order.NewRequest(market, order.Limit, order.Buy, buySize, buyPrice, viper.GetBool("followtheleader.forceMakerOrders"))
+	sellReq := order.NewRequest(market, order.Limit, order.Sell, sellSize, sellPrice, viper.GetBool("moneytree.forceMakerOrders"))
+	buyReq := order.NewRequest(market, order.Limit, order.Buy, buySize, buyPrice, viper.GetBool("moneytree.forceMakerOrders"))
 	log.WithFields(
 		log.F("sellSize", sellSize.String()),
 		log.F("sellPrice", sellPrice.String()),

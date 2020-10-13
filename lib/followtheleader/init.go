@@ -5,9 +5,6 @@ import (
 )
 
 func init() {
-	// Force system to submit only market maker orders. Otherwise it will use taker orders for the first order
-	viper.SetDefault("followtheleader.forceMakerOrders", false)
-
 	// Spread distance the price must change to reverse the order direction
 	viper.SetDefault("followtheleader.reversalSpread", 0.00075)
 

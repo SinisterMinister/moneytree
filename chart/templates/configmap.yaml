@@ -22,7 +22,7 @@ data:
 
     debug: true
 
-    followtheleader:
+    moneytree:
       forceMakerOrders: {{ .Values.moneytree.forceMakerOrders}}
 
     postgres:

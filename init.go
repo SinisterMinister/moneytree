@@ -16,4 +16,7 @@ func init() {
 	if err != nil {
 		log.WithError(err).Panic("fatal error loading config file")
 	}
+
+	// Force system to submit only market maker orders. Otherwise it will use taker orders for the first order
+	viper.SetDefault("moneytree.forceMakerOrders", false)
 }
