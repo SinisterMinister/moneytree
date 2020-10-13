@@ -747,6 +747,21 @@ func (o *OrderPair) recoverFromFailures() {
 		o.mutex.Unlock()
 		return
 
+	case secondOrder != nil && secondOrder.Status() == order.Pending:
+		// Reload the order to make sure it's still pending
+		ord, err := o.svc.trader.OrderSvc().Order(secondOrder.Market(), secondOrder.ID())
+		if err == nil {
+			if ord.Status() == order.Pending {
+				// Second order still pending. Reopen the pair
+				o.mutex.Lock()
+				o.status = Open
+				o.mutex.Unlock()
+				return
+			}
+		}
+		log.WithError(err).Error("could not load pending second order for recovery")
+		fallthrough
+
 	// Second order wasn't fully filled. Reverse remaining order
 	case secondOrder != nil && secondOrder.Filled().LessThan(secondRequest.Quantity()):
 		err := o.CancelAndTakeLosses()
