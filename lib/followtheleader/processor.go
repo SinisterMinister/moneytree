@@ -281,16 +281,13 @@ func buildPair() (pair *orderpair.OrderPair, err error) {
 	// Set buy size to base size
 	buySize := size.Round(int32(baseCurrency.Precision()))
 
-	// Get the target return
-	target := decimal.NewFromFloat(viper.GetFloat64("followtheleader.targetReturn"))
-
 	// Setup the numbers we need
 	two := decimal.NewFromFloat(2)
 
 	// 2a - 2ab - abt - 2abg
-	n := two.Mul(buySize).Sub(two.Mul(buySize).Mul(buyPrice)).Sub(buySize.Mul(buyPrice).Mul(target)).Sub(two.Mul(buySize).Mul(buyPrice).Mul(fee2))
+	n := two.Mul(buySize).Sub(two.Mul(buySize).Mul(buyPrice)).Sub(buySize.Mul(buyPrice).Mul(targetReturn)).Sub(two.Mul(buySize).Mul(buyPrice).Mul(fee2))
 	// t + 2f + 2 - 2d
-	d := target.Add(two.Mul(fee1)).Add(two).Sub(two.Mul(sellPrice))
+	d := targetReturn.Add(two.Mul(fee1)).Add(two).Sub(two.Mul(sellPrice))
 
 	// Set sell size
 	sellSize := n.Div(d)
