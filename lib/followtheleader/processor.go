@@ -58,7 +58,10 @@ func (p *Processor) Process(db *sql.DB, trader types.Trader, market types.Market
 		}
 
 		// Load the next pair to execute
-		pair := nextPair()
+		pair, err := nextPair()
+		if err != nil {
+			log.WithError(err).Error("order pair failed: first order failed to place")
+		}
 
 		// Log the direction
 		log.Infof("order direction is %s", direction)
@@ -66,20 +69,27 @@ func (p *Processor) Process(db *sql.DB, trader types.Trader, market types.Market
 		// Execute the order pair
 		doneChan := pair.Execute(stop)
 
-		// Start the pair bail out watchers
-		go bailOnDirectionChange(pair)
-		go bailOnMiss(pair)
-		go bailOnPass(pair)
+		// Make sure first order placed
+		if pair.FirstOrder() != nil {
+			// Start the pair bail out watchers
+			go bailOnDirectionChange(pair)
+			go bailOnMiss(pair)
+			go bailOnPass(pair)
 
-		// Wait for the order to be complete
-		select {
-		case <-stop: // Bail out if stopped
-			return
-		case <-doneChan:
+			// Wait for the order to be complete
+			select {
+			case <-stop: // Bail out if stopped
+				return
+			case <-doneChan:
+			}
+
+			// Nothing left to do but process again
+			log.WithField("market", market.Name()).Info("market process cycle complete")
+		} else {
+			log.Error("first order failed to place. continuing to next cycle")
 		}
 
-		// Nothing left to do but process again
-		log.WithField("market", market.Name()).Info("market process cycle complete")
+		// Wait between cycles in case of bad loop
 		<-time.NewTimer(viper.GetDuration("followtheleader.cycleDelay")).C
 	}
 }
@@ -122,7 +132,7 @@ func refreshDatabasePairs() {
 	}
 }
 
-func nextPair() *orderpair.OrderPair {
+func nextPair() (*orderpair.OrderPair, error) {
 	// Try to recover the pair first
 	pair, ok := recoverRunningPair()
 	if ok { // Determine direction from pair
@@ -131,14 +141,14 @@ func nextPair() *orderpair.OrderPair {
 		} else {
 			direction = Downward
 		}
-		return pair
+		return pair, nil
 	}
 
 	// Build pair based on the current direction
 	var err error
 	pair, err = buildPair()
 	if err != nil {
-		log.WithError(err).Fatal("could not build the order pair")
+		return nil, fmt.Errorf("could not build the order pair: %w", err)
 	}
 
 	// Use colliding open order if exists
@@ -150,7 +160,7 @@ func nextPair() *orderpair.OrderPair {
 		log.Infof("using open pair %s", pair.UUID().String())
 		pair = collidingPair
 	}
-	return pair
+	return pair, nil
 }
 
 func recoverRunningPair() (*orderpair.OrderPair, bool) {
@@ -361,12 +371,6 @@ func getFees() (f types.Fees, err error) {
 }
 
 func bailOnDirectionChange(pair *orderpair.OrderPair) {
-	// Bail if there's no first order to work with
-	if pair.FirstOrder() == nil {
-		return
-	}
-
-	// Setup local vars
 	var minPrice, maxPrice, bailPrice decimal.Decimal
 	var cancel bool
 
@@ -435,11 +439,6 @@ func bailOnDirectionChange(pair *orderpair.OrderPair) {
 }
 
 func bailOnPass(pair *orderpair.OrderPair) {
-	// Bail if there's no first order to work with
-	if pair.FirstOrder() == nil {
-		return
-	}
-
 	stop := make(chan bool)
 	tickerStream := market.TickerStream(stop)
 	for {
@@ -475,11 +474,6 @@ func bailOnPass(pair *orderpair.OrderPair) {
 }
 
 func bailOnMiss(pair *orderpair.OrderPair) {
-	// Bail if there's no first order to work with
-	if pair.FirstOrder() == nil {
-		return
-	}
-
 	stop := make(chan bool)
 	tickerStream := market.TickerStream(stop)
 	for {
