@@ -228,8 +228,8 @@ func buildDownwardPair() (*orderpair.OrderPair, error) {
 	// Set the sell price
 	var sellPrice decimal.Decimal
 
-	// Force taker orders
-	if viper.GetBool("followtheleader.forceTakerOrders") {
+	// Force maker orders
+	if viper.GetBool("followtheleader.forceMakerOrders") {
 		sellPrice = ticker.Bid()
 	} else {
 		sellPrice = ticker.Ask()
@@ -275,8 +275,8 @@ func buildDownwardPair() (*orderpair.OrderPair, error) {
 	sellSize = sellSize.Round(int32(baseCurrency.Precision()))
 
 	// Build the order requests
-	sellReq := order.NewRequest(market, order.Limit, order.Sell, sellSize, sellPrice)
-	buyReq := order.NewRequest(market, order.Limit, order.Buy, buySize, buyPrice)
+	sellReq := order.NewRequest(market, order.Limit, order.Sell, sellSize, sellPrice, viper.GetBool("followtheleader.forceMakerOrders"))
+	buyReq := order.NewRequest(market, order.Limit, order.Buy, buySize, buyPrice, viper.GetBool("followtheleader.forceMakerOrders"))
 	log.WithFields(
 		log.F("sellSize", sellSize.String()),
 		log.F("sellPrice", sellPrice.String()),
@@ -312,11 +312,11 @@ func buildUpwardPair() (*orderpair.OrderPair, error) {
 	// Set the prices
 	var buyPrice decimal.Decimal
 
-	// Force taker orders
-	if viper.GetBool("followtheleader.forceTakerOrders") {
-		buyPrice = ticker.Ask()
-	} else {
+	// Force maker orders
+	if viper.GetBool("followtheleader.forceMakerOrders") {
 		buyPrice = ticker.Bid()
+	} else {
+		buyPrice = ticker.Ask()
 	}
 
 	// Set the ask price from the bid price
@@ -359,8 +359,8 @@ func buildUpwardPair() (*orderpair.OrderPair, error) {
 	sellSize = sellSize.Round(int32(baseCurrency.Precision()))
 
 	// Build the order requests
-	sellReq := order.NewRequest(market, order.Limit, order.Sell, sellSize, sellPrice)
-	buyReq := order.NewRequest(market, order.Limit, order.Buy, buySize, buyPrice)
+	sellReq := order.NewRequest(market, order.Limit, order.Sell, sellSize, sellPrice, viper.GetBool("followtheleader.forceMakerOrders"))
+	buyReq := order.NewRequest(market, order.Limit, order.Buy, buySize, buyPrice, viper.GetBool("followtheleader.forceMakerOrders"))
 	log.WithFields(
 		log.F("sellSize", sellSize.String()),
 		log.F("sellPrice", sellPrice.String()),

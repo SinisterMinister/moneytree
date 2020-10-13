@@ -314,7 +314,7 @@ func (o *OrderPair) CancelAndTakeLosses() error {
 
 		// Build reversal order
 		req := order.NewRequest(o.svc.market, o.secondRequest.Type(),
-			o.secondRequest.Side(), size, ticker.Ask())
+			o.secondRequest.Side(), size, ticker.Ask(), false)
 
 		// Place the reversal order
 		log.Info("placing reversal order")
