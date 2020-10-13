@@ -361,6 +361,12 @@ func getFees() (f types.Fees, err error) {
 }
 
 func bailOnDirectionChange(pair *orderpair.OrderPair) {
+	// Bail if there's no first order to work with
+	if pair.FirstOrder() == nil {
+		return
+	}
+
+	// Setup local vars
 	var minPrice, maxPrice, bailPrice decimal.Decimal
 	var cancel bool
 
@@ -429,6 +435,11 @@ func bailOnDirectionChange(pair *orderpair.OrderPair) {
 }
 
 func bailOnPass(pair *orderpair.OrderPair) {
+	// Bail if there's no first order to work with
+	if pair.FirstOrder() == nil {
+		return
+	}
+
 	stop := make(chan bool)
 	tickerStream := market.TickerStream(stop)
 	for {
@@ -464,6 +475,11 @@ func bailOnPass(pair *orderpair.OrderPair) {
 }
 
 func bailOnMiss(pair *orderpair.OrderPair) {
+	// Bail if there's no first order to work with
+	if pair.FirstOrder() == nil {
+		return
+	}
+
 	stop := make(chan bool)
 	tickerStream := market.TickerStream(stop)
 	for {
