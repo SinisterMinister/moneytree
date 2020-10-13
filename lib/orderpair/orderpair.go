@@ -364,9 +364,6 @@ func (o *OrderPair) executeWorkflow() {
 	// Attempt to place first order
 	err = o.placeFirstOrder()
 
-	// Release start hold
-	o.releaseStartHold()
-
 	// Save the order to the database
 	o.Save()
 
@@ -381,8 +378,14 @@ func (o *OrderPair) executeWorkflow() {
 
 		// End the workflow
 		o.endWorkflow()
+
+		// Release start hold
+		o.releaseStartHold()
 		return
 	}
+
+	// Release start hold
+	o.releaseStartHold()
 
 	// Wait for the first order to finish
 	o.waitForFirstOrder()
@@ -416,9 +419,6 @@ func (o *OrderPair) executeWorkflow() {
 	// Wait for the second order to complete
 	o.waitForSecondOrder()
 
-	// Handle any recoverable failures
-	o.recoverFromFailures()
-
 	// End the workflow
 	o.endWorkflow()
 
@@ -443,6 +443,9 @@ func (o *OrderPair) releaseStartHold() {
 }
 
 func (o *OrderPair) endWorkflow() {
+	// Handle any recoverable failures
+	o.recoverFromFailures()
+
 	// Lock the pair while we work
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
