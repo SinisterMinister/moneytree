@@ -460,6 +460,9 @@ func (o *OrderPair) endWorkflow() {
 	// Record the timestamp
 	o.endedAt = time.Now()
 
+	// Save the order to the database
+	go o.Save()
+
 	// launch routines to save when they close and update
 	go func() {
 		o.mutex.RLock()
