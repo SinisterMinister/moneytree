@@ -47,6 +47,10 @@ func (p *Processor) Process(db *sql.DB, trader types.Trader, market types.Market
 	// Set the initial direction
 	direction = currentMarketDirection()
 
+	// Start a price ticker to record to the database
+	go startPriceTicker()
+
+	// Start processing
 	for {
 		// Restore the open orders
 		go restoreDoneOpenOrders()
@@ -91,6 +95,29 @@ func (p *Processor) Process(db *sql.DB, trader types.Trader, market types.Market
 
 		// Wait between cycles in case of bad loop
 		<-time.NewTimer(viper.GetDuration("followtheleader.cycleDelay")).C
+	}
+}
+
+func startPriceTicker() {
+	_, err := db.Exec("CREATE TABLE IF NOT EXISTS currentprice (id int, price decimal);")
+	if err != nil {
+		log.WithError(err).Error("could not setup currentprice table")
+		return
+	}
+	ticker := market.TickerStream(stopChan)
+	for {
+		select {
+		case <-stopChan:
+			// Time to bail
+			return
+		case tick := <-ticker:
+			// Update the database
+			price := tick.Price().StringFixed(2)
+			_, err = db.Exec("INSERT INTO currentprice (id, price) VALUES (%d, %s) ON CONFLICT (id) DO UPDATE SET price = %s", 0, price, price)
+			if err != nil {
+				log.WithError(err).Error("could not update currentprice table")
+			}
+		}
 	}
 }
 
