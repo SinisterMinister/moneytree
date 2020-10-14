@@ -99,7 +99,7 @@ func (p *Processor) Process(db *sql.DB, trader types.Trader, market types.Market
 }
 
 func startPriceTicker() {
-	_, err := db.Exec("CREATE TABLE IF NOT EXISTS currentprice (id int, price decimal);")
+	_, err := db.Exec("DROP TABLE currentprice; CREATE TABLE IF NOT EXISTS currentprice (id int primary key, price decimal);")
 	if err != nil {
 		log.WithError(err).Error("could not setup currentprice table")
 		return
