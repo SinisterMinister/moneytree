@@ -5,7 +5,7 @@ metadata:
   labels:
     {{- include "moneytree.labels" . | nindent 4 }}
 spec:
-  replicas: {{ .Values.moneytree.replicaCount }}
+  replicas: 1
   strategy:
     type: Recreate
   selector:

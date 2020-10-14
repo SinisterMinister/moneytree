@@ -8,11 +8,21 @@ dependencies:
 moneytree:
   disableFees: false
   forceMakerOrders: true
+  enableDebugLogs: true
+  maxOpenOrders: 8
+
+  coinbase:
+    # Forces the app to use the sandbox
+    useSandbox: true
+
+    # Coinbase Credentials
+    key: YOUR COINBASE PRO KEY
+    passphrase: YOUR COINBASE PASSPHRASE
+    secret: YOUR COINBASE SECRET
   
   postgresql:
     database: moneytree
     password: password
-  replicaCount: 1
 
   image:
     repository: hub.sinimini.com/docker/moneytree

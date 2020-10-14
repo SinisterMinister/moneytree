@@ -9,23 +9,33 @@ data:
     symbols:
     - BTC
     - USD
-
     coinbase:
-      # Sandbox Credentials
+    {{- if .Values.moneytree.coinbase.useSandbox }}
+      # Sandbox URLs
       websocketURL:  wss://ws-feed-public.sandbox.pro.coinbase.com
       baseURL: https://api-public.sandbox.pro.coinbase.com
-      key: 7f80661cd3fbaa1d52ea87d565074d4c
-      passphrase: u0w273x7hw
-      secret: cFqrTqWLw3nS/wTalxoLKLLGvWVD/fAMcg8T1a0YPTCbnjOyC0M9c4Mqt4THWx0vrSXa2EyfoKxy6plwC9KKIg==
+    {{- else }}
+      # Live URLs
+      websocketURL:  wss://ws-feed.pro.coinbase.com
+      baseURL: https://api.pro.coinbase.com
+    {{- end }}
+      key: {{ .Values.moneytree.coinbase.key }}
+      passphrase: {{ .Values.moneytree.coinbase.passphrase }}
+      secret: {{ .Values.moneytree.coinbase.secret }}
 
     disableFees: {{ .Values.moneytree.disableFees }}
 
+    followtheleader:
+      maxOpenOrders: {{ .Values.moneytree.maxOpenOrders }}
+
+    {{- if .Values.moneytree.enableDebugLogs }}
     debug: true
+    {{- end }}
 
     moneytree:
       forceMakerOrders: {{ .Values.moneytree.forceMakerOrders}}
 
     postgres:
-      host: {{ .Chart.Name }}-postgresql
+      host: {{ .Release.Name }}-postgresql
       password: {{ .Values.moneytree.postgresql.password }}
       database: {{ .Values.moneytree.postgresql.database }}
