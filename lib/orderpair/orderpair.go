@@ -738,13 +738,13 @@ func (o *OrderPair) recoverFromFailures() {
 
 	switch {
 	// Check to see if there's anything to recover. Skip if first order wasn't filled or second order was filled correctly
+	case firstOrder == nil:
+		fallthrough
 	case firstOrder.Status() == order.Canceled:
 		// This order should be marked as failed
 		o.mutex.Lock()
 		o.status = Failed
 		o.mutex.Unlock()
-		fallthrough
-	case firstOrder == nil:
 		fallthrough
 	case firstOrder.Filled().IsZero():
 		fallthrough
