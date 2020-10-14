@@ -113,7 +113,7 @@ func startPriceTicker() {
 		case tick := <-ticker:
 			// Update the database
 			price := tick.Price().StringFixed(2)
-			_, err = db.Exec("INSERT INTO currentprice (id, price) VALUES (%d, %s) ON CONFLICT (id) DO UPDATE SET price = %s", 0, price, price)
+			_, err = db.Exec("INSERT INTO currentprice (id, price) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET price = $2", 0, price)
 			if err != nil {
 				log.WithError(err).Error("could not update currentprice table")
 			}
