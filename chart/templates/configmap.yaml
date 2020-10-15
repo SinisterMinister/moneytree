@@ -22,15 +22,20 @@ data:
       key: {{ .Values.moneytree.coinbase.key }}
       passphrase: {{ .Values.moneytree.coinbase.passphrase }}
       secret: {{ .Values.moneytree.coinbase.secret }}
+      
+    debug: {{ .Values.moneytree.enableDebugLogs }}
 
     disableFees: {{ .Values.moneytree.disableFees }}
 
     followtheleader:
       maxOpenOrders: {{ .Values.moneytree.maxOpenOrders }}
+      reversalSpread: {{ .Values.moneytree.reversalSpread }}
+      targetReturn: {{ .Values.moneytree.targetReturn }}
+      cycleDelay: {{ .Values.moneytree.cycleDelay }}
+      refreshDatabasePairs: {{ .Values.moneytree.refreshDatabasePairs }}
 
-    {{- if .Values.moneytree.enableDebugLogs }}
-    debug: true
-    {{- end }}
+    orderpair:
+      missPercentage: {{ .Values.moneytree.missPercentage }}
 
     moneytree:
       forceMakerOrders: {{ .Values.moneytree.forceMakerOrders}}

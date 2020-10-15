@@ -6,10 +6,23 @@ dependencies:
     enable: true
 
 moneytree:
+
+  # Don't take fees into account when calculating spread
   disableFees: false
+  # Force orders to reject if they'd be a taker order
   forceMakerOrders: true
+  # Enable debug logging
   enableDebugLogs: true
+  # Maximum number of orders that the system will keep open before rotating them
   maxOpenOrders: 8
+  # Percentage spread between peak price and reversal point
+  reversalSpread: 0.00075
+  # Percentage return to target
+  targetReturn: 0.001
+  # Delay between process cycles
+  cycleDelay: 5s
+  # Refresh the pairs in the database with fresh data from the API
+  refreshDatabasePairs: false
 
   coinbase:
     # Forces the app to use the sandbox
