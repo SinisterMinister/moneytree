@@ -755,19 +755,19 @@ func (o *OrderPair) recoverFromFailures() {
 		// Nothing to recover
 		return
 
-	// Check if order was successful but just got marked as failed
-	case secondOrder != nil && secondOrder.Filled().Equal(secondRequest.Quantity()):
-		// This order is successful as the second order request is completely filled
-		o.mutex.Lock()
-		o.status = Success
-		o.mutex.Unlock()
-		return
-
 	// Check to see if second order was placed
 	case secondOrder == nil:
 		// Second order wasn't placed. Reopen the pair
 		o.mutex.Lock()
 		o.status = Open
+		o.mutex.Unlock()
+		return
+
+	// Check if order was successful but just got marked as failed
+	case secondOrder != nil && secondOrder.Filled().Equal(secondRequest.Quantity()):
+		// This order is successful as the second order request is completely filled
+		o.mutex.Lock()
+		o.status = Success
 		o.mutex.Unlock()
 		return
 
@@ -788,6 +788,16 @@ func (o *OrderPair) recoverFromFailures() {
 
 	// Second order wasn't fully filled. Reverse remaining order
 	case secondOrder != nil && secondOrder.Filled().LessThan(secondRequest.Quantity()):
+		if secondOrder.Status() == order.Canceled {
+			o.mutex.Lock()
+			o.status = Canceled
+			o.mutex.Unlock()
+		} else {
+			o.mutex.Lock()
+			o.status = Broken
+			o.mutex.Unlock()
+		}
+
 		err := o.CancelAndTakeLosses()
 		if err != nil {
 			log.WithError(err).Error("could not reverse order")
