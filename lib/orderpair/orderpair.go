@@ -587,7 +587,7 @@ func (o *OrderPair) placeSecondOrder() (err error) {
 
 	// Don't execute the order if it already exists
 	if o.secondOrder != nil {
-		log.Warn("second order exists. skipping.")
+		log.Info("second order exists. skipping.")
 		return
 	}
 
