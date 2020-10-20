@@ -18,7 +18,7 @@ require (
 	github.com/prometheus/client_golang v1.8.0 // indirect
 	github.com/satori/go.uuid v1.2.0
 	github.com/shopspring/decimal v1.2.0
-	github.com/sinisterminister/currencytrader v0.1.3
+	github.com/sinisterminister/currencytrader v0.1.5
 	github.com/spf13/afero v1.4.1 // indirect
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
