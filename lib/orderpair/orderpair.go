@@ -247,15 +247,6 @@ func (o *OrderPair) IsPassedOrder(price decimal.Decimal) bool {
 }
 
 func (o *OrderPair) CancelAndTakeLosses() error {
-	// Skip if the order is an incompatible state
-	o.mutex.RLock()
-	if o.status != Canceled && o.status != Broken {
-		// Nothing to do here
-		o.mutex.RUnlock()
-		return nil
-	}
-	o.mutex.RUnlock()
-
 	// First cancel the pair
 	err := o.Cancel()
 	if err != nil {
