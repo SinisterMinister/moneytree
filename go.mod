@@ -8,7 +8,6 @@ require (
 	github.com/go-playground/log/v7 v7.0.2
 	github.com/go-playground/pkg/v5 v5.1.0 // indirect
 	github.com/golang/mock v1.4.3
-	github.com/google/uuid v1.1.2 // indirect
 	github.com/heptiolabs/healthcheck v0.0.0-20180807145615-6ff867650f40
 	github.com/lib/pq v1.8.0
 	github.com/magiconair/properties v1.8.4 // indirect
@@ -18,7 +17,7 @@ require (
 	github.com/prometheus/client_golang v1.8.0 // indirect
 	github.com/satori/go.uuid v1.2.0
 	github.com/shopspring/decimal v1.2.0
-	github.com/sinisterminister/currencytrader v0.1.6
+	github.com/sinisterminister/currencytrader v0.1.7
 	github.com/spf13/afero v1.4.1 // indirect
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
