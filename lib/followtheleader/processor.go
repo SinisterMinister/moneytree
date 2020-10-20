@@ -347,12 +347,18 @@ func buildPair() (pair *orderpair.OrderPair, err error) {
 }
 
 func size(ticker types.Ticker) (decimal.Decimal, error) {
-	if !baseSize.IsZero() {
-		return baseSize, nil
-	}
+	// Get the max order size from max number of open orders plus 1 to add a buffer
+	maxOpenOrders := decimal.NewFromFloat(viper.GetFloat64("followtheleader.maxOpenOrders")).Add(decimal.NewFromFloat(1))
 
-	// Get the max order size ration from max number of open orders plus 1 to add a buffer
-	ratio := decimal.NewFromFloat(viper.GetFloat64("followtheleader.maxOpenOrders")).Add(decimal.NewFromFloat(1))
+	// Set the ratio to account for currently open orders
+	var ratio decimal.Decimal
+	openOrders, err := pairSvc.LoadOpenPairs()
+	if err != nil {
+		log.WithError(err).Warn("could not load open pairs. falling back to max open order")
+		ratio = maxOpenOrders
+	} else {
+		ratio = maxOpenOrders.Sub(decimal.NewFromInt(int64(len(openOrders))))
+	}
 
 	// Determine order size from average volume
 	size, err := market.AverageTradeVolume()
@@ -374,8 +380,7 @@ func size(ticker types.Ticker) (decimal.Decimal, error) {
 	}
 
 	// Set the base size
-	baseSize = decimal.Min(size, baseMax, quoteMax)
-	return baseSize, nil
+	return decimal.Min(size, baseMax, quoteMax), nil
 }
 
 func getFees() (f types.Fees, err error) {
