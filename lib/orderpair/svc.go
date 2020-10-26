@@ -224,6 +224,9 @@ func (svc *Service) New(first types.OrderRequest, second types.OrderRequest) (or
 		return nil, err
 	}
 
+	// Register as an open pair
+	svc.RegisterOpenPair(orderPair)
+
 	return orderPair, nil
 }
 
