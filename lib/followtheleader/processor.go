@@ -322,23 +322,24 @@ func buildPair() (pair *orderpair.OrderPair, err error) {
 	// Round to correct precision
 	sellSize = sellSize.Round(int32(baseCurrency.Precision()))
 
-	// Build the order requests
-	sellReq := order.NewRequest(market, order.Limit, order.Sell, sellSize, sellPrice, viper.GetBool("moneytree.forceMakerOrders"))
-	buyReq := order.NewRequest(market, order.Limit, order.Buy, buySize, buyPrice, viper.GetBool("moneytree.forceMakerOrders"))
+	// Create order pair
+	var op *orderpair.OrderPair
+	var sellReq, buyReq types.OrderRequest
+	if direction == Upward {
+		sellReq = order.NewRequest(market, order.Limit, order.Sell, sellSize, sellPrice, false)
+		buyReq = order.NewRequest(market, order.Limit, order.Buy, buySize, buyPrice, viper.GetBool("moneytree.forceMakerOrders"))
+		op, err = pairSvc.New(buyReq, sellReq)
+	} else {
+		sellReq = order.NewRequest(market, order.Limit, order.Sell, sellSize, sellPrice, viper.GetBool("moneytree.forceMakerOrders"))
+		buyReq = order.NewRequest(market, order.Limit, order.Buy, buySize, buyPrice, false)
+		op, err = pairSvc.New(sellReq, buyReq)
+	}
 	log.WithFields(
 		log.F("sellSize", sellSize.String()),
 		log.F("sellPrice", sellPrice.String()),
 		log.F("buySize", buySize.String()),
 		log.F("buyPrice", buyPrice.String()),
 	).Infof("%s trending order data", direction)
-
-	// Create order pair
-	var op *orderpair.OrderPair
-	if direction == Upward {
-		op, err = pairSvc.New(buyReq, sellReq)
-	} else {
-		op, err = pairSvc.New(sellReq, buyReq)
-	}
 
 	if err != nil {
 		return nil, fmt.Errorf("could not create order pair: %w", err)
