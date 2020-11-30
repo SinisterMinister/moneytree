@@ -52,9 +52,6 @@ func (o *OrderPair) Execute(stop <-chan bool) <-chan bool {
 	// Start workflow
 	go o.executeWorkflow()
 
-	// Register as an open pair
-	o.svc.RegisterOpenPair(o)
-
 	// Wait for the orders to start
 	<-o.startHold
 

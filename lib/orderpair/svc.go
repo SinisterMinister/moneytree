@@ -19,16 +19,16 @@ type Service struct {
 	market types.Market
 	db     *sql.DB
 
-	mutex     sync.RWMutex
-	openPairs map[string]*OrderPair
+	mutex sync.RWMutex
+	pairs map[string]*OrderPair
 }
 
 func NewService(db *sql.DB, trader types.Trader, market types.Market) (svc *Service, err error) {
 	svc = &Service{
-		db:        db,
-		trader:    trader,
-		market:    market,
-		openPairs: make(map[string]*OrderPair),
+		db:     db,
+		trader: trader,
+		market: market,
+		pairs:  make(map[string]*OrderPair),
 	}
 	err = svc.setupDB()
 	return
@@ -99,43 +99,6 @@ func (svc *Service) LoadMostRecentOpenPair() (pair *OrderPair, err error) {
 	return
 }
 
-func (svc *Service) RegisterOpenPair(pair *OrderPair) {
-	svc.mutex.Lock()
-	defer svc.mutex.Unlock()
-
-	// Add pair to open pairs
-	svc.openPairs[pair.UUID().String()] = pair
-
-	// Remove the pair from open when it closes out
-	go func(pair *OrderPair) {
-		// Wait for the pair to close
-		<-pair.Done()
-
-		// Wait for the first order if it exists
-		if pair.FirstOrder() != nil {
-			<-pair.FirstOrder().Done()
-		}
-
-		// Wait for the second order if it exists
-		if pair.SecondOrder() != nil {
-			<-pair.SecondOrder().Done()
-		}
-
-		// Remove the order from open orders
-		svc.mutex.Lock()
-		delete(svc.openPairs, pair.UUID().String())
-		svc.mutex.Unlock()
-	}(pair)
-}
-
-func (svc *Service) OpenPair(uuid string) (*OrderPair, bool) {
-	svc.mutex.RLock()
-	defer svc.mutex.RUnlock()
-	pair, ok := svc.openPairs[uuid]
-
-	return pair, ok
-}
-
 func (svc *Service) LoadOpenPairs() (pairs []*OrderPair, err error) {
 	pairs = []*OrderPair{}
 	rows, err := svc.db.Query("SELECT data FROM orderpairs WHERE data->>'status' = 'OPEN' ORDER BY data->>'createdAt'")
@@ -150,26 +113,16 @@ func (svc *Service) LoadOpenPairs() (pairs []*OrderPair, err error) {
 			return nil, fmt.Errorf("could not load open order pair from database: %w", err)
 		}
 
-		// Use existing open pair if already loaded
-		var pair *OrderPair
-		if openPair, ok := svc.OpenPair(dao.Uuid); ok {
-			pair = openPair
-		} else {
-			// Throttle calls to API
-			<-time.NewTimer(time.Second).C
-
-			// Load the pair from the database and API
-			pair, err = svc.NewFromDAO(dao)
-			if err != nil {
-				return nil, fmt.Errorf("could not load open order: %w", err)
-			}
-
-			// Add pair to open pairs
-			svc.RegisterOpenPair(pair)
+		// Load the pair
+		pair, err := svc.NewFromDAO(dao)
+		if err != nil {
+			return nil, fmt.Errorf("could not load open order: %w", err)
 		}
-
 		// Add to return
 		pairs = append(pairs, pair)
+
+		// Throttle calls to API
+		<-time.NewTimer(time.Second).C
 	}
 	return
 }
@@ -224,6 +177,11 @@ func (svc *Service) New(first types.OrderRequest, second types.OrderRequest) (or
 		return nil, err
 	}
 
+	// Cache pair
+	svc.mutex.Lock()
+	svc.pairs[id.String()] = orderPair
+	svc.mutex.Unlock()
+
 	return orderPair, nil
 }
 
@@ -232,11 +190,28 @@ func (svc *Service) NewFromDAO(dao OrderPairDAO) (orderPair *OrderPair, err erro
 	if err != nil {
 		return nil, fmt.Errorf("could not parse order pair ID: %w", err)
 	}
+
+	// Try to get the cached pair
+	svc.mutex.RLock()
+	orderPair, ok := svc.pairs[dao.Uuid]
+	svc.mutex.RUnlock()
+
+	// Return the cached pair if it exists. We assume the live object is more up to date than the database.
+	if ok {
+		return
+	}
+
+	// Lock up the mutex while we create the new pair
+	svc.mutex.Lock()
+	defer svc.mutex.Unlock()
+
+	// Setup the done channel
 	done := make(chan bool)
 	if dao.Done {
 		close(done)
 	}
 
+	// Setup the pair
 	orderPair = &OrderPair{
 		svc:           svc,
 		uuid:          id,
@@ -249,6 +224,7 @@ func (svc *Service) NewFromDAO(dao OrderPairDAO) (orderPair *OrderPair, err erro
 		status:        dao.Status,
 	}
 
+	// Load the first order if it's been placed
 	if dao.FirstOrder.ID != "" {
 		order, err := svc.trader.OrderSvc().Order(svc.market, dao.FirstOrder.ID)
 		if err != nil {
@@ -268,6 +244,7 @@ func (svc *Service) NewFromDAO(dao OrderPairDAO) (orderPair *OrderPair, err erro
 		orderPair.firstOrder = order
 	}
 
+	// Load the second order if it's been placed
 	if dao.SecondOrder.ID != "" {
 		order, err := svc.trader.OrderSvc().Order(svc.market, dao.SecondOrder.ID)
 		if err != nil {
@@ -280,6 +257,7 @@ func (svc *Service) NewFromDAO(dao OrderPairDAO) (orderPair *OrderPair, err erro
 		orderPair.secondOrder = order
 	}
 
+	// Load the reversal order if it's been placed
 	if dao.ReversalOrder.ID != "" {
 		order, err := svc.trader.OrderSvc().Order(svc.market, dao.ReversalOrder.ID)
 		if err != nil {
@@ -291,6 +269,8 @@ func (svc *Service) NewFromDAO(dao OrderPairDAO) (orderPair *OrderPair, err erro
 		}
 		orderPair.reversalOrder = order
 	}
+
+	// Save the pair with the latest data
 	svc.Save(orderPair.ToDAO())
 	return orderPair, nil
 }
