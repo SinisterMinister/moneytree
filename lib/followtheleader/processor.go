@@ -52,6 +52,9 @@ func (p *Processor) Process(db *sql.DB, trader types.Trader, market types.Market
 
 	// Start processing
 	for {
+		// Wait between cycles in case of bad loop
+		<-time.NewTimer(viper.GetDuration("followtheleader.cycleDelay")).C
+
 		// Restore the open orders
 		go restoreDoneOpenOrders()
 
@@ -65,6 +68,7 @@ func (p *Processor) Process(db *sql.DB, trader types.Trader, market types.Market
 		pair, err := nextPair()
 		if err != nil {
 			log.WithError(err).Error("order pair failed: first order failed to place")
+			continue
 		}
 
 		// Log the direction
@@ -92,9 +96,6 @@ func (p *Processor) Process(db *sql.DB, trader types.Trader, market types.Market
 		} else {
 			log.Error("first order failed to place. continuing to next cycle")
 		}
-
-		// Wait between cycles in case of bad loop
-		<-time.NewTimer(viper.GetDuration("followtheleader.cycleDelay")).C
 	}
 }
 
