@@ -185,7 +185,7 @@ func (svc *Service) New(first types.OrderRequest, second types.OrderRequest) (or
 	return orderPair, nil
 }
 
-func (svc *Service) NewFromDAO(dao OrderPairDAO) (orderPair *OrderPair, err error) {
+func (svc *Service) NewFromDAO(dao OrderPairDAO) (*OrderPair, error) {
 	id, err := uuid.FromString(dao.Uuid)
 	if err != nil {
 		return nil, fmt.Errorf("could not parse order pair ID: %w", err)
@@ -200,7 +200,7 @@ func (svc *Service) NewFromDAO(dao OrderPairDAO) (orderPair *OrderPair, err erro
 
 	// Return the cached pair if it exists. We assume the live object is more up to date than the database.
 	if ok {
-		return
+		return orderPair, nil
 	}
 
 	// Setup the done channel
@@ -270,6 +270,10 @@ func (svc *Service) NewFromDAO(dao OrderPairDAO) (orderPair *OrderPair, err erro
 
 	// Save the pair with the latest data
 	svc.Save(orderPair.ToDAO())
+
+	// Cache the pair
+	svc.pairs[orderPair.UUID().String()] = orderPair
+
 	return orderPair, nil
 }
 
