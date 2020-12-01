@@ -191,19 +191,17 @@ func (svc *Service) NewFromDAO(dao OrderPairDAO) (orderPair *OrderPair, err erro
 		return nil, fmt.Errorf("could not parse order pair ID: %w", err)
 	}
 
+	// Lock up the mutex while we create the  pair
+	svc.mutex.Lock()
+	defer svc.mutex.Unlock()
+
 	// Try to get the cached pair
-	svc.mutex.RLock()
 	orderPair, ok := svc.pairs[dao.Uuid]
-	svc.mutex.RUnlock()
 
 	// Return the cached pair if it exists. We assume the live object is more up to date than the database.
 	if ok {
 		return
 	}
-
-	// Lock up the mutex while we create the new pair
-	svc.mutex.Lock()
-	defer svc.mutex.Unlock()
 
 	// Setup the done channel
 	done := make(chan bool)
