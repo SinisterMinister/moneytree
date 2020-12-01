@@ -20,7 +20,7 @@ type Service struct {
 	db     *sql.DB
 
 	mutex sync.RWMutex
-	pairs map[string]*OrderPair
+	pairs map[uuid.UUID]*OrderPair
 }
 
 func NewService(db *sql.DB, trader types.Trader, market types.Market) (svc *Service, err error) {
@@ -28,7 +28,7 @@ func NewService(db *sql.DB, trader types.Trader, market types.Market) (svc *Serv
 		db:     db,
 		trader: trader,
 		market: market,
-		pairs:  make(map[string]*OrderPair),
+		pairs:  make(map[uuid.UUID]*OrderPair),
 	}
 	err = svc.setupDB()
 	return
@@ -179,7 +179,7 @@ func (svc *Service) New(first types.OrderRequest, second types.OrderRequest) (or
 
 	// Cache pair
 	svc.mutex.Lock()
-	svc.pairs[id.String()] = orderPair
+	svc.pairs[id] = orderPair
 	svc.mutex.Unlock()
 
 	return orderPair, nil
@@ -196,7 +196,7 @@ func (svc *Service) NewFromDAO(dao OrderPairDAO) (*OrderPair, error) {
 	defer svc.mutex.Unlock()
 
 	// Try to get the cached pair
-	orderPair, ok := svc.pairs[dao.Uuid]
+	orderPair, ok := svc.pairs[id]
 
 	// Return the cached pair if it exists. We assume the live object is more up to date than the database.
 	if ok {
@@ -272,7 +272,7 @@ func (svc *Service) NewFromDAO(dao OrderPairDAO) (*OrderPair, error) {
 	svc.Save(orderPair.ToDAO())
 
 	// Cache the pair
-	svc.pairs[orderPair.UUID().String()] = orderPair
+	svc.pairs[id] = orderPair
 
 	return orderPair, nil
 }

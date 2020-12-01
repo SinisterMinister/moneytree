@@ -36,7 +36,7 @@ func New(stop <-chan bool, trader types.Trader, currencies ...types.Currency) (M
 	log.Info("starting market processors")
 	m.startMarketProcessors()
 
-	log.Info("starting healthcheck endoints")
+	log.Info("starting healthcheck endpoints")
 	m.startHealthcheck()
 
 	log.Info("moneytree started")
