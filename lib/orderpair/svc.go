@@ -203,6 +203,8 @@ func (svc *Service) NewFromDAO(dao OrderPairDAO) (*OrderPair, error) {
 		return orderPair, nil
 	}
 
+	log.Debugf("could not find pair %s in cache. building new instance", id.String())
+
 	// Setup the done channel
 	done := make(chan bool)
 	if dao.Done {
