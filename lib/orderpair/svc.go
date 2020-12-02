@@ -316,7 +316,7 @@ func (svc *Service) ResumeCollidingOpenPair(newPair *OrderPair) (pair *OrderPair
 }
 
 func (svc *Service) refreshUnfinishedPairs() error {
-	rows, err := svc.db.Query("SELECT data FROM orderpairs WHERE data->>'status' NOT IN ('OPEN', 'FAILED') and (data->'firstOrder'->>'status' in ('PENDING', 'UNKNOWN', 'PARTIAL') or data->'secondOrder'->>'status' in ('PENDING', 'UNKNOWN', 'PARTIAL') or data->'reversalOrder'->>'status' in ('PENDING', 'UNKNOWN', 'PARTIAL')) ORDER BY data->>'createdAt' DESC")
+	rows, err := svc.db.Query("SELECT data FROM orderpairs WHERE data->>'status' NOT IN ('OPEN') and (data->'firstOrder'->>'status' in ('PENDING', 'UNKNOWN', 'PARTIAL') or data->'secondOrder'->>'status' in ('PENDING', 'UNKNOWN', 'PARTIAL') or data->'reversalOrder'->>'status' in ('PENDING', 'UNKNOWN', 'PARTIAL')) ORDER BY data->>'createdAt' DESC")
 	if err != nil {
 		return fmt.Errorf("could not load order pairs from database: %w", err)
 	}
