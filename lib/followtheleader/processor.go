@@ -130,7 +130,7 @@ func storeLocalVars(d *sql.DB, t types.Trader, m types.Market, stop <-chan bool)
 	stopChan = stop
 
 	// Start the order pair service
-	svc, err := orderpair.NewService(db, trader, market)
+	svc, err := orderpair.NewService(db, trader, market, stop)
 	if err != nil {
 		log.WithError(err).Fatal("could not start order pair service")
 	}

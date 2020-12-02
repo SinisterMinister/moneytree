@@ -12,6 +12,7 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/sinisterminister/currencytrader/types"
 	"github.com/sinisterminister/currencytrader/types/order"
+	"github.com/spf13/viper"
 )
 
 type Service struct {
@@ -23,7 +24,7 @@ type Service struct {
 	pairs map[uuid.UUID]*OrderPair
 }
 
-func NewService(db *sql.DB, trader types.Trader, market types.Market) (svc *Service, err error) {
+func NewService(db *sql.DB, trader types.Trader, market types.Market, stop <-chan bool) (svc *Service, err error) {
 	svc = &Service{
 		db:     db,
 		trader: trader,
@@ -31,6 +32,9 @@ func NewService(db *sql.DB, trader types.Trader, market types.Market) (svc *Serv
 		pairs:  make(map[uuid.UUID]*OrderPair),
 	}
 	err = svc.setupDB()
+
+	// Start the pair janitor
+	go svc.pairJanitor(stop)
 	return
 }
 
@@ -199,29 +203,27 @@ func (svc *Service) NewFromDAO(dao OrderPairDAO) (*OrderPair, error) {
 	orderPair, ok := svc.pairs[id]
 
 	// Return the cached pair if it exists. We assume the live object is more up to date than the database.
-	if ok {
-		return orderPair, nil
-	}
+	if !ok {
+		log.Debugf("could not find pair %s in cache. building new instance", id.String())
 
-	log.Debugf("could not find pair %s in cache. building new instance", id.String())
+		// Setup the done channel
+		done := make(chan bool)
+		if dao.Done {
+			close(done)
+		}
 
-	// Setup the done channel
-	done := make(chan bool)
-	if dao.Done {
-		close(done)
-	}
-
-	// Setup the pair
-	orderPair = &OrderPair{
-		svc:           svc,
-		uuid:          id,
-		done:          done,
-		startHold:     make(chan bool),
-		firstRequest:  order.NewRequestFromDTO(svc.market, dao.FirstRequest),
-		secondRequest: order.NewRequestFromDTO(svc.market, dao.SecondRequest),
-		createdAt:     dao.CreatedAt,
-		endedAt:       dao.EndedAt,
-		status:        dao.Status,
+		// Setup the pair
+		orderPair = &OrderPair{
+			svc:           svc,
+			uuid:          id,
+			done:          done,
+			startHold:     make(chan bool),
+			firstRequest:  order.NewRequestFromDTO(svc.market, dao.FirstRequest),
+			secondRequest: order.NewRequestFromDTO(svc.market, dao.SecondRequest),
+			createdAt:     dao.CreatedAt,
+			endedAt:       dao.EndedAt,
+			status:        dao.Status,
+		}
 	}
 
 	// Load the first order if it's been placed
@@ -229,7 +231,7 @@ func (svc *Service) NewFromDAO(dao OrderPairDAO) (*OrderPair, error) {
 		order, err := svc.trader.OrderSvc().Order(svc.market, dao.FirstOrder.ID)
 		if err != nil {
 			if strings.Contains(err.Error(), "NotFound") {
-				log.Warnf("could not load first order %s, closing as failed", dao.FirstOrder.ID)
+				log.Errorf("could not load first order %s, closing as failed", dao.FirstOrder.ID)
 				orderPair.failed = true
 				orderPair.status = Failed
 				select {
@@ -249,7 +251,7 @@ func (svc *Service) NewFromDAO(dao OrderPairDAO) (*OrderPair, error) {
 		order, err := svc.trader.OrderSvc().Order(svc.market, dao.SecondOrder.ID)
 		if err != nil {
 			if strings.Contains(err.Error(), "NotFound") {
-				log.Warnf("could not load second order %s, ignoring", dao.SecondOrder.ID)
+				log.Errorf("could not load second order %s, ignoring", dao.SecondOrder.ID)
 			} else {
 				return nil, err
 			}
@@ -262,7 +264,7 @@ func (svc *Service) NewFromDAO(dao OrderPairDAO) (*OrderPair, error) {
 		order, err := svc.trader.OrderSvc().Order(svc.market, dao.ReversalOrder.ID)
 		if err != nil {
 			if strings.Contains(err.Error(), "NotFound") {
-				log.Warnf("could not load reversal order %s, ignoring", dao.ReversalOrder.ID)
+				log.Errorf("could not load reversal order %s, ignoring", dao.ReversalOrder.ID)
 			} else {
 				return nil, err
 			}
@@ -277,29 +279,6 @@ func (svc *Service) NewFromDAO(dao OrderPairDAO) (*OrderPair, error) {
 	svc.pairs[id] = orderPair
 
 	return orderPair, nil
-}
-
-func (svc *Service) RefreshDatabasePairs() error {
-	rows, err := svc.db.Query("SELECT data FROM orderpairs ORDER BY data->>'createdAt' DESC")
-	if err != nil {
-		return fmt.Errorf("could not load order pairs from database: %w", err)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		dao := OrderPairDAO{}
-		err = rows.Scan(&dao)
-		if err != nil {
-			return fmt.Errorf("could not load order pair from database: %w", err)
-		}
-		_, err := svc.NewFromDAO(dao)
-		if err != nil {
-			return fmt.Errorf("could not load order: %w", err)
-		}
-
-		// Throttle calls to API
-		<-time.NewTimer(time.Second).C
-	}
-	return nil
 }
 
 func (svc *Service) ResumeCollidingOpenPair(newPair *OrderPair) (pair *OrderPair, err error) {
@@ -334,4 +313,43 @@ func (svc *Service) ResumeCollidingOpenPair(newPair *OrderPair) (pair *OrderPair
 		}
 	}
 	return
+}
+
+func (svc *Service) refreshUnfinishedPairs() error {
+	rows, err := svc.db.Query("SELECT data FROM orderpairs WHERE data->>'status' NOT IN ('OPEN', 'FAILED') and (data->'firstOrder'->>'status' in ('PENDING', 'UNKNOWN', 'PARTIAL') or data->'secondOrder'->>'status' in ('PENDING', 'UNKNOWN', 'PARTIAL') or data->'reversalOrder'->>'status' in ('PENDING', 'UNKNOWN', 'PARTIAL')) ORDER BY data->>'createdAt' DESC")
+	if err != nil {
+		return fmt.Errorf("could not load order pairs from database: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		dao := OrderPairDAO{}
+		err = rows.Scan(&dao)
+		if err != nil {
+			return fmt.Errorf("could not load order pair from database: %w", err)
+		}
+		_, err := svc.NewFromDAO(dao)
+		if err != nil {
+			return fmt.Errorf("could not load order: %w", err)
+		}
+
+		// Throttle calls to API
+		<-time.NewTimer(time.Second).C
+	}
+	return nil
+}
+
+func (svc *Service) pairJanitor(stop <-chan bool) {
+	for {
+		// Bail out if we're stopping
+		select {
+		case <-stop:
+			return
+		default:
+		}
+
+		svc.refreshUnfinishedPairs()
+
+		// Time to wait between refreshes
+		<-time.NewTimer(viper.GetDuration("orderpair.criticalPairRefreshInterval")).C
+	}
 }
