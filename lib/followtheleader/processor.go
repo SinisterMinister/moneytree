@@ -440,6 +440,11 @@ func bailOnDirectionChange(pair *orderpair.OrderPair) {
 			default:
 				log.Error("invalid direction for bail price")
 			}
+
+		// Stop monitoring when pair is done
+		case <-pair.Done():
+			close(stop)
+			return
 		}
 		// Bail out when time to cancel
 		if cancel {
