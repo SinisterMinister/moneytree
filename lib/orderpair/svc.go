@@ -333,7 +333,7 @@ func (svc *Service) refreshUnfinishedPairs() error {
 		}
 
 		// Throttle calls to API
-		<-time.NewTimer(time.Second).C
+		<-time.NewTimer(5 * time.Second).C
 	}
 	return nil
 }
