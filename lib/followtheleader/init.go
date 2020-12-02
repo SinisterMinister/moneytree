@@ -16,7 +16,4 @@ func init() {
 
 	// Set the delay between each order cycle
 	viper.SetDefault("followtheleader.cycleDelay", "5s")
-
-	// Don't refresh pairs by default
-	viper.SetDefault("followtheleader.refreshDatabasePairs", false)
 }

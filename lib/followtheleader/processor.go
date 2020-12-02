@@ -39,11 +39,6 @@ func (p *Processor) Process(db *sql.DB, trader types.Trader, market types.Market
 	// Store the local vars
 	storeLocalVars(db, trader, market, stop)
 
-	if viper.GetBool("followtheleader.refreshDatabasePairs") {
-		// Refresh database pairs
-		go refreshDatabasePairs()
-	}
-
 	// Set the initial direction
 	direction = currentMarketDirection()
 
@@ -150,13 +145,6 @@ func restoreDoneOpenOrders() {
 		if o.IsDone() {
 			o.Execute(stopChan)
 		}
-	}
-}
-
-func refreshDatabasePairs() {
-	err := pairSvc.RefreshDatabasePairs()
-	if err != nil {
-		log.WithError(err).Error("error encountered while refreshing database pairs")
 	}
 }
 
