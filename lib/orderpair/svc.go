@@ -224,59 +224,44 @@ func (svc *Service) NewFromDAO(dao OrderPairDAO) (*OrderPair, error) {
 			endedAt:       dao.EndedAt,
 			status:        dao.Status,
 		}
-	}
 
-	// Load the first order if it's been placed
-	if dao.FirstOrder.ID != "" {
-		order, err := svc.trader.OrderSvc().Order(svc.market, dao.FirstOrder.ID)
-		if err != nil {
-			if strings.Contains(err.Error(), "NotFound") {
-				log.Errorf("could not load first order %s, closing as failed", dao.FirstOrder.ID)
-				orderPair.failed = true
-				orderPair.status = Failed
-				select {
-				case <-orderPair.done:
-				default:
-					close(orderPair.done)
+		// Load the first order if it's been placed
+		if dao.FirstOrder.ID != "" {
+			orderPair.refreshFirstOrder()
+		}
+
+		// Load the second order if it's been placed
+		if dao.SecondOrder.ID != "" {
+			order, err := svc.trader.OrderSvc().Order(svc.market, dao.SecondOrder.ID)
+			if err != nil {
+				if strings.Contains(err.Error(), "NotFound") {
+					log.Errorf("could not load second order %s, ignoring", dao.SecondOrder.ID)
+				} else {
+					return nil, err
 				}
-			} else {
-				return nil, err
 			}
+			orderPair.secondOrder = order
 		}
-		orderPair.firstOrder = order
-	}
 
-	// Load the second order if it's been placed
-	if dao.SecondOrder.ID != "" {
-		order, err := svc.trader.OrderSvc().Order(svc.market, dao.SecondOrder.ID)
-		if err != nil {
-			if strings.Contains(err.Error(), "NotFound") {
-				log.Errorf("could not load second order %s, ignoring", dao.SecondOrder.ID)
-			} else {
-				return nil, err
+		// Load the reversal order if it's been placed
+		if dao.ReversalOrder.ID != "" {
+			order, err := svc.trader.OrderSvc().Order(svc.market, dao.ReversalOrder.ID)
+			if err != nil {
+				if strings.Contains(err.Error(), "NotFound") {
+					log.Errorf("could not load reversal order %s, ignoring", dao.ReversalOrder.ID)
+				} else {
+					return nil, err
+				}
 			}
+			orderPair.reversalOrder = order
 		}
-		orderPair.secondOrder = order
+
+		// Save the pair with the latest data
+		svc.Save(orderPair.ToDAO())
+
+		// Cache the pair
+		svc.pairs[id] = orderPair
 	}
-
-	// Load the reversal order if it's been placed
-	if dao.ReversalOrder.ID != "" {
-		order, err := svc.trader.OrderSvc().Order(svc.market, dao.ReversalOrder.ID)
-		if err != nil {
-			if strings.Contains(err.Error(), "NotFound") {
-				log.Errorf("could not load reversal order %s, ignoring", dao.ReversalOrder.ID)
-			} else {
-				return nil, err
-			}
-		}
-		orderPair.reversalOrder = order
-	}
-
-	// Save the pair with the latest data
-	svc.Save(orderPair.ToDAO())
-
-	// Cache the pair
-	svc.pairs[id] = orderPair
 
 	return orderPair, nil
 }
