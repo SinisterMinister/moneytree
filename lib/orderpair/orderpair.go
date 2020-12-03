@@ -356,9 +356,6 @@ func (o *OrderPair) executeWorkflow() {
 	// Attempt to place first order
 	err = o.placeFirstOrder()
 
-	// Save the order to the database
-	o.Save()
-
 	// Handle any errors
 	if err != nil {
 		log.WithError(err).Errorf("could not place first order")
@@ -375,6 +372,9 @@ func (o *OrderPair) executeWorkflow() {
 		o.releaseStartHold()
 		return
 	}
+
+	// Save the order to the database
+	o.Save()
 
 	// Release start hold
 	o.releaseStartHold()
@@ -451,6 +451,11 @@ func (o *OrderPair) endWorkflow() {
 
 	// Record the timestamp
 	o.endedAt = time.Now()
+
+	// Don't save pairs that fail to place anything
+	if o.firstOrder == nil {
+		return
+	}
 
 	// Save the order to the database
 	go o.Save()
