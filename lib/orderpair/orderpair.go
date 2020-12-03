@@ -682,6 +682,57 @@ func (o *OrderPair) waitForSecondOrder() {
 	o.Save()
 }
 
+func (o *OrderPair) refreshSecondOrder() {
+	o.mutex.RLock()
+	ord := o.secondOrder
+	o.mutex.RUnlock()
+
+	// Bailing out if the order isn't set
+	if ord == nil {
+		return
+	}
+
+	// Load the order from the API to get the latest data in case the status is out of sync
+	freshOrder, err := o.svc.trader.OrderSvc().Order(o.svc.market, ord.ID())
+	if err != nil {
+
+		// Retry with increasing delay to let to order flow through the system if we can't find it
+		if strings.Contains(err.Error(), "NotFound") {
+			i := 1
+
+			// Stop trying when the wait length is longer than 15 sec
+			for i < 15 {
+				freshOrder, err = o.svc.trader.OrderSvc().Order(o.svc.market, ord.ID())
+				if err != nil {
+					if strings.Contains(err.Error(), "NotFound") {
+						// Wait some time
+						<-time.NewTimer(time.Duration(i) * time.Second).C
+
+						// Increase wait time
+						i += i
+						continue
+					} else {
+						// Nothing to retry
+						break
+					}
+				}
+				break
+			}
+		}
+	}
+
+	// If err is still set, we couldn't update the order
+	if err != nil {
+		log.WithError(err).Error("could not load fresh order. falling back to pair order")
+		return
+	}
+
+	// Update the order
+	o.mutex.Lock()
+	o.secondOrder = freshOrder
+	o.mutex.Unlock()
+}
+
 func (o *OrderPair) maxSpread() decimal.Decimal {
 	return o.spread().Mul(decimal.NewFromFloat(viper.GetFloat64("orderpair.missPercentage")))
 }

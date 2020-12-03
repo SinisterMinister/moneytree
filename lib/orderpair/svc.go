@@ -316,10 +316,14 @@ func (svc *Service) refreshUnfinishedPairs() error {
 		if err != nil {
 			return fmt.Errorf("could not load order pair from database: %w", err)
 		}
-		_, err := svc.NewFromDAO(dao)
+		pair, err := svc.NewFromDAO(dao)
 		if err != nil {
 			return fmt.Errorf("could not load order: %w", err)
 		}
+
+		// Refresh the orders
+		pair.refreshFirstOrder()
+		pair.refreshSecondOrder()
 
 		// Throttle calls to API
 		<-time.NewTimer(5 * time.Second).C
