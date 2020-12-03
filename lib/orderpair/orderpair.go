@@ -552,7 +552,7 @@ func (o *OrderPair) waitForFirstOrder() {
 			err = o.svc.trader.OrderSvc().CancelOrder(ord)
 		}
 		if err != nil {
-			log.WithError(err).Warn("could not cancel order")
+			log.WithError(err).Warnf("could not cancel order %s", ord.ID())
 		}
 
 		// The order is only open if something was filled
