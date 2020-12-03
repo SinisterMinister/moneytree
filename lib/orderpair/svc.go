@@ -227,7 +227,11 @@ func (svc *Service) NewFromDAO(dao OrderPairDAO) (*OrderPair, error) {
 
 		// Load the first order if it's been placed
 		if dao.FirstOrder.ID != "" {
-			orderPair.refreshFirstOrder()
+			order, err := svc.trader.OrderSvc().Order(svc.market, dao.FirstOrder.ID)
+			if err != nil {
+				return nil, err
+			}
+			orderPair.firstOrder = order
 		}
 
 		// Load the second order if it's been placed
