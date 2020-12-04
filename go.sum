@@ -371,6 +371,8 @@ github.com/sinisterminister/currencytrader v0.1.7 h1:vgh4nxndNcxI6h8zp8YsJUlsB2U
 github.com/sinisterminister/currencytrader v0.1.7/go.mod h1:amwvhtWjtxKQs5xSlTKwsxwwmaBfaFc70z+/cD8msGk=
 github.com/sinisterminister/currencytrader v0.1.8 h1:SpH0ZTqEcKxe+0DWMoE4gXX4U4IgSM4qmHathgrpJzg=
 github.com/sinisterminister/currencytrader v0.1.8/go.mod h1:amwvhtWjtxKQs5xSlTKwsxwwmaBfaFc70z+/cD8msGk=
+github.com/sinisterminister/currencytrader v0.1.9 h1:dQZTbBj5mMq15dTOSD3OsLoPTNz0/ndCWJoYwgjs/tQ=
+github.com/sinisterminister/currencytrader v0.1.9/go.mod h1:amwvhtWjtxKQs5xSlTKwsxwwmaBfaFc70z+/cD8msGk=
 github.com/sirupsen/logrus v1.2.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPxbbu5VWo=
 github.com/sirupsen/logrus v1.4.2/go.mod h1:tLMulIdttU9McNUspp0xgXVQah82FyeX6MwdIuYE2rE=
 github.com/sirupsen/logrus v1.6.0/go.mod h1:7uNnSEd1DgxDLC74fIahvMZmmYsHGZGEOFrfsX/uA88=
@@ -450,6 +452,8 @@ golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897 h1:pLI5jrR7OSLijeIDcmRxNm
 golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897/go.mod h1:LzIPMQfyMNhhGPhUkYOs5KpL4U8rLKemX1yGLhDgUto=
 golang.org/x/crypto v0.0.0-20201124201722-c8d3bf9c5392 h1:xYJJ3S178yv++9zXV/hnr29plCAGO9vAFG9dorqaFQc=
 golang.org/x/crypto v0.0.0-20201124201722-c8d3bf9c5392/go.mod h1:jdWPYTVW3xRLrWPugEBEK3UY2ZEsg3UU495nc5E+M+I=
+golang.org/x/crypto v0.0.0-20201203163018-be400aefbc4c h1:9HhBz5L/UjnK9XLtiZhYAdue5BVKep3PMmS2LuPDt8k=
+golang.org/x/crypto v0.0.0-20201203163018-be400aefbc4c/go.mod h1:jdWPYTVW3xRLrWPugEBEK3UY2ZEsg3UU495nc5E+M+I=
 golang.org/x/exp v0.0.0-20190121172915-509febef88a4/go.mod h1:CJ0aWSM057203Lf6IL+f9T1iT9GByDxfZKAQTCR3kQA=
 golang.org/x/exp v0.0.0-20190306152737-a1d7652674e8/go.mod h1:CJ0aWSM057203Lf6IL+f9T1iT9GByDxfZKAQTCR3kQA=
 golang.org/x/exp v0.0.0-20190510132918-efd6b22b2522/go.mod h1:ZjyILWgesfNpC6sMxTJOJm9Kp84zZh5NQWvqDGG3Qr8=
