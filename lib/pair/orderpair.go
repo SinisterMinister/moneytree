@@ -216,6 +216,19 @@ func (o *OrderPair) execute() {
 	err = o.handleFirstOrder()
 	if err != nil {
 		log.WithError(err).Errorf("%s: error handling first order", o.UUID().String())
+
+		if o.FirstOrder().Filled().GreaterThan(decimal.Zero) && o.Status() == Canceled {
+			log.Errorf("%s: reversing pair", o.UUID().String())
+			err = o.buildReversalRequest()
+			if err != nil {
+				log.WithError(err).Errorf("%s: could not build reverse request", o.UUID().String())
+			}
+
+			err = o.executeReversalRequest()
+			if err != nil {
+				log.WithError(err).Errorf("%s: could not reverse pair", o.UUID().String())
+			}
+		}
 		return
 	}
 
@@ -266,7 +279,7 @@ func (o *OrderPair) handleFirstOrder() (err error) {
 	switch o.FirstOrder().Status() {
 	case order.Canceled:
 		// Check to see if it partially filled
-		if o.FirstOrder().Filled().GreaterThan(decimal.Zero) {
+		if o.FirstOrder().Filled().GreaterThan(decimal.Zero) && o.Status() != Canceled {
 			log.Warnf("%s: recalculating second order size since first order was partially filled", o.UUID().String())
 			o.recalculateSecondOrderSizeFromFilled()
 
