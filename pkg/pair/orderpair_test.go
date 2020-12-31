@@ -8,7 +8,7 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/sinisterminister/currencytrader/types"
 	"github.com/sinisterminister/currencytrader/types/order"
-	"github.com/sinisterminister/moneytree/lib/pair/mock_types"
+	"github.com/sinisterminister/moneytree/pkg/pair/mock_types"
 )
 
 func buildStubs(ctrl *gomock.Controller) (types.Trader, types.Market) {

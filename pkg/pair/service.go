@@ -23,7 +23,7 @@ type Service struct {
 }
 
 // NewService creates a Service for use. Will initialize the database if it hasn't been already.
-func NewService(db *sql.DB, trader types.Trader, market types.Market, stop <-chan bool) (svc *Service, err error) {
+func NewService(db *sql.DB, trader types.Trader, market types.Market) (svc *Service, err error) {
 	svc = &Service{
 		db:     db,
 		trader: trader,

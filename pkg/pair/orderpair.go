@@ -332,7 +332,6 @@ func (o *OrderPair) handleFirstOrder() (err error) {
 
 	default:
 		err = fmt.Errorf("first order returned unexpectedly with status %s", o.FirstOrder().Status())
-
 		// Mark pair as failed and bail
 		o.mtx.Lock()
 		o.status = Broken
@@ -352,15 +351,8 @@ func (o *OrderPair) handleSecondOrder() (err error) {
 	// Handle second order outcome
 	o.mtx.Lock()
 	switch o.SecondOrder().Status() {
-	default:
-		err = fmt.Errorf("second order returned unexpectedly with status %s", o.SecondOrder().Status())
-		// Mark pair as broken
-		o.status = Broken
-		o.statusDetails = err.Error()
-		close(o.done)
-
 	case order.Canceled:
-		err = fmt.Errorf("second order was canceled. setting status to %s", Reversed)
+		err = fmt.Errorf("second order was canceled. setting status to %s and reversing", Reversed)
 		// Mark pair as broken
 		o.status = Reversed
 		o.statusDetails = err.Error()
@@ -369,6 +361,13 @@ func (o *OrderPair) handleSecondOrder() (err error) {
 	case order.Filled:
 		// Mark pair as success
 		o.status = Success
+		close(o.done)
+
+	default:
+		err = fmt.Errorf("second order returned unexpectedly with status %s", o.SecondOrder().Status())
+		// Mark pair as broken
+		o.status = Broken
+		o.statusDetails = err.Error()
 		close(o.done)
 	}
 

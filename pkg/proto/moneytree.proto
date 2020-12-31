@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+option go_package = "github.com/sinisterminister/moneytree/pkg/proto";
+
+package proto;
+
+service Moneytree {
+    // Places an order pair in the system using the current price as the starting point.
+    rpc PlacePair (PlacePairRequest) returns (PlacePairResponse);
+    rpc GetOpenOrders (NullRequest) returns (PairCollection);
+}
+
+message NullRequest {}
+
+message PlacePairRequest {
+    string direction = 1;
+}
+
+message PlacePairResponse {
+    Pair pair = 1;
+    Error error = 2;
+}
+
+message PairCollection {
+    repeated Pair pairs = 1;
+}
+
+message Order {
+    string side = 1;
+    string price = 2;
+    string quantity = 3;
+    string filled = 4;
+    string status = 5;
+}
+
+message Pair {
+    string uuid = 1;
+    Order firstOrder = 2;
+    Order secondOrder = 3;
+    string status = 4;
+}
+
+message Error {
+    string message = 1;
+}
