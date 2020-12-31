@@ -76,7 +76,7 @@ func BuildPair(svc *Service, dir Direction) (pair *OrderPair, err error) {
 	}
 
 	// Set the sizes
-	size, err := size(svc, ticker)
+	size, err := size(svc, ticker, dir)
 	if err != nil {
 		return nil, err
 	}
@@ -139,39 +139,36 @@ func getFees(trader types.Trader) (f types.Fees, err error) {
 	return
 }
 
-func size(svc *Service, ticker types.Ticker) (decimal.Decimal, error) {
+func size(svc *Service, ticker types.Ticker, dir Direction) (decimal.Decimal, error) {
 	// Get the max order size from max number of open orders plus 1 to add a buffer
-	maxOpenOrders := decimal.NewFromFloat(viper.GetFloat64("maxOpenPairs")).Add(decimal.NewFromFloat(1))
+	maxOpenPairs := decimal.NewFromFloat(viper.GetFloat64("maxOpenPairs")).Add(decimal.NewFromFloat(1))
 
-	// Set the ratio to account for currently open orders
-	var ratio decimal.Decimal
-	openOrders, err := svc.LoadOpenPairs()
-	if err != nil {
-		log.WithError(err).Warn("could not load open pairs. falling back to max open order")
-		ratio = maxOpenOrders
-	} else {
-		ratio = maxOpenOrders.Sub(decimal.NewFromInt(int64(len(openOrders))))
-	}
-
-	// Determine order size from average volume
-	size, err := svc.market.AverageTradeVolume()
+	// Load the open pairs
+	openPairs, err := svc.LoadOpenPairs()
 	if err != nil {
 		return decimal.Zero, err
 	}
 
-	// Get wallets
-	baseWallet := svc.market.BaseCurrency().Wallet()
-	quoteWallet := svc.market.QuoteCurrency().Wallet()
+	// Get the number of pairs of the same direction
+	count := 0
+	for _, p := range openPairs {
+		if p.Direction() == dir {
+			count++
+		}
+	}
 
-	// Get the maximum trade size by the ratio
-	baseMax := baseWallet.Available().Div(ratio)
-	quoteMax := quoteWallet.Available().Div(ratio).Div(ticker.Bid())
+	ratio := maxOpenPairs.Sub(decimal.NewFromInt(int64(count)))
 
-	// Normalize the size to available funds
-	if size.Equal(decimal.Zero) {
-		size = decimal.Min(baseMax, quoteMax)
+	var size decimal.Decimal
+
+	if dir == Upward {
+		quoteWallet := svc.market.QuoteCurrency().Wallet()
+		size = quoteWallet.Available().Div(ticker.Bid()).Div(ratio)
+	} else {
+		baseWallet := svc.market.BaseCurrency().Wallet()
+		size = baseWallet.Available().Div(ratio)
 	}
 
 	// Set the base size
-	return decimal.Min(size, baseMax, quoteMax), nil
+	return size, nil
 }

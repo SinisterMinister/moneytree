@@ -4,7 +4,7 @@ import "github.com/spf13/viper"
 
 func init() {
 	// Divide the funds into this many equal trades and use that trade size as the maximum trade size
-	viper.SetDefault("maxOpenPairs", 8)
+	viper.SetDefault("maxOpenPairs", 4)
 
 	// Set the expected return per trade pair
 	viper.SetDefault("targetReturn", 0.001)

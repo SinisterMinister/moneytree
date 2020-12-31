@@ -194,6 +194,7 @@ func (o *OrderPair) Execute() {
 	// Only execute once
 	o.runner.Do(func() {
 		// Run execution in a separate goroutine
+		log.Infof("%s: executing pair", o.UUID().String())
 		go o.execute()
 	})
 }
@@ -265,10 +266,11 @@ func (o *OrderPair) executeFirstRequest() (err error) {
 
 	// Don't execute the order if it already exists
 	if o.firstOrder != nil {
+		log.Infof("%s: first order already placed", o.uuid.String())
 		return
 	}
 
-	log.Infof("%s: placing first order - %s %s @ %s", o.UUID().String(), o.firstRequest.Side(), o.firstRequest.Quantity(), o.firstRequest.Price())
+	log.Infof("%s: placing first order - %s %s @ %s", o.uuid.String(), o.firstRequest.Side(), o.firstRequest.Quantity(), o.firstRequest.Price())
 	o.firstOrder, err = o.svc.market.AttemptOrder(o.firstRequest)
 	return
 }
@@ -279,10 +281,11 @@ func (o *OrderPair) executeSecondRequest() (err error) {
 
 	// Don't execute the order if it already exists
 	if o.secondOrder != nil {
+		log.Infof("%s: second order already placed", o.uuid.String())
 		return
 	}
 
-	log.Infof("%s: placing second order - %s %s @ %s", o.UUID().String(), o.secondRequest.Side(), o.secondRequest.Quantity(), o.secondRequest.Price())
+	log.Infof("%s: placing second order - %s %s @ %s", o.uuid.String(), o.secondRequest.Side(), o.secondRequest.Quantity(), o.secondRequest.Price())
 	o.secondOrder, err = o.svc.market.AttemptOrder(o.secondRequest)
 	return
 }
@@ -293,10 +296,11 @@ func (o *OrderPair) executeReversalRequest() (err error) {
 
 	// Don't execute the order if it already exists
 	if o.reversalOrder != nil {
+		log.Infof("%s: reversal order already placed", o.uuid.String())
 		return
 	}
 
-	log.Infof("%s: placing reversal order - %s %s @ %s", o.UUID().String(), o.reversalRequest.Side(), o.reversalRequest.Quantity(), o.reversalRequest.Price())
+	log.Infof("%s: placing reversal order - %s %s @ %s", o.uuid.String(), o.reversalRequest.Side(), o.reversalRequest.Quantity(), o.reversalRequest.Price())
 	o.reversalOrder, err = o.svc.market.AttemptOrder(o.reversalRequest)
 	return
 }

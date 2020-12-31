@@ -95,6 +95,9 @@ func (s *Server) PlacePair(ctx context.Context, in *proto.PlacePairRequest) (*pr
 	if err != nil {
 		return nil, err
 	}
+
+	orderPair.Execute()
+
 	return &proto.PlacePairResponse{Pair: &proto.Pair{
 		Uuid: orderPair.UUID().String(),
 	}}, nil

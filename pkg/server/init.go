@@ -1,7 +1,11 @@
 package server
 
 import (
-	"github.com/go-playground/log"
+	"os"
+
+	"github.com/go-playground/log/v7"
+	"github.com/go-playground/log/v7/handlers/console"
+	"github.com/go-playground/log/v7/handlers/json"
 	"github.com/spf13/viper"
 )
 
@@ -22,4 +26,19 @@ func init() {
 	viper.SetDefault("postgres.user", "postgres")
 	viper.SetDefault("postgres.pass", "postgres")
 	viper.SetDefault("postgres.database", "moneytree")
+
+	// Setup json logging for containers
+	if _, err := os.Stat("/.dockerenv"); err == nil {
+		// Setup the console logger
+		log.AddHandler(json.New(os.Stdout), log.InfoLevel, log.WarnLevel, log.ErrorLevel, log.NoticeLevel, log.FatalLevel, log.AlertLevel, log.PanicLevel)
+		if viper.GetBool("debug") {
+			log.AddHandler(json.New(os.Stdout), log.DebugLevel)
+		}
+	} else {
+		// Setup the console logger
+		log.AddHandler(console.New(true), log.InfoLevel, log.WarnLevel, log.ErrorLevel, log.NoticeLevel, log.FatalLevel, log.AlertLevel, log.PanicLevel)
+		if viper.GetBool("debug") {
+			log.AddHandler(console.New(true), log.DebugLevel)
+		}
+	}
 }
