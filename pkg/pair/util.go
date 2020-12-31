@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-func BuildPair(svc *Service, dir Direction) (pair *OrderPair, err error) {
+func BuildSpreadBasedPair(svc *Service, dir Direction) (pair *OrderPair, err error) {
 	// Get the currencies
 	quoteCurrency := svc.market.QuoteCurrency()
 	baseCurrency := svc.market.BaseCurrency()

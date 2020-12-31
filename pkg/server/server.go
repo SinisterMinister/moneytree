@@ -91,7 +91,7 @@ type Server struct {
 
 func (s *Server) PlacePair(ctx context.Context, in *proto.PlacePairRequest) (*proto.PlacePairResponse, error) {
 	log.Info("Received place pair request")
-	orderPair, err := pair.BuildPair(s.pairSvc, pair.Direction(in.Direction))
+	orderPair, err := pair.BuildSpreadBasedPair(s.pairSvc, pair.Direction(in.Direction))
 	if err != nil {
 		return nil, err
 	}
