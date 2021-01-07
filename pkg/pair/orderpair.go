@@ -218,11 +218,10 @@ func (o *OrderPair) Cancel() (err error) {
 	if o.FirstOrder() != nil && !o.FirstOrder().IsDone() {
 		err = o.svc.trader.OrderSvc().CancelOrder(o.FirstOrder())
 		if err != nil {
-			log.WithError(err).Errorf("%s: could not cancel first order", o.UUID().String())
 			if o.SecondOrder() == nil {
-				return
+				return fmt.Errorf("%s: could not cancel first order - %w", o.UUID().String(), err)
 			}
-
+			log.WithError(err).Errorf("%s: could not cancel first order", o.UUID().String())
 		}
 	}
 
@@ -230,9 +229,16 @@ func (o *OrderPair) Cancel() (err error) {
 	if o.SecondOrder() != nil && !o.SecondOrder().IsDone() {
 		err = o.svc.trader.OrderSvc().CancelOrder(o.SecondOrder())
 		if err != nil {
-			log.WithError(err).Errorf("%s: could not cancel second order", o.UUID().String())
-			return
+			return fmt.Errorf("%s: could not cancel second order - %w", o.UUID().String(), err)
 		}
+	}
+
+	// Wait for both orders to be done
+	if o.FirstOrder() != nil {
+		<-o.FirstOrder().Done()
+	}
+	if o.SecondOrder() != nil {
+		<-o.SecondOrder().Done()
 	}
 
 	return
@@ -245,13 +251,32 @@ func (o *OrderPair) Cancel() (err error) {
 func (o *OrderPair) execute() {
 	var err error
 
+	// Save the pair first
+	err = o.Save()
+	if err != nil {
+		log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
+	}
+
 	// Execute first request
 	err = o.executeFirstRequest()
 	if err != nil {
 		log.WithError(err).Errorf("%s: could not execute first request", o.UUID().String())
+		o.setStatus(Failed)
 		o.setStatusDetails(err)
-		o.Save()
+
+		// Save the pair
+		err = o.Save()
+		if err != nil {
+			log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
+		}
 		return
+	}
+
+	// Save the pair
+	o.setStatus(Open)
+	err = o.Save()
+	if err != nil {
+		log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
 	}
 
 	// Handle first order
@@ -259,7 +284,12 @@ func (o *OrderPair) execute() {
 	if err != nil {
 		log.WithError(err).Errorf("%s: error handling first order", o.UUID().String())
 		o.setStatusDetails(err)
-		o.Save()
+
+		// Save the pair
+		err = o.Save()
+		if err != nil {
+			log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
+		}
 
 		if o.FirstOrder().Filled().GreaterThan(decimal.Zero) && o.Status() == Canceled {
 			log.Errorf("%s: reversing pair", o.UUID().String())
@@ -267,7 +297,12 @@ func (o *OrderPair) execute() {
 			if err != nil {
 				log.WithError(err).Errorf("%s: could not build reverse request", o.UUID().String())
 				o.setStatusDetails(err)
-				o.Save()
+
+				// Save the pair
+				err = o.Save()
+				if err != nil {
+					log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
+				}
 				return
 			}
 			o.Save()
@@ -276,15 +311,30 @@ func (o *OrderPair) execute() {
 			if err != nil {
 				log.WithError(err).Errorf("%s: could not reverse pair", o.UUID().String())
 				o.setStatusDetails(err)
-				o.Save()
+
+				// Save the pair
+				err = o.Save()
+				if err != nil {
+					log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
+				}
 				return
 			}
-			o.Save()
+
+			// Save the pair
+			err = o.Save()
+			if err != nil {
+				log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
+			}
 
 			// Wait for the reversal order to complete
 			<-o.ReversalOrder().Done()
 			log.Infof("%s: reversal order complete", o.UUID().String())
-			o.Save()
+
+			// Save the pair
+			err = o.Save()
+			if err != nil {
+				log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
+			}
 		}
 		return
 	}
@@ -294,8 +344,19 @@ func (o *OrderPair) execute() {
 	if err != nil {
 		log.WithError(err).Errorf("%s: could not execute second request", o.UUID().String())
 		o.setStatusDetails(err)
-		o.Save()
+
+		// Save the pair
+		err = o.Save()
+		if err != nil {
+			log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
+		}
 		return
+	}
+
+	// Save the pair
+	err = o.Save()
+	if err != nil {
+		log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
 	}
 
 	// Handle second order
@@ -303,7 +364,12 @@ func (o *OrderPair) execute() {
 	if err != nil {
 		log.WithError(err).Errorf("%s: error handling second order", o.UUID().String())
 		o.setStatusDetails(err)
-		o.Save()
+
+		// Save the pair
+		err = o.Save()
+		if err != nil {
+			log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
+		}
 
 		// Reverse the pair if the status has been set to reversed
 		if o.Status() == Reversed {
@@ -312,25 +378,56 @@ func (o *OrderPair) execute() {
 			if err != nil {
 				log.WithError(err).Errorf("%s: could not build reverse request", o.UUID().String())
 				o.setStatusDetails(err)
-				o.Save()
+
+				// Save the pair
+				err = o.Save()
+				if err != nil {
+					log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
+				}
 				return
 			}
-			o.Save()
+
+			// Save the pair
+			err = o.Save()
+			if err != nil {
+				log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
+			}
 
 			err = o.executeReversalRequest()
 			if err != nil {
 				log.WithError(err).Errorf("%s: could not reverse pair", o.UUID().String())
 				o.setStatusDetails(err)
-				o.Save()
+
+				// Save the pair
+				err = o.Save()
+				if err != nil {
+					log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
+				}
 				return
 			}
-			o.Save()
+
+			// Save the pair
+			err = o.Save()
+			if err != nil {
+				log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
+			}
 
 			// Wait for the reversal order to complete
 			<-o.ReversalOrder().Done()
 			log.Infof("%s: reversal order complete", o.UUID().String())
-			o.Save()
+
+			// Save the pair
+			err = o.Save()
+			if err != nil {
+				log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
+			}
 		}
+	}
+
+	// Save the pair
+	err = o.Save()
+	if err != nil {
+		log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
 	}
 }
 
@@ -532,6 +629,13 @@ func (o *OrderPair) setStatusDetails(err error) {
 	defer o.mtx.Unlock()
 
 	o.statusDetails = err.Error()
+}
+
+func (o *OrderPair) setStatus(status Status) {
+	o.mtx.Lock()
+	defer o.mtx.Unlock()
+
+	o.status = status
 }
 
 func (o *OrderPair) validate() error {

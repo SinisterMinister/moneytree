@@ -46,6 +46,7 @@ func NewServer(port string) error {
 	trader := currencytrader.New(provider)
 	trader.Start()
 
+	// Setup the market
 	btc, err := trader.AccountSvc().Currency("BTC")
 	if err != nil {
 		log.WithError(err).Fatal("could not load BTC")
@@ -59,12 +60,12 @@ func NewServer(port string) error {
 		log.WithError(err).Fatal("could not load market")
 	}
 
+	// Setup the server
 	listener, err := net.Listen("tcp", port)
 	if err != nil {
 		log.WithError(err).Fatal("could not listen for connections")
 		return err
 	}
-
 	s := grpc.NewServer()
 	svr := &Server{}
 
@@ -90,12 +91,27 @@ type Server struct {
 }
 
 func (s *Server) PlacePair(ctx context.Context, in *proto.PlacePairRequest) (*proto.PlacePairResponse, error) {
-	log.Info("Received place pair request")
+	log.Infof("received place pair request. building %s pair", in.Direction)
 	orderPair, err := pair.BuildSpreadBasedPair(s.pairSvc, pair.Direction(in.Direction))
 	if err != nil {
 		return nil, err
 	}
 
+	log.Info("looking for a colliding pair")
+	openPair, err := s.pairSvc.GetCollidingOpenPair(orderPair)
+	if err != nil {
+		return nil, err
+	}
+
+	// Use the colliding pair instead of the provided one
+	if openPair != nil {
+		log.Infof("found overlapping open pair; resuming %s", openPair.UUID().String())
+		orderPair = openPair
+	} else {
+		s.pairSvc.MakeRoom(pair.Direction(in.Direction))
+	}
+
+	// Execute the pair
 	orderPair.Execute()
 
 	return &proto.PlacePairResponse{Pair: &proto.Pair{
@@ -116,6 +132,20 @@ func (s *Server) init(trader types.Trader, market types.Market) (err error) {
 
 	s.startHealthcheckHandler()
 	s.pairSvc, err = pair.NewService(s.db, trader, market)
+	if err != nil {
+		return
+	}
+
+	// Load the open pairs
+	pairs, err := s.pairSvc.LoadOpenPairs()
+	if err != nil {
+		return
+	}
+
+	// Kick off the execution process
+	for _, pair := range pairs {
+		pair.Execute()
+	}
 	return
 }
 
@@ -131,6 +161,7 @@ func (s *Server) startHealthcheckHandler() {
 }
 
 func (s *Server) connectToDatabase() error {
+	log.Info("connecting to database")
 	db, err := sql.Open("postgres", getDBConnectionString())
 	if err != nil {
 		return err

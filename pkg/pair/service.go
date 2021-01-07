@@ -6,10 +6,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-playground/log"
+	"github.com/go-playground/log/v7"
 	uuid "github.com/satori/go.uuid"
 	"github.com/sinisterminister/currencytrader/types"
 	"github.com/sinisterminister/currencytrader/types/order"
+	"github.com/spf13/viper"
 )
 
 // Service manages the order pairs in the system
@@ -37,6 +38,11 @@ func NewService(db *sql.DB, trader types.Trader, market types.Market) (svc *Serv
 
 func (svc *Service) New(first types.OrderRequest, second types.OrderRequest) (orderPair *OrderPair, err error) {
 	id := uuid.NewV1()
+	dir := Upward
+
+	if first.Side() == order.Sell {
+		dir = Downward
+	}
 
 	orderPair = &OrderPair{
 		svc:           svc,
@@ -47,6 +53,7 @@ func (svc *Service) New(first types.OrderRequest, second types.OrderRequest) (or
 		secondRequest: second,
 		createdAt:     time.Now(),
 		status:        New,
+		direction:     dir,
 	}
 
 	// Validate DTOs
@@ -78,7 +85,7 @@ func (svc *Service) NewFromDAO(dao OrderPairDAO) (*OrderPair, error) {
 
 	// Return the cached pair if it exists. We assume the live object is more up to date than the database.
 	if !ok {
-		log.Debugf("could not find pair %s in cache. building new instance", id.String())
+		log.Infof("could not find pair %s in cache. building new instance", id.String())
 
 		// Setup the done channel
 		done := make(chan bool)
@@ -88,14 +95,26 @@ func (svc *Service) NewFromDAO(dao OrderPairDAO) (*OrderPair, error) {
 
 		// Setup the pair
 		orderPair = &OrderPair{
-			svc:           svc,
-			uuid:          id,
-			done:          done,
-			createdAt:     dao.CreatedAt,
-			endedAt:       dao.EndedAt,
-			status:        dao.Status,
-			firstRequest:  order.NewRequestFromDTO(svc.market, dao.FirstRequest),
-			secondRequest: order.NewRequestFromDTO(svc.market, dao.SecondRequest),
+			svc:             svc,
+			uuid:            id,
+			createdAt:       dao.CreatedAt,
+			endedAt:         dao.EndedAt,
+			direction:       dao.Direction,
+			done:            done,
+			status:          dao.Status,
+			statusDetails:   dao.StatusDetails,
+			firstRequest:    order.NewRequestFromDTO(svc.market, dao.FirstRequest),
+			secondRequest:   order.NewRequestFromDTO(svc.market, dao.SecondRequest),
+			reversalRequest: order.NewRequestFromDTO(svc.market, dao.ReversalRequest),
+		}
+
+		if orderPair.Direction() == "" {
+			if dao.FirstRequest.Side == order.Buy {
+				orderPair.direction = Upward
+			} else {
+				orderPair.direction = Downward
+			}
+
 		}
 
 		// Load the first order if it's been placed
@@ -189,11 +208,77 @@ func (svc *Service) LoadOpenPairs() (pairs []*OrderPair, err error) {
 		}
 		// Add to return
 		pairs = append(pairs, pair)
-
-		// Throttle calls to API
-		<-time.NewTimer(time.Second).C
 	}
 	return
+}
+
+func (svc *Service) GetCollidingOpenPair(newPair *OrderPair) (pair *OrderPair, err error) {
+	// Get the pairs from cache
+	pairs, err := svc.LoadOpenPairs()
+	if err != nil {
+		return
+	}
+
+	// Search the pairs for a colliding one
+	for _, p := range pairs {
+		// Only check the ones going in the same direction
+		if newPair.Direction() == p.Direction() {
+
+			buyPrice := newPair.BuyRequest().Price()
+			sellPrice := newPair.SellRequest().Price()
+
+			lower := p.BuyRequest().Price()
+			upper := p.SellRequest().Price()
+
+			// If the buy or the sell of the new order is between the buy and sell of the order, it's colliding
+			if (buyPrice.GreaterThanOrEqual(lower) && buyPrice.LessThanOrEqual(upper)) ||
+				(sellPrice.GreaterThanOrEqual(lower) && sellPrice.LessThanOrEqual(upper)) {
+
+				// Return colliding pair
+				pair = p
+
+				// Save pair
+				pair.Save()
+
+				return
+			}
+		}
+	}
+	return
+}
+
+func (svc *Service) MakeRoom(direction Direction) error {
+	// Get open pairs for direction
+	pairs := []*OrderPair{}
+	openPairs, err := svc.LoadOpenPairs()
+	if err != nil {
+		return fmt.Errorf("could not load open pairs to make room: %w", err)
+	}
+	for _, pair := range openPairs {
+		if pair.Direction() == direction {
+			pairs = append(pairs, pair)
+		}
+	}
+
+	// If there are too many open, make room by canceling the oldest pair
+	for len(pairs) >= viper.GetInt("maxOpenPairs") {
+		// Find the oldest pair
+		oldest := pairs[0]
+		for _, pair := range pairs {
+			if pair.CreatedAt().Before(oldest.CreatedAt()) {
+				oldest = pair
+			}
+		}
+
+		// Cancel oldest pair
+		log.Infof("%s: canceling pair to make room", oldest.UUID().String())
+		err = oldest.Cancel()
+		if err != nil {
+			return fmt.Errorf("could not cancel oldest pair to make room: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func (svc *Service) initializeDB() error {

@@ -1,6 +1,9 @@
 package pair
 
 import (
+	"database/sql/driver"
+	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/sinisterminister/currencytrader/types"
@@ -23,4 +26,17 @@ type OrderPairDAO struct {
 
 	ReversalRequest types.OrderRequestDTO `json:"reversalRequest"`
 	ReversalOrder   types.OrderDTO        `json:"reversalOrder"`
+}
+
+func (o OrderPairDAO) Value() (driver.Value, error) {
+	return json.Marshal(o)
+}
+
+func (o *OrderPairDAO) Scan(value interface{}) error {
+	b, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf("type assertion to []byte failed")
+	}
+
+	return json.Unmarshal(b, &o)
 }

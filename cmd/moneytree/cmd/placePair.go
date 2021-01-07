@@ -83,5 +83,5 @@ func init() {
 	clientCmd.AddCommand(placePairCmd)
 	placePairCmd.Flags().String("host", "localhost", "Host to connect to")
 	placePairCmd.Flags().Int("port", 44444, "Port to connect to")
-	placePairCmd.Flags().String("timeout", "5s", "Timeout")
+	placePairCmd.Flags().String("timeout", "15s", "Timeout")
 }
