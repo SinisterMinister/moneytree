@@ -24,6 +24,11 @@ import (
 	_ "github.com/lib/pq"
 )
 
+var (
+	market types.Market
+	trader types.Trader
+)
+
 func NewServer(port string) error {
 	// Setup the kill switch
 	killSwitch := make(chan bool)
@@ -43,7 +48,7 @@ func NewServer(port string) error {
 	provider := coinbase.New(killSwitch, client)
 
 	// Get an instance of the trader
-	trader := currencytrader.New(provider)
+	trader = currencytrader.New(provider)
 	trader.Start()
 
 	// Setup the market
@@ -55,7 +60,7 @@ func NewServer(port string) error {
 	if err != nil {
 		log.WithError(err).Fatal("could not load USD")
 	}
-	market, err := trader.MarketSvc().Market(btc, usd)
+	market, err = trader.MarketSvc().Market(btc, usd)
 	if err != nil {
 		log.WithError(err).Fatal("could not load market")
 	}
@@ -119,9 +124,69 @@ func (s *Server) PlacePair(ctx context.Context, in *proto.PlacePairRequest) (*pr
 	}}, nil
 }
 
+func (s *Server) GetCandles(ctx context.Context, in *proto.GetCandlesRequest) (*proto.CandleCollection, error) {
+	log.Info("Received get candles request")
+	return nil, nil
+}
+
 func (s *Server) GetOpenPairs(ctx context.Context, in *proto.NullRequest) (*proto.PairCollection, error) {
 	log.Info("Received get open pairs request")
-	return &proto.PairCollection{}, nil
+	openPairs, err := s.pairSvc.LoadOpenPairs()
+	if err != nil {
+		return nil, err
+	}
+
+	retPairs := []*proto.Pair{}
+	for _, pair := range openPairs {
+		var buyOrder, sellOrder *proto.Order
+		if pair.BuyOrder() != nil {
+			buyOrder = &proto.Order{
+				Side:     "BUY",
+				Price:    pair.BuyRequest().Price().String(),
+				Quantity: pair.BuyRequest().Quantity().String(),
+				Filled:   pair.BuyOrder().Filled().String(),
+				Status:   string(pair.BuyOrder().Status()),
+			}
+		} else {
+			buyOrder = &proto.Order{
+				Side:     "BUY",
+				Price:    pair.BuyRequest().Price().String(),
+				Quantity: pair.BuyRequest().Quantity().String(),
+			}
+		}
+
+		if pair.SellOrder() != nil {
+			sellOrder = &proto.Order{
+				Side:     "SELL",
+				Price:    pair.SellRequest().Price().String(),
+				Quantity: pair.SellRequest().Quantity().String(),
+				Filled:   pair.SellOrder().Filled().String(),
+				Status:   string(pair.SellOrder().Status()),
+			}
+
+		} else {
+			sellOrder = &proto.Order{
+				Side:     "SELL",
+				Price:    pair.SellRequest().Price().String(),
+				Quantity: pair.SellRequest().Quantity().String(),
+			}
+		}
+
+		retPairs = append(retPairs, &proto.Pair{
+			Uuid:          pair.UUID().String(),
+			Created:       pair.CreatedAt().Unix(),
+			Ended:         pair.EndedAt().Unix(),
+			Direction:     string(pair.Direction()),
+			Done:          pair.IsDone(),
+			Status:        string(pair.Status()),
+			StatusDetails: pair.StatusDetails(),
+			BuyOrder:      buyOrder,
+			SellOrder:     sellOrder,
+		})
+	}
+	return &proto.PairCollection{
+		Pairs: retPairs,
+	}, nil
 }
 
 func (s *Server) init(trader types.Trader, market types.Market) (err error) {

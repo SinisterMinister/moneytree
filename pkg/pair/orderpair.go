@@ -58,6 +58,12 @@ func (o *OrderPair) Status() Status {
 
 	return o.status
 }
+func (o *OrderPair) StatusDetails() string {
+	o.mtx.RLock()
+	defer o.mtx.RUnlock()
+
+	return o.statusDetails
+}
 
 func (o *OrderPair) UUID() uuid.UUID {
 	o.mtx.RLock()
@@ -106,6 +112,20 @@ func (o *OrderPair) ReversalOrder() types.Order {
 	defer o.mtx.RUnlock()
 
 	return o.reversalOrder
+}
+
+func (o *OrderPair) BuyOrder() types.Order {
+	o.mtx.RLock()
+	defer o.mtx.RUnlock()
+
+	return o.buyOrder()
+}
+
+func (o *OrderPair) SellOrder() types.Order {
+	o.mtx.RLock()
+	defer o.mtx.RUnlock()
+
+	return o.sellOrder()
 }
 
 func (o *OrderPair) FirstRequest() types.OrderRequest {
@@ -623,7 +643,19 @@ func (o *OrderPair) sellRequest() types.OrderRequest {
 	}
 	return o.secondRequest
 }
+func (o *OrderPair) buyOrder() types.Order {
+	if o.firstRequest.Side() == order.Buy {
+		return o.firstOrder
+	}
+	return o.secondOrder
+}
 
+func (o *OrderPair) sellOrder() types.Order {
+	if o.firstRequest.Side() == order.Sell {
+		return o.firstOrder
+	}
+	return o.secondOrder
+}
 func (o *OrderPair) setStatusDetails(err error) {
 	o.mtx.Lock()
 	defer o.mtx.Unlock()

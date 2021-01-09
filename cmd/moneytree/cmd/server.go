@@ -35,7 +35,7 @@ var serverCmd = &cobra.Command{
 		}
 
 		log.Info("starting Moneytree server...")
-		server.NewServer(fmt.Sprintf(":%d", port))
+		server.NewServer(fmt.Sprintf("0.0.0.0:%d", port))
 
 	},
 }

@@ -19,7 +19,8 @@ const _ = grpc.SupportPackageIsVersion7
 type MoneytreeClient interface {
 	// Places an order pair in the system using the current price as the starting point.
 	PlacePair(ctx context.Context, in *PlacePairRequest, opts ...grpc.CallOption) (*PlacePairResponse, error)
-	GetOpenOrders(ctx context.Context, in *NullRequest, opts ...grpc.CallOption) (*PairCollection, error)
+	GetOpenPairs(ctx context.Context, in *NullRequest, opts ...grpc.CallOption) (*PairCollection, error)
+	GetCandles(ctx context.Context, in *GetCandlesRequest, opts ...grpc.CallOption) (*CandleCollection, error)
 }
 
 type moneytreeClient struct {
@@ -32,16 +33,25 @@ func NewMoneytreeClient(cc grpc.ClientConnInterface) MoneytreeClient {
 
 func (c *moneytreeClient) PlacePair(ctx context.Context, in *PlacePairRequest, opts ...grpc.CallOption) (*PlacePairResponse, error) {
 	out := new(PlacePairResponse)
-	err := c.cc.Invoke(ctx, "/proto.Moneytree/PlacePair", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/moneytree.Moneytree/PlacePair", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *moneytreeClient) GetOpenOrders(ctx context.Context, in *NullRequest, opts ...grpc.CallOption) (*PairCollection, error) {
+func (c *moneytreeClient) GetOpenPairs(ctx context.Context, in *NullRequest, opts ...grpc.CallOption) (*PairCollection, error) {
 	out := new(PairCollection)
-	err := c.cc.Invoke(ctx, "/proto.Moneytree/GetOpenOrders", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/moneytree.Moneytree/GetOpenPairs", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *moneytreeClient) GetCandles(ctx context.Context, in *GetCandlesRequest, opts ...grpc.CallOption) (*CandleCollection, error) {
+	out := new(CandleCollection)
+	err := c.cc.Invoke(ctx, "/moneytree.Moneytree/GetCandles", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +64,8 @@ func (c *moneytreeClient) GetOpenOrders(ctx context.Context, in *NullRequest, op
 type MoneytreeServer interface {
 	// Places an order pair in the system using the current price as the starting point.
 	PlacePair(context.Context, *PlacePairRequest) (*PlacePairResponse, error)
-	GetOpenOrders(context.Context, *NullRequest) (*PairCollection, error)
+	GetOpenPairs(context.Context, *NullRequest) (*PairCollection, error)
+	GetCandles(context.Context, *GetCandlesRequest) (*CandleCollection, error)
 	mustEmbedUnimplementedMoneytreeServer()
 }
 
@@ -65,8 +76,11 @@ type UnimplementedMoneytreeServer struct {
 func (UnimplementedMoneytreeServer) PlacePair(context.Context, *PlacePairRequest) (*PlacePairResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PlacePair not implemented")
 }
-func (UnimplementedMoneytreeServer) GetOpenOrders(context.Context, *NullRequest) (*PairCollection, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetOpenOrders not implemented")
+func (UnimplementedMoneytreeServer) GetOpenPairs(context.Context, *NullRequest) (*PairCollection, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetOpenPairs not implemented")
+}
+func (UnimplementedMoneytreeServer) GetCandles(context.Context, *GetCandlesRequest) (*CandleCollection, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCandles not implemented")
 }
 func (UnimplementedMoneytreeServer) mustEmbedUnimplementedMoneytreeServer() {}
 
@@ -91,7 +105,7 @@ func _Moneytree_PlacePair_Handler(srv interface{}, ctx context.Context, dec func
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.Moneytree/PlacePair",
+		FullMethod: "/moneytree.Moneytree/PlacePair",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MoneytreeServer).PlacePair(ctx, req.(*PlacePairRequest))
@@ -99,26 +113,44 @@ func _Moneytree_PlacePair_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Moneytree_GetOpenOrders_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Moneytree_GetOpenPairs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(NullRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(MoneytreeServer).GetOpenOrders(ctx, in)
+		return srv.(MoneytreeServer).GetOpenPairs(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.Moneytree/GetOpenOrders",
+		FullMethod: "/moneytree.Moneytree/GetOpenPairs",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MoneytreeServer).GetOpenOrders(ctx, req.(*NullRequest))
+		return srv.(MoneytreeServer).GetOpenPairs(ctx, req.(*NullRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Moneytree_GetCandles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCandlesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MoneytreeServer).GetCandles(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/moneytree.Moneytree/GetCandles",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MoneytreeServer).GetCandles(ctx, req.(*GetCandlesRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 var _Moneytree_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "proto.Moneytree",
+	ServiceName: "moneytree.Moneytree",
 	HandlerType: (*MoneytreeServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -126,8 +158,12 @@ var _Moneytree_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Moneytree_PlacePair_Handler,
 		},
 		{
-			MethodName: "GetOpenOrders",
-			Handler:    _Moneytree_GetOpenOrders_Handler,
+			MethodName: "GetOpenPairs",
+			Handler:    _Moneytree_GetOpenPairs_Handler,
+		},
+		{
+			MethodName: "GetCandles",
+			Handler:    _Moneytree_GetCandles_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
