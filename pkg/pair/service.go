@@ -264,9 +264,11 @@ func (svc *Service) MakeRoom(direction Direction) error {
 	for len(pairs) >= viper.GetInt("maxOpenPairs") {
 		// Find the oldest pair
 		oldest := pairs[0]
-		for _, pair := range pairs {
+		var idx int
+		for i, pair := range pairs {
 			if pair.CreatedAt().Before(oldest.CreatedAt()) {
 				oldest = pair
+				idx = i
 			}
 		}
 
@@ -276,6 +278,9 @@ func (svc *Service) MakeRoom(direction Direction) error {
 		if err != nil {
 			return fmt.Errorf("could not cancel oldest pair to make room: %w", err)
 		}
+		copy(pairs[idx:], pairs[idx+1:])     // Shift pairs[idx+1:] left one index.
+		pairs[len(pairs)-1] = &OrderPair{}   // Erase last element (write zero value).
+		pairs = pairs[idx+1:][:len(pairs)-1] // Truncate slice.
 	}
 
 	return nil

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/go-playground/log/v7"
 	"github.com/heptiolabs/healthcheck"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/sinisterminister/currencytrader"
 	"github.com/sinisterminister/currencytrader/types"
+	"github.com/sinisterminister/currencytrader/types/candle"
 	"github.com/sinisterminister/currencytrader/types/provider/coinbase"
 	coinbaseclient "github.com/sinisterminister/currencytrader/types/provider/coinbase/client"
 	"github.com/sinisterminister/moneytree/pkg/pair"
@@ -126,7 +128,49 @@ func (s *Server) PlacePair(ctx context.Context, in *proto.PlacePairRequest) (*pr
 
 func (s *Server) GetCandles(ctx context.Context, in *proto.GetCandlesRequest) (*proto.CandleCollection, error) {
 	log.Info("Received get candles request")
-	return nil, nil
+
+	// Deserialize the interval
+	var interval types.CandleInterval
+	switch in.Duration {
+	case proto.GetCandlesRequest_ONE_MINUTE:
+		interval = candle.OneMinute
+	case proto.GetCandlesRequest_FIVE_MINUTES:
+		interval = candle.FiveMinutes
+	case proto.GetCandlesRequest_FIFTEEN_MINUTES:
+		interval = candle.FifteenMinutes
+	case proto.GetCandlesRequest_ONE_HOUR:
+		interval = candle.OneHour
+	case proto.GetCandlesRequest_TWELVE_HOURS:
+		interval = candle.TwelveHours
+	case proto.GetCandlesRequest_TWENTY_FOUR_HOURS:
+		interval = candle.OneDay
+	}
+
+	// Deserialize the times
+	start := time.Unix(in.StartTime, 0)
+	end := time.Unix(in.EndTime, 0)
+
+	// Fetch the candles
+	log.WithFields(log.F("interval", interval), log.F("start", start), log.F("end", end)).Info("fetching candles")
+	candles, err := market.Candles(interval, start, end)
+	if err != nil {
+		log.WithError(err).Error("could not fetch candles")
+		return nil, err
+	}
+
+	// Serialize the candles
+	protoCandles := []*proto.Candle{}
+	for _, candle := range candles {
+		protoCandles = append(protoCandles, &proto.Candle{
+			Ts:     candle.Timestamp().Unix(),
+			Open:   candle.Open().String(),
+			Close:  candle.Close().String(),
+			High:   candle.High().String(),
+			Low:    candle.Low().String(),
+			Volume: candle.Volume().String(),
+		})
+	}
+	return &proto.CandleCollection{Candles: protoCandles}, nil
 }
 
 func (s *Server) GetOpenPairs(ctx context.Context, in *proto.NullRequest) (*proto.PairCollection, error) {
