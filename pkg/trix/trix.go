@@ -1,6 +1,6 @@
 package trix
 
-import "github.com/sinisterminister/moneytree/lib/ewma"
+import "github.com/sinisterminister/moneytree/pkg/ewma"
 
 func GetTrixIndicator(periods []float64) (ma float64, oscillator float64) {
 	singleSmoothedValues := []float64{}
