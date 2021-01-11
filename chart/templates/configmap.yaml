@@ -24,21 +24,10 @@ data:
       secret: {{ .Values.moneytree.coinbase.secret }}
       
     debug: {{ .Values.moneytree.enableDebugLogs }}
-
     disableFees: {{ .Values.moneytree.disableFees }}
-
-    followtheleader:
-      maxOpenOrders: {{ .Values.moneytree.maxOpenOrders }}
-      reversalSpread: {{ .Values.moneytree.reversalSpread }}
-      targetReturn: {{ .Values.moneytree.targetReturn }}
-      cycleDelay: {{ .Values.moneytree.cycleDelay }}
-      refreshDatabasePairs: {{ .Values.moneytree.refreshDatabasePairs }}
-
-    orderpair:
-      missPercentage: {{ .Values.moneytree.missPercentage }}
-
-    moneytree:
-      forceMakerOrders: {{ .Values.moneytree.forceMakerOrders}}
+    maxOpenPairs: {{ .Values.moneytree.maxOpenOrders }}
+    targetReturn: {{ .Values.moneytree.targetReturn }}
+    forceMakerOrders: {{ .Values.moneytree.forceMakerOrders}}
 
     postgres:
       host: {{ .Release.Name }}-postgresql

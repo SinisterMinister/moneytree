@@ -11,4 +11,7 @@ func init() {
 
 	// Force system to submit only market maker orders. Otherwise it will use taker orders for the first order
 	viper.SetDefault("forceMakerOrders", false)
+
+	// Make sure fees are taken into account by default
+	viper.SetDefault("disableFees", false)
 }
