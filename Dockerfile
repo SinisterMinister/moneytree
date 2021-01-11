@@ -8,4 +8,4 @@ FROM hub.sinimini.com/docker/alpine AS final
 WORKDIR /
 COPY --from=builder /workspace/bin/moneytree .
 RUN echo -n "{}" > config.yaml
-CMD ["./moneytree server"]
+CMD ["./moneytree", "server"]
