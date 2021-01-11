@@ -363,6 +363,7 @@ func (o *OrderPair) execute() {
 	err = o.executeSecondRequest()
 	if err != nil {
 		log.WithError(err).Errorf("%s: could not execute second request", o.UUID().String())
+		o.setStatus(Broken)
 		o.setStatusDetails(err)
 
 		// Save the pair
