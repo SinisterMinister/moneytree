@@ -236,6 +236,7 @@ func (o *OrderPair) Execute() {
 func (o *OrderPair) Cancel() (err error) {
 	// If first order exists and is still open, cancel it
 	if o.FirstOrder() != nil && !o.FirstOrder().IsDone() {
+		log.Infof("%s: canceling first order", o.UUID().String())
 		err = o.svc.trader.OrderSvc().CancelOrder(o.FirstOrder())
 		if err != nil {
 			if o.SecondOrder() == nil {
@@ -247,6 +248,7 @@ func (o *OrderPair) Cancel() (err error) {
 
 	// If second order exists and is still open, cancel it
 	if o.SecondOrder() != nil && !o.SecondOrder().IsDone() {
+		log.Infof("%s: canceling second order", o.UUID().String())
 		err = o.svc.trader.OrderSvc().CancelOrder(o.SecondOrder())
 		if err != nil {
 			return fmt.Errorf("%s: could not cancel second order - %w", o.UUID().String(), err)
@@ -254,10 +256,12 @@ func (o *OrderPair) Cancel() (err error) {
 	}
 
 	// Wait for both orders to be done
-	if o.FirstOrder() != nil {
+	if o.FirstOrder() != nil && !o.FirstOrder().IsDone() {
+		log.Infof("%s: waiting on first order to cancel", o.UUID().String())
 		<-o.FirstOrder().Done()
 	}
-	if o.SecondOrder() != nil {
+	if o.SecondOrder() != nil && !o.SecondOrder().IsDone() {
+		log.Infof("%s: waiting on second order to cancel", o.UUID().String())
 		<-o.SecondOrder().Done()
 	}
 
@@ -538,6 +542,14 @@ func (o *OrderPair) handleFirstOrder() (err error) {
 		o.mtx.Unlock()
 	}
 
+	// Refresh the first order to make sure we have the fees
+	o.mtx.Lock()
+	order, err := o.svc.trader.OrderSvc().Order(o.svc.market, o.firstOrder.ID())
+	if err != nil {
+		log.WithError(err).Errorf("%s: could not get latest data for first order")
+	}
+	o.firstOrder = order
+	o.mtx.Unlock()
 	return
 }
 
@@ -570,6 +582,12 @@ func (o *OrderPair) handleSecondOrder() (err error) {
 	}
 
 	o.endedAt = time.Now()
+	// Update second order with latest data
+	order, err := o.svc.trader.OrderSvc().Order(o.svc.market, o.secondOrder.ID())
+	if err != nil {
+		log.WithError(err).Errorf("%s: could not get latest data for second order")
+	}
+	o.secondOrder = order
 	o.mtx.Unlock()
 
 	return
