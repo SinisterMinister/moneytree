@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "moneytree.fullname" . }}
+  labels:
+    {{- include "moneytree.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.moneytree.service.type }}
+  {{- if and (eq .Values.moneytree.service.type "ClusterIP") (.Values.moneytree.service.clusterIP) }}
+  clusterIP: {{ .Values.moneytree.service.clusterIP }}
+  {{- end }}
+  ports:
+    - port: {{ .Values.moneytree.service.port }}
+      targetPort: moneytree
+      protocol: TCP
+      name: moneytree
+  selector:
+    {{- include "moneytree.selectorLabels" . | nindent 4 }}

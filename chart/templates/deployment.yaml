@@ -48,11 +48,17 @@ spec:
           {{- end }}
           imagePullPolicy: {{ .Values.moneytree.image.pullPolicy }}
 
+          ports:
+            - name: healthz
+              containerPort: 8086
+            - name: moneytree
+              containerPort: 44444
+
           # define a liveness probe that checks every 5 seconds, starting after 5 seconds
           livenessProbe:
             httpGet:
               path: /live
-              port: 8086
+              port: healthz
             initialDelaySeconds: 5
             periodSeconds: 5
 
@@ -60,7 +66,7 @@ spec:
           readinessProbe:
             httpGet:
               path: /ready
-              port: 8086
+              port: healthz
             periodSeconds: 5
           resources:
             {{- toYaml .Values.moneytree.resources | nindent 12 }}

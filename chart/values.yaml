@@ -41,6 +41,11 @@ moneytree:
   nameOverride: ""
   fullnameOverride: ""
 
+  service:
+    type: ClusterIP
+    port: 44444
+    clusterIP:
+
   serviceAccount:
     # Specifies whether a service account should be created
     create: true
