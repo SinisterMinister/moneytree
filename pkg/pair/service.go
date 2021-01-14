@@ -37,7 +37,7 @@ func NewService(db *sql.DB, trader types.Trader, market types.Market) (svc *Serv
 }
 
 func (svc *Service) New(first types.OrderRequest, second types.OrderRequest) (orderPair *OrderPair, err error) {
-	id := uuid.NewV1()
+	id := uuid.NewV4()
 	dir := Upward
 
 	if first.Side() == order.Sell {

@@ -306,7 +306,7 @@ func (o *OrderPair) execute() {
 	// Handle first order
 	err = o.handleFirstOrder()
 	if err != nil {
-		log.WithError(err).Errorf("%s: error handling first order", o.UUID().String())
+		log.WithError(err).Warnf("%s: error handling first order", o.UUID().String())
 		o.setStatusDetails(err)
 
 		// Save the pair
@@ -315,7 +315,7 @@ func (o *OrderPair) execute() {
 			log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
 		}
 
-		if o.FirstOrder().Filled().GreaterThan(decimal.Zero) && o.Status() == Canceled {
+		if o.FirstOrder() != nil && o.FirstOrder().Filled().GreaterThan(decimal.Zero) && o.Status() == Canceled {
 			log.Errorf("%s: reversing pair", o.UUID().String())
 			err = o.buildReversalRequest()
 			if err != nil {
@@ -527,6 +527,8 @@ func (o *OrderPair) handleFirstOrder() (err error) {
 		close(o.done)
 		o.mtx.Unlock()
 
+		return
+
 	case order.Filled:
 		// Continue on
 		break
@@ -544,9 +546,9 @@ func (o *OrderPair) handleFirstOrder() (err error) {
 
 	// Refresh the first order to make sure we have the fees
 	o.mtx.Lock()
-	order, err := o.svc.trader.OrderSvc().Order(o.svc.market, o.firstOrder.ID())
-	if err != nil {
-		log.WithError(err).Errorf("%s: could not get latest data for first order")
+	order, err1 := o.svc.trader.OrderSvc().Order(o.svc.market, o.firstOrder.ID())
+	if err1 != nil {
+		log.WithError(err1).Errorf("%s: could not get latest data for first order", o.uuid.String())
 	}
 	o.firstOrder = order
 	o.mtx.Unlock()

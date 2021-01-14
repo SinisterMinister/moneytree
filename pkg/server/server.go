@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-playground/log/v7"
 	"github.com/heptiolabs/healthcheck"
-	"github.com/preichenberger/go-coinbasepro/v2"
+	"github.com/sinisterminister/go-coinbasepro/v2"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 
@@ -48,7 +48,7 @@ func NewServer(port string) error {
 	})
 
 	// Start up a coinbase provider
-	provider := coinbase.New(killSwitch, client)
+	provider := coinbase.New(killSwitch, client, 6, 10)
 
 	// Get an instance of the trader
 	trader = currencytrader.New(provider)
