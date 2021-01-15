@@ -17,7 +17,7 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/shopspring/decimal v1.2.0
 	github.com/sinisterminister/currencytrader v0.2.0
-	github.com/sinisterminister/go-coinbasepro/v2 v2.0.8
+	github.com/sinisterminister/go-coinbasepro/v2 v2.0.9
 	github.com/spf13/afero v1.5.1 // indirect
 	github.com/spf13/cobra v1.1.1
 	github.com/spf13/viper v1.7.1
