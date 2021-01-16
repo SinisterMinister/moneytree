@@ -725,11 +725,11 @@ func (o *OrderPair) validate() error {
 	var baseFee, quoteFee decimal.Decimal
 	if o.direction == Upward {
 		if viper.GetBool("moneytree.forceMakerOrders") {
-			baseFee = o.buyRequest().Quantity().Mul(o.buyRequest().Price()).Mul(rates.MakerRate())
+			baseFee = o.buyRequest().Quantity().Mul(rates.MakerRate().Mul(o.buyRequest().Price()))
 		} else {
-			baseFee = o.buyRequest().Quantity().Mul(o.buyRequest().Price()).Mul(rates.TakerRate())
+			baseFee = o.buyRequest().Quantity().Mul(rates.TakerRate().Mul(o.buyRequest().Price()))
 		}
-		quoteFee = o.sellRequest().Price().Mul(o.sellRequest().Quantity()).Mul(rates.MakerRate())
+		quoteFee = o.sellRequest().Price().Mul(o.sellRequest().Quantity().Mul(rates.MakerRate()))
 	} else {
 		if viper.GetBool("moneytree.forceMakerOrders") {
 			quoteFee = o.sellRequest().Price().Mul(o.sellRequest().Quantity()).Mul(rates.MakerRate())
@@ -738,10 +738,11 @@ func (o *OrderPair) validate() error {
 		}
 		baseFee = o.buyRequest().Quantity().Mul(o.buyRequest().Price()).Mul(rates.MakerRate())
 	}
+	log.Infof("baseFee %s quoteFee %s quoteRes %s", baseFee.String(), quoteFee.String(), quoteRes.String())
 
 	// Make sure we're not losing currency
 	if quoteRes.LessThanOrEqual(quoteFee.Add(baseFee)) {
-		return fmt.Errorf("not making more of quote currency after fees, %w, %s, %s", &LosingPropositionError{o}, quoteRes.String(), quoteFee.String())
+		return fmt.Errorf("not making more of quote currency after fees, %w, %s, %s", &LosingPropositionError{o}, quoteRes.String(), quoteFee.Add(baseFee))
 	}
 
 	return nil
