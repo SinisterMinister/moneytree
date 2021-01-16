@@ -102,6 +102,7 @@ func (s *Server) PlacePair(ctx context.Context, in *proto.PlacePairRequest) (*pr
 	log.Infof("received place pair request. building %s pair", in.Direction)
 	orderPair, err := pair.BuildSpreadBasedPair(s.pairSvc, pair.Direction(in.Direction))
 	if err != nil {
+		log.WithError(err).Error("could not build pair")
 		return nil, err
 	}
 
