@@ -85,12 +85,13 @@ func BuildSpreadBasedPair(svc *Service, dir Direction) (pair *OrderPair, err err
 	buySize := size.Round(int32(baseCurrency.Precision()))
 
 	// Setup the numbers we need
+	one := decimal.NewFromFloat(1)
 	two := decimal.NewFromFloat(2)
 
-	// 2a - 2ab - abt - 2abg
-	n := two.Mul(buySize).Sub(two.Mul(buySize).Mul(buyPrice)).Sub(buySize.Mul(buyPrice).Mul(targetReturn)).Sub(two.Mul(buySize).Mul(buyPrice).Mul(fee2))
-	// t + 2df + 2 - 2d
-	d := targetReturn.Add(two.Mul(sellPrice).Mul(fee1)).Add(two).Sub(two.Mul(sellPrice))
+	// 2a - 2ab - ta - tab - 2abf
+	n := two.Mul(buySize).Sub(two.Mul(buySize).Mul(buyPrice)).Sub(buySize.Mul(buySize).Mul(targetReturn)).Sub(buySize.Mul(targetReturn).Mul(buySize).Mul(buyPrice)).Sub(two.Mul(buySize).Mul(buyPrice).Mul(fee1))
+	// 2 ( gd + 1 - d)
+	d := two.Mul(fee2.Mul(sellPrice).Add(one).Sub(sellPrice))
 
 	// Set sell size
 	sellSize := n.Div(d)

@@ -725,9 +725,9 @@ func (o *OrderPair) validate() error {
 	var baseFee, quoteFee decimal.Decimal
 	if o.direction == Upward {
 		if viper.GetBool("moneytree.forceMakerOrders") {
-			baseFee = o.buyRequest().Quantity().Mul(rates.MakerRate()).Mul(o.buyRequest().Price())
+			baseFee = o.buyRequest().Quantity().Mul(o.buyRequest().Price()).Mul(rates.MakerRate())
 		} else {
-			baseFee = o.buyRequest().Quantity().Mul(rates.TakerRate()).Mul(o.buyRequest().Price())
+			baseFee = o.buyRequest().Quantity().Mul(o.buyRequest().Price()).Mul(rates.TakerRate())
 		}
 		quoteFee = o.sellRequest().Price().Mul(o.sellRequest().Quantity()).Mul(rates.MakerRate())
 	} else {
@@ -736,7 +736,7 @@ func (o *OrderPair) validate() error {
 		} else {
 			quoteFee = o.sellRequest().Price().Mul(o.sellRequest().Quantity()).Mul(rates.TakerRate())
 		}
-		baseFee = o.buyRequest().Quantity().Mul(rates.MakerRate()).Mul(o.buyRequest().Price())
+		baseFee = o.buyRequest().Quantity().Mul(o.buyRequest().Price()).Mul(rates.MakerRate())
 	}
 
 	// Make sure we're not losing currency
