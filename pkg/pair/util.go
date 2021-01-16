@@ -89,8 +89,8 @@ func BuildSpreadBasedPair(svc *Service, dir Direction) (pair *OrderPair, err err
 
 	// 2a - 2ab - abt - 2abg
 	n := two.Mul(buySize).Sub(two.Mul(buySize).Mul(buyPrice)).Sub(buySize.Mul(buyPrice).Mul(targetReturn)).Sub(two.Mul(buySize).Mul(buyPrice).Mul(fee2))
-	// t + 2f + 2 - 2d
-	d := targetReturn.Add(two.Mul(fee1)).Add(two).Sub(two.Mul(sellPrice))
+	// t + 2df + 2 - 2d
+	d := targetReturn.Add(two.Mul(sellPrice).Mul(fee1)).Add(two).Sub(two.Mul(sellPrice))
 
 	// Set sell size
 	sellSize := n.Div(d)

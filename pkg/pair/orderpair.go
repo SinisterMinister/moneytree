@@ -587,7 +587,7 @@ func (o *OrderPair) handleSecondOrder() (err error) {
 	// Update second order with latest data
 	order, err := o.svc.trader.OrderSvc().Order(o.svc.market, o.secondOrder.ID())
 	if err != nil {
-		log.WithError(err).Errorf("%s: could not get latest data for second order")
+		log.WithError(err).Errorf("%s: could not get latest data for second order", o.uuid.String())
 	}
 	o.secondOrder = order
 	o.mtx.Unlock()
@@ -725,9 +725,9 @@ func (o *OrderPair) validate() error {
 	var baseFee, quoteFee decimal.Decimal
 	if o.direction == Upward {
 		if viper.GetBool("moneytree.forceMakerOrders") {
-			baseFee = o.buyRequest().Quantity().Mul(rates.MakerRate())
+			baseFee = o.buyRequest().Quantity().Mul(rates.MakerRate()).Mul(o.buyRequest().Price())
 		} else {
-			baseFee = o.buyRequest().Quantity().Mul(rates.TakerRate())
+			baseFee = o.buyRequest().Quantity().Mul(rates.TakerRate()).Mul(o.buyRequest().Price())
 		}
 		quoteFee = o.sellRequest().Price().Mul(o.sellRequest().Quantity()).Mul(rates.MakerRate())
 	} else {
@@ -736,14 +736,11 @@ func (o *OrderPair) validate() error {
 		} else {
 			quoteFee = o.sellRequest().Price().Mul(o.sellRequest().Quantity()).Mul(rates.TakerRate())
 		}
-		baseFee = o.buyRequest().Quantity().Mul(rates.MakerRate())
+		baseFee = o.buyRequest().Quantity().Mul(rates.MakerRate()).Mul(o.buyRequest().Price())
 	}
 
 	// Make sure we're not losing currency
-	if baseRes.LessThanOrEqual(baseFee) {
-		return fmt.Errorf("not making more of base currency after fees, %w, %s, %s", &LosingPropositionError{o}, baseRes.String(), baseFee.String())
-	}
-	if quoteRes.LessThanOrEqual(quoteFee) {
+	if quoteRes.LessThanOrEqual(quoteFee.Add(baseFee)) {
 		return fmt.Errorf("not making more of quote currency after fees, %w, %s, %s", &LosingPropositionError{o}, quoteRes.String(), quoteFee.String())
 	}
 
