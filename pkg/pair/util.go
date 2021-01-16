@@ -89,7 +89,7 @@ func BuildSpreadBasedPair(svc *Service, dir Direction) (pair *OrderPair, err err
 	two := decimal.NewFromFloat(2)
 
 	// 2a - 2ab - ta - tab - 2abf
-	n := two.Mul(buySize).Sub(two.Mul(buySize).Mul(buyPrice)).Sub(buySize.Mul(buySize).Mul(targetReturn)).Sub(buySize.Mul(targetReturn).Mul(buySize).Mul(buyPrice)).Sub(two.Mul(buySize).Mul(buyPrice).Mul(fee1))
+	n := two.Mul(buySize).Sub(two.Mul(buySize).Mul(buyPrice)).Sub(targetReturn.Mul(buySize)).Sub(targetReturn.Mul(buySize).Mul(buyPrice)).Sub(two.Mul(buySize).Mul(buyPrice).Mul(fee1))
 	// 2 ( gd + 1 - d)
 	d := two.Mul(fee2.Mul(sellPrice).Add(one).Sub(sellPrice))
 
