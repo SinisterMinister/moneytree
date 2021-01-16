@@ -724,14 +724,14 @@ func (o *OrderPair) validate() error {
 	// Determin the fees
 	var baseFee, quoteFee decimal.Decimal
 	if o.direction == Upward {
-		if viper.GetBool("moneytree.forceMakerOrders") {
+		if viper.GetBool("forceMakerOrders") {
 			baseFee = o.buyRequest().Quantity().Mul(rates.MakerRate().Mul(o.buyRequest().Price()))
 		} else {
 			baseFee = o.buyRequest().Quantity().Mul(rates.TakerRate().Mul(o.buyRequest().Price()))
 		}
 		quoteFee = o.sellRequest().Price().Mul(o.sellRequest().Quantity().Mul(rates.MakerRate()))
 	} else {
-		if viper.GetBool("moneytree.forceMakerOrders") {
+		if viper.GetBool("forceMakerOrders") {
 			quoteFee = o.sellRequest().Price().Mul(o.sellRequest().Quantity()).Mul(rates.MakerRate())
 		} else {
 			quoteFee = o.sellRequest().Price().Mul(o.sellRequest().Quantity()).Mul(rates.TakerRate())
