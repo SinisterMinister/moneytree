@@ -3,7 +3,7 @@ package pair
 import (
 	"fmt"
 
-	"github.com/go-playground/log"
+	"github.com/go-playground/log/v7"
 	"github.com/shopspring/decimal"
 	"github.com/sinisterminister/currencytrader/types"
 	"github.com/sinisterminister/currencytrader/types/fees"
@@ -85,13 +85,12 @@ func BuildSpreadBasedPair(svc *Service, dir Direction) (pair *OrderPair, err err
 	buySize := size.Round(int32(baseCurrency.Precision()))
 
 	// Setup the numbers we need
-	one := decimal.NewFromFloat(1)
 	two := decimal.NewFromFloat(2)
 
-	// 2a - 2ab - ta - tab - 2abf
-	n := two.Mul(buySize).Sub(two.Mul(buySize).Mul(buyPrice)).Sub(targetReturn.Mul(buySize)).Sub(targetReturn.Mul(buySize).Mul(buyPrice)).Sub(two.Mul(buySize).Mul(buyPrice).Mul(fee1))
-	// 2 ( gd + 1 - d)
-	d := two.Mul(fee2.Mul(sellPrice).Add(one).Sub(sellPrice))
+	// 2a - 2ab - tab - 2abf
+	n := two.Mul(buySize).Sub(two.Mul(buySize).Mul(buyPrice)).Sub(targetReturn.Mul(buySize).Mul(buyPrice)).Sub(two.Mul(buySize).Mul(buyPrice).Mul(fee1))
+	// t + 2gd + 2 - 2d
+	d := targetReturn.Add(two.Mul(fee2).Mul(sellPrice)).Add(two).Sub(two.Mul(sellPrice))
 
 	// Set sell size
 	sellSize := n.Div(d)
