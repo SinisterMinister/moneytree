@@ -559,7 +559,10 @@ func (o *OrderPair) handleFirstOrder() (err error) {
 	}
 
 	// Refresh the first order to make sure we have the fees
-	err = o.FirstOrder().Refresh()
+	err1 := o.FirstOrder().Refresh()
+	if err1 != nil {
+		log.WithError(err1).Warnf("%s: could not refresh first order", o.UUID().String())
+	}
 	return
 }
 
