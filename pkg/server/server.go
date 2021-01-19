@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-playground/log/v7"
 	"github.com/heptiolabs/healthcheck"
+	"github.com/shopspring/decimal"
 	"github.com/sinisterminister/go-coinbasepro/v2"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
@@ -115,11 +116,13 @@ func (s *Server) PlacePair(ctx context.Context, in *proto.PlacePairRequest) (*pr
 	// Use the colliding pair instead of the provided one
 	if openPair != nil {
 		if openPair.FirstOrder().Status() != order.Filled {
-			log.Infof("found overlapping open pair that missed %s; canceling prior pair", openPair.UUID().String())
-			err = openPair.Cancel()
-			if err != nil {
-				log.WithError(err).Errorf("could not cancel stale overlapping pair")
-				return nil, err
+			if openPair.FirstOrder().Filled() == decimal.Zero {
+				log.Infof("found overlapping open pair that missed %s; canceling prior pair", openPair.UUID().String())
+				err = openPair.Cancel()
+				if err != nil {
+					log.WithError(err).Errorf("could not cancel stale overlapping pair")
+					return nil, err
+				}
 			}
 		} else {
 			log.Infof("found overlapping open pair; resuming %s", openPair.UUID().String())
