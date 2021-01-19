@@ -307,7 +307,6 @@ func (o *OrderPair) execute() {
 	err = o.handleFirstOrder()
 	if err != nil {
 		log.WithError(err).Warnf("%s: error handling first order", o.UUID().String())
-		o.setStatusDetails(err)
 
 		// Save the pair
 		err = o.Save()
@@ -315,11 +314,12 @@ func (o *OrderPair) execute() {
 			log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
 		}
 
-		if o.FirstOrder() != nil && o.FirstOrder().Filled().GreaterThan(decimal.Zero) && o.Status() == Canceled {
+		if o.Status() == Canceled && o.FirstOrder() != nil && o.FirstOrder().Filled().GreaterThan(decimal.Zero) {
 			log.Errorf("%s: reversing pair", o.UUID().String())
 			err = o.buildReversalRequest()
 			if err != nil {
 				log.WithError(err).Errorf("%s: could not build reverse request", o.UUID().String())
+				o.setStatus(Broken)
 				o.setStatusDetails(err)
 
 				// Save the pair
@@ -329,11 +329,17 @@ func (o *OrderPair) execute() {
 				}
 				return
 			}
-			o.Save()
+
+			// Save the pair
+			err = o.Save()
+			if err != nil {
+				log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
+			}
 
 			err = o.executeReversalRequest()
 			if err != nil {
 				log.WithError(err).Errorf("%s: could not reverse pair", o.UUID().String())
+				o.setStatus(Broken)
 				o.setStatusDetails(err)
 
 				// Save the pair
@@ -387,8 +393,7 @@ func (o *OrderPair) execute() {
 	// Handle second order
 	err = o.handleSecondOrder()
 	if err != nil {
-		log.WithError(err).Errorf("%s: error handling second order", o.UUID().String())
-		o.setStatusDetails(err)
+		log.WithError(err).Warnf("%s: error handling second order", o.UUID().String())
 
 		// Save the pair
 		err = o.Save()
@@ -398,10 +403,11 @@ func (o *OrderPair) execute() {
 
 		// Reverse the pair if the status has been set to reversed
 		if o.Status() == Reversed {
-			log.Errorf("%s: reversing pair", o.UUID().String())
+			log.Warnf("%s: reversing pair", o.UUID().String())
 			err = o.buildReversalRequest()
 			if err != nil {
 				log.WithError(err).Errorf("%s: could not build reverse request", o.UUID().String())
+				o.setStatus(Broken)
 				o.setStatusDetails(err)
 
 				// Save the pair
@@ -421,6 +427,7 @@ func (o *OrderPair) execute() {
 			err = o.executeReversalRequest()
 			if err != nil {
 				log.WithError(err).Errorf("%s: could not reverse pair", o.UUID().String())
+				o.setStatus(Broken)
 				o.setStatusDetails(err)
 
 				// Save the pair
@@ -506,6 +513,13 @@ func (o *OrderPair) handleFirstOrder() (err error) {
 	<-o.FirstOrder().Done()
 	log.Infof("%s: first order complete", o.UUID().String())
 
+	// Refresh the order status just in case
+	err = o.FirstOrder().Refresh()
+	if err != nil {
+		// Something failed when trying to refresh. Trust nothing.
+		return
+	}
+
 	// Handle first order outcome
 	switch o.FirstOrder().Status() {
 	case order.Canceled:
@@ -519,7 +533,7 @@ func (o *OrderPair) handleFirstOrder() (err error) {
 		}
 
 		// Mark pair as failed and bail
-		err = fmt.Errorf("first order was canceled. stopping pair")
+		err = fmt.Errorf("first order was canceled")
 		o.mtx.Lock()
 		o.status = Canceled
 		o.endedAt = time.Now()
@@ -545,13 +559,7 @@ func (o *OrderPair) handleFirstOrder() (err error) {
 	}
 
 	// Refresh the first order to make sure we have the fees
-	o.mtx.Lock()
-	order, err1 := o.svc.trader.OrderSvc().Order(o.svc.market, o.firstOrder.ID())
-	if err1 != nil {
-		log.WithError(err1).Errorf("%s: could not get latest data for first order", o.uuid.String())
-	}
-	o.firstOrder = order
-	o.mtx.Unlock()
+	err = o.FirstOrder().Refresh()
 	return
 }
 
@@ -559,6 +567,13 @@ func (o *OrderPair) handleSecondOrder() (err error) {
 	// Wait for the second order to close
 	<-o.SecondOrder().Done()
 	log.Infof("%s: second order complete", o.UUID().String())
+
+	// Refresh the order status just in case
+	err = o.SecondOrder().Refresh()
+	if err != nil {
+		// Something failed when trying to refresh. Trust nothing.
+		return
+	}
 
 	// Handle second order outcome
 	o.mtx.Lock()
@@ -585,11 +600,7 @@ func (o *OrderPair) handleSecondOrder() (err error) {
 
 	o.endedAt = time.Now()
 	// Update second order with latest data
-	order, err := o.svc.trader.OrderSvc().Order(o.svc.market, o.secondOrder.ID())
-	if err != nil {
-		log.WithError(err).Errorf("%s: could not get latest data for second order", o.uuid.String())
-	}
-	o.secondOrder = order
+	o.secondOrder.Refresh()
 	o.mtx.Unlock()
 
 	return
@@ -664,6 +675,7 @@ func (o *OrderPair) sellRequest() types.OrderRequest {
 	}
 	return o.secondRequest
 }
+
 func (o *OrderPair) buyOrder() types.Order {
 	if o.firstRequest.Side() == order.Buy {
 		return o.firstOrder
@@ -677,6 +689,7 @@ func (o *OrderPair) sellOrder() types.Order {
 	}
 	return o.secondOrder
 }
+
 func (o *OrderPair) setStatusDetails(err error) {
 	o.mtx.Lock()
 	defer o.mtx.Unlock()
