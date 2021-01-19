@@ -513,7 +513,10 @@ func (o *OrderPair) handleFirstOrder() (err error) {
 	<-o.FirstOrder().Done()
 	log.Infof("%s: first order complete", o.UUID().String())
 
-	// Refresh the order status just in case
+	// Wait a second to let the system get consistent
+	<-time.Tick(time.Second)
+
+	// Refresh the order to make sure we have the fees
 	err = o.FirstOrder().Refresh()
 	if err != nil {
 		// Something failed when trying to refresh. Trust nothing.
@@ -558,11 +561,6 @@ func (o *OrderPair) handleFirstOrder() (err error) {
 		o.mtx.Unlock()
 	}
 
-	// Refresh the first order to make sure we have the fees
-	err1 := o.FirstOrder().Refresh()
-	if err1 != nil {
-		log.WithError(err1).Warnf("%s: could not refresh first order", o.UUID().String())
-	}
 	return
 }
 
@@ -570,6 +568,9 @@ func (o *OrderPair) handleSecondOrder() (err error) {
 	// Wait for the second order to close
 	<-o.SecondOrder().Done()
 	log.Infof("%s: second order complete", o.UUID().String())
+
+	// Wait a second to let the system get consistent
+	<-time.Tick(time.Second)
 
 	// Refresh the order status just in case
 	err = o.SecondOrder().Refresh()
