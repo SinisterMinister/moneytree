@@ -116,7 +116,7 @@ func (s *Server) PlacePair(ctx context.Context, in *proto.PlacePairRequest) (*pr
 	// Use the colliding pair instead of the provided one
 	if openPair != nil {
 		if openPair.FirstOrder().Status() != order.Filled {
-			if openPair.FirstOrder().Filled() == decimal.Zero {
+			if openPair.FirstOrder().Filled().Equal(decimal.Zero) {
 				log.Infof("found overlapping open pair that missed %s; canceling prior pair", openPair.UUID().String())
 				err = openPair.Cancel()
 				if err != nil {
