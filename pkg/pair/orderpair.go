@@ -572,7 +572,7 @@ func (o *OrderPair) handleSecondOrder() (err error) {
 	// Wait a second to let the system get consistent
 	<-time.Tick(time.Second)
 
-	// Refresh the order status just in case
+	// Refresh the order to get the fees
 	err = o.SecondOrder().Refresh()
 	if err != nil {
 		// Something failed when trying to refresh. Trust nothing.
@@ -603,8 +603,6 @@ func (o *OrderPair) handleSecondOrder() (err error) {
 	}
 
 	o.endedAt = time.Now()
-	// Update second order with latest data
-	o.secondOrder.Refresh()
 	o.mtx.Unlock()
 
 	return
