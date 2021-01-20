@@ -551,6 +551,37 @@ func (o *OrderPair) handleFirstOrder() (err error) {
 		// Continue on
 		break
 
+	case order.Pending:
+		fallthrough
+	case order.Partial:
+		// Somehow the order was marked done when not fully updated or filled. We need to
+		// poll the refresh method a few times to see if it finishes or not.
+		var count time.Duration = 1
+
+		// Retry refreshes
+		for count < 10 {
+			// Backoff on refreshes slowly
+			<-time.Tick(time.Second * count)
+			o.FirstOrder().Refresh()
+			if o.FirstOrder().Status() == order.Filled {
+				// We're good to move on
+				break
+			}
+			if o.FirstOrder().Status() == order.Canceled {
+				// Mark pair as failed and bail
+				err = fmt.Errorf("first order was canceled")
+				o.mtx.Lock()
+				o.status = Canceled
+				o.endedAt = time.Now()
+				o.statusDetails = err.Error()
+				close(o.done)
+				o.mtx.Unlock()
+				return
+			}
+			count++
+		}
+		fallthrough
+
 	default:
 		err = fmt.Errorf("first order returned unexpectedly with status %s", o.FirstOrder().Status())
 		// Mark pair as failed and bail
