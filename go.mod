@@ -14,7 +14,7 @@ require (
 	github.com/prometheus/procfs v0.3.0 // indirect
 	github.com/satori/go.uuid v1.2.0
 	github.com/shopspring/decimal v1.2.0
-	github.com/sinisterminister/currencytrader v0.3.6
+	github.com/sinisterminister/currencytrader v0.3.7
 	github.com/sinisterminister/go-coinbasepro/v2 v2.1.0
 	github.com/spf13/cobra v1.1.1
 	github.com/spf13/viper v1.7.1
