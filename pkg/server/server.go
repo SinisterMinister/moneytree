@@ -127,6 +127,10 @@ func (s *Server) PlacePair(ctx context.Context, in *proto.PlacePairRequest) (*pr
 					log.WithError(err).Errorf("could not cancel stale overlapping pair")
 					return nil, err
 				}
+			} else {
+				// Order must be partially filled
+				orderPair = openPair
+				log.Infof("found overlapping open pair; resuming %s", orderPair.UUID().String())
 			}
 		} else {
 			orderPair = openPair
