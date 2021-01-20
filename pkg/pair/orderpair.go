@@ -212,6 +212,7 @@ func (o *OrderPair) ToDAO() OrderPairDAO {
 		Status:          o.status,
 		CreatedAt:       o.createdAt,
 		EndedAt:         o.endedAt,
+		StatusDetails:   o.statusDetails,
 	}
 }
 
@@ -753,7 +754,6 @@ func (o *OrderPair) validate() error {
 		}
 		baseFee = o.buyRequest().Quantity().Mul(o.buyRequest().Price()).Mul(rates.MakerRate())
 	}
-	log.Infof("baseFee %s quoteFee %s quoteRes %s", baseFee.String(), quoteFee.String(), quoteRes.String())
 
 	// Make sure we're not losing currency
 	if quoteRes.LessThanOrEqual(quoteFee.Add(baseFee)) {

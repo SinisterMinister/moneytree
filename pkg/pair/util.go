@@ -115,7 +115,7 @@ func BuildSpreadBasedPair(svc *Service, dir Direction) (pair *OrderPair, err err
 		log.F("sellPrice", sellPrice.String()),
 		log.F("buySize", buySize.String()),
 		log.F("buyPrice", buyPrice.String()),
-	).Infof("%s trending order data", dir)
+	).Infof("building %s trending order pair", dir)
 
 	if err != nil {
 		return nil, fmt.Errorf("could not create order pair: %w", err)

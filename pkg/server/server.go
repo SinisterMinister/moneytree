@@ -100,7 +100,7 @@ type Server struct {
 }
 
 func (s *Server) PlacePair(ctx context.Context, in *proto.PlacePairRequest) (*proto.PlacePairResponse, error) {
-	log.Infof("received place pair request. building %s pair", in.Direction)
+	log.Infof("received place %s pair request", in.Direction)
 	orderPair, err := pair.BuildSpreadBasedPair(s.pairSvc, pair.Direction(in.Direction))
 	if err != nil {
 		log.WithError(err).Error("could not build pair")
@@ -116,6 +116,10 @@ func (s *Server) PlacePair(ctx context.Context, in *proto.PlacePairRequest) (*pr
 	// Use the colliding pair instead of the provided one
 	if openPair != nil {
 		if openPair.FirstOrder().Status() != order.Filled {
+			// Update the first order to get any missed fills
+			openPair.FirstOrder().Refresh()
+
+			// Reverse if there are no fills
 			if openPair.FirstOrder().Filled().Equal(decimal.Zero) {
 				log.Infof("found overlapping open pair that missed %s; canceling prior pair", openPair.UUID().String())
 				err = openPair.Cancel()
@@ -125,9 +129,11 @@ func (s *Server) PlacePair(ctx context.Context, in *proto.PlacePairRequest) (*pr
 				}
 			}
 		} else {
-			log.Infof("found overlapping open pair; resuming %s", openPair.UUID().String())
 			orderPair = openPair
+			log.Infof("found overlapping open pair; resuming %s", orderPair.UUID().String())
 		}
+	} else {
+		log.Infof("no overlapping pair found; using new pair %s", orderPair.UUID().String())
 	}
 
 	// Try to make room if we're placing a new order
@@ -144,7 +150,7 @@ func (s *Server) PlacePair(ctx context.Context, in *proto.PlacePairRequest) (*pr
 }
 
 func (s *Server) GetCandles(ctx context.Context, in *proto.GetCandlesRequest) (*proto.CandleCollection, error) {
-	log.Info("Received get candles request")
+	log.Debug("Received get candles request")
 
 	// Deserialize the interval
 	var interval types.CandleInterval
@@ -168,7 +174,7 @@ func (s *Server) GetCandles(ctx context.Context, in *proto.GetCandlesRequest) (*
 	end := time.Unix(in.EndTime, 0)
 
 	// Fetch the candles
-	log.WithFields(log.F("interval", interval), log.F("start", start), log.F("end", end)).Info("fetching candles")
+	log.WithFields(log.F("interval", interval), log.F("start", start), log.F("end", end)).Debug("fetching candles")
 	candles, err := market.Candles(interval, start, end)
 	if err != nil {
 		log.WithError(err).Error("could not fetch candles")
@@ -191,7 +197,7 @@ func (s *Server) GetCandles(ctx context.Context, in *proto.GetCandlesRequest) (*
 }
 
 func (s *Server) GetOpenPairs(ctx context.Context, in *proto.NullRequest) (*proto.PairCollection, error) {
-	log.Info("Received get open pairs request")
+	log.Debug("Received get open pairs request")
 	openPairs, err := s.pairSvc.LoadOpenPairs()
 	if err != nil {
 		return nil, err
