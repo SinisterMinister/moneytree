@@ -549,7 +549,7 @@ func (o *OrderPair) handleFirstOrder() (err error) {
 
 	case order.Filled:
 		// Continue on
-		break
+		return
 
 	case order.Pending:
 		fallthrough
@@ -565,7 +565,7 @@ func (o *OrderPair) handleFirstOrder() (err error) {
 			o.FirstOrder().Refresh()
 			if o.FirstOrder().Status() == order.Filled {
 				// We're good to move on
-				break
+				return
 			}
 			if o.FirstOrder().Status() == order.Canceled {
 				// Mark pair as failed and bail
