@@ -58,6 +58,7 @@ func (o *OrderPair) Status() Status {
 
 	return o.status
 }
+
 func (o *OrderPair) StatusDetails() string {
 	o.mtx.RLock()
 	defer o.mtx.RUnlock()
@@ -627,7 +628,7 @@ func (o *OrderPair) handleSecondOrder() (err error) {
 		close(o.done)
 
 	default:
-		err = fmt.Errorf("second order returned unexpectedly with status %s", o.SecondOrder().Status())
+		err = fmt.Errorf("second order returned unexpectedly with status %s", o.secondOrder.Status())
 		// Mark pair as broken
 		o.status = Broken
 		o.statusDetails = err.Error()
