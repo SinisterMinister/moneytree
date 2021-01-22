@@ -6,6 +6,7 @@ require (
 	github.com/go-playground/log/v7 v7.0.2
 	github.com/golang/mock v1.4.3
 	github.com/golang/protobuf v1.4.3
+	github.com/google/uuid v1.2.0 // indirect
 	github.com/heptiolabs/healthcheck v0.0.0-20180807145615-6ff867650f40
 	github.com/lib/pq v1.9.0
 	github.com/mitchellh/go-homedir v1.1.0
@@ -16,6 +17,8 @@ require (
 	github.com/sinisterminister/miraclegrow v0.0.0-20210122224630-799d7deca2fc
 	github.com/spf13/cobra v1.1.1
 	github.com/spf13/viper v1.7.1
+	golang.org/x/sys v0.0.0-20210122093101-04d7465088b8 // indirect
+	google.golang.org/genproto v0.0.0-20210122163508-8081c04a3579 // indirect
 	google.golang.org/grpc v1.35.0
 	google.golang.org/protobuf v1.25.0
 )
