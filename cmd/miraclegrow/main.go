@@ -15,7 +15,7 @@ limitations under the License.
 */
 package main
 
-import "github.com/sinisterminister/miraclegrow/cmd/miraclegrow/cmd"
+import "github.com/sinisterminister/moneytree/cmd/miraclegrow/cmd"
 
 func main() {
 	cmd.Execute()
