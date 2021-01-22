@@ -401,7 +401,10 @@ github.com/sinisterminister/go-coinbasepro/v2 v2.0.9 h1:HiDLTKhhXcf0+kYmVy4fKshf
 github.com/sinisterminister/go-coinbasepro/v2 v2.0.9/go.mod h1:U0XhXJKiwWGfVjOF7AoVjBgEhQKJ7lNuvrOUWxUPntI=
 github.com/sinisterminister/go-coinbasepro/v2 v2.1.0 h1:jd6kOSEt1QzaHcJI32QnGPAodU70XjFZr/6ZzNSPV0U=
 github.com/sinisterminister/go-coinbasepro/v2 v2.1.0/go.mod h1:U0XhXJKiwWGfVjOF7AoVjBgEhQKJ7lNuvrOUWxUPntI=
+github.com/sinisterminister/miraclegrow v0.0.0-20210122224630-799d7deca2fc h1:Bpc4huft1BvRIWdGDcNJq084+WmC3g97kqAeKJHVlq0=
+github.com/sinisterminister/miraclegrow v0.0.0-20210122224630-799d7deca2fc/go.mod h1:5F5Wgsq1NdG/FvRPW3LQxTY1oWg6nb8ELX+Qm4wIXRg=
 github.com/sinisterminister/moneytree v0.0.0-20210112015126-995f47f280f6/go.mod h1:yiCRAtrZlWcQyQD+KTioMIeBDB1j+gqnVQCRWj6GjOE=
+github.com/sinisterminister/moneytree v0.0.0-20210122030237-4e9b00efabb1/go.mod h1:qkFcS7qPpbH18LxEM3bgmBDZ/o2DXwtsbqU0t6KE4u4=
 github.com/sirupsen/logrus v1.2.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPxbbu5VWo=
 github.com/sirupsen/logrus v1.4.2/go.mod h1:tLMulIdttU9McNUspp0xgXVQah82FyeX6MwdIuYE2rE=
 github.com/sirupsen/logrus v1.6.0/go.mod h1:7uNnSEd1DgxDLC74fIahvMZmmYsHGZGEOFrfsX/uA88=
