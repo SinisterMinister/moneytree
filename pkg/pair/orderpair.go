@@ -533,9 +533,6 @@ func (o *OrderPair) handleFirstOrder() (err error) {
 	<-o.FirstOrder().Done()
 	log.Infof("%s: first order complete", o.UUID().String())
 
-	// Wait a second to let the system get consistent
-	<-time.Tick(time.Second)
-
 	// Refresh the order to make sure we have the fees
 	err = o.FirstOrder().Refresh()
 	if err != nil {
@@ -608,9 +605,6 @@ func (o *OrderPair) handleSecondOrder() (err error) {
 	<-o.SecondOrder().Done()
 	log.Infof("%s: second order complete", o.UUID().String())
 
-	// Wait a second to let the system get consistent
-	<-time.Tick(time.Second)
-
 	// Refresh the order to get the fees
 	err = o.SecondOrder().Refresh()
 	if err != nil {
@@ -641,7 +635,8 @@ func (o *OrderPair) handleSecondOrder() (err error) {
 			<-time.Tick(time.Second * count)
 			o.SecondOrder().Refresh()
 			if o.SecondOrder().Status() == order.Filled {
-				// We're good to move on
+				// Mark pair as success
+				o.setStatus(Success)
 				return
 			}
 			if o.SecondOrder().Status() == order.Canceled {
@@ -656,7 +651,7 @@ func (o *OrderPair) handleSecondOrder() (err error) {
 		fallthrough
 
 	default:
-		err = fmt.Errorf("second order returned unexpectedly with status %s", o.secondOrder.Status())
+		err = fmt.Errorf("second order returned unexpectedly with status %s", o.SecondOrder().Status())
 		// Mark pair as broken
 		o.setStatus(Broken)
 		o.setStatusDetails(err)
