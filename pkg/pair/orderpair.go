@@ -289,6 +289,8 @@ func (o *OrderPair) execute() {
 		log.WithError(err).Errorf("%s: could not execute first request", o.UUID().String())
 		o.setStatus(Failed)
 		o.setStatusDetails(err)
+		o.setEndedAt()
+		close(o.done)
 
 		// Save the pair
 		err = o.Save()
@@ -323,6 +325,8 @@ func (o *OrderPair) execute() {
 				log.WithError(err).Errorf("%s: could not build reverse request", o.UUID().String())
 				o.setStatus(Broken)
 				o.setStatusDetails(err)
+				o.setEndedAt()
+				close(o.done)
 
 				// Save the pair
 				err = o.Save()
@@ -343,6 +347,8 @@ func (o *OrderPair) execute() {
 				log.WithError(err).Errorf("%s: could not reverse pair", o.UUID().String())
 				o.setStatus(Broken)
 				o.setStatusDetails(err)
+				o.setEndedAt()
+				close(o.done)
 
 				// Save the pair
 				err = o.Save()
@@ -368,6 +374,9 @@ func (o *OrderPair) execute() {
 				log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
 			}
 		}
+
+		o.setEndedAt()
+		close(o.done)
 		return
 	}
 
@@ -377,6 +386,8 @@ func (o *OrderPair) execute() {
 		log.WithError(err).Errorf("%s: could not execute second request", o.UUID().String())
 		o.setStatus(Broken)
 		o.setStatusDetails(err)
+		o.setEndedAt()
+		close(o.done)
 
 		// Save the pair
 		err = o.Save()
@@ -411,6 +422,8 @@ func (o *OrderPair) execute() {
 				log.WithError(err).Errorf("%s: could not build reverse request", o.UUID().String())
 				o.setStatus(Broken)
 				o.setStatusDetails(err)
+				o.setEndedAt()
+				close(o.done)
 
 				// Save the pair
 				err = o.Save()
@@ -431,6 +444,8 @@ func (o *OrderPair) execute() {
 				log.WithError(err).Errorf("%s: could not reverse pair", o.UUID().String())
 				o.setStatus(Broken)
 				o.setStatusDetails(err)
+				o.setEndedAt()
+				close(o.done)
 
 				// Save the pair
 				err = o.Save()
@@ -457,6 +472,9 @@ func (o *OrderPair) execute() {
 			}
 		}
 	}
+
+	o.setEndedAt()
+	close(o.done)
 
 	// Save the pair
 	err = o.Save()
@@ -539,12 +557,8 @@ func (o *OrderPair) handleFirstOrder() (err error) {
 
 		// Mark pair as failed and bail
 		err = fmt.Errorf("first order was canceled")
-		o.mtx.Lock()
-		o.status = Canceled
-		o.endedAt = time.Now()
-		o.statusDetails = err.Error()
-		close(o.done)
-		o.mtx.Unlock()
+		o.setStatus(Canceled)
+		o.setStatusDetails(err)
 
 		return
 
@@ -571,12 +585,8 @@ func (o *OrderPair) handleFirstOrder() (err error) {
 			if o.FirstOrder().Status() == order.Canceled {
 				// Mark pair as failed and bail
 				err = fmt.Errorf("first order was canceled")
-				o.mtx.Lock()
-				o.status = Canceled
-				o.endedAt = time.Now()
-				o.statusDetails = err.Error()
-				close(o.done)
-				o.mtx.Unlock()
+				o.setStatus(Canceled)
+				o.setStatusDetails(err)
 				return
 			}
 			count++
@@ -585,13 +595,9 @@ func (o *OrderPair) handleFirstOrder() (err error) {
 
 	default:
 		err = fmt.Errorf("first order returned unexpectedly with status %s", o.FirstOrder().Status())
-		// Mark pair as failed and bail
-		o.mtx.Lock()
-		o.status = Broken
-		o.endedAt = time.Now()
-		o.statusDetails = err.Error()
-		close(o.done)
-		o.mtx.Unlock()
+		// Mark pair as broken
+		o.setStatus(Broken)
+		o.setStatusDetails(err)
 	}
 
 	return
@@ -613,30 +619,48 @@ func (o *OrderPair) handleSecondOrder() (err error) {
 	}
 
 	// Handle second order outcome
-	o.mtx.Lock()
-	switch o.secondOrder.Status() {
+	switch o.SecondOrder().Status() {
 	case order.Canceled:
 		err = fmt.Errorf("second order was canceled. setting status to %s and reversing", Reversed)
 		// Mark pair as reversed
-		o.status = Reversed
-		o.statusDetails = err.Error()
-		close(o.done)
+		o.setStatus(Reversed)
+		o.setStatusDetails(err)
 
 	case order.Filled:
 		// Mark pair as success
-		o.status = Success
-		close(o.done)
+		o.setStatus(Success)
+
+	case order.Partial:
+		// Somehow the order was marked done when not fully updated or filled. We need to
+		// poll the refresh method a few times to see if it finishes or not.
+		var count time.Duration = 1
+
+		// Retry refreshes
+		for count < 10 {
+			// Backoff on refreshes slowly
+			<-time.Tick(time.Second * count)
+			o.SecondOrder().Refresh()
+			if o.SecondOrder().Status() == order.Filled {
+				// We're good to move on
+				return
+			}
+			if o.SecondOrder().Status() == order.Canceled {
+				// Mark pair as failed and bail
+				err = fmt.Errorf("first order was canceled")
+				o.setStatus(Canceled)
+				o.setStatusDetails(err)
+				return
+			}
+			count++
+		}
+		fallthrough
 
 	default:
 		err = fmt.Errorf("second order returned unexpectedly with status %s", o.secondOrder.Status())
 		// Mark pair as broken
-		o.status = Broken
-		o.statusDetails = err.Error()
-		close(o.done)
+		o.setStatus(Broken)
+		o.setStatusDetails(err)
 	}
-
-	o.endedAt = time.Now()
-	o.mtx.Unlock()
 
 	return
 }
@@ -737,6 +761,13 @@ func (o *OrderPair) setStatus(status Status) {
 	defer o.mtx.Unlock()
 
 	o.status = status
+}
+
+func (o *OrderPair) setEndedAt() {
+	o.mtx.Lock()
+	defer o.mtx.Unlock()
+
+	o.endedAt = time.Now()
 }
 
 func (o *OrderPair) validate() error {
