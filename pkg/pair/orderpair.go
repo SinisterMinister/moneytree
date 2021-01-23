@@ -545,9 +545,6 @@ func (o *OrderPair) handleFirstOrder() (err error) {
 	case order.Canceled:
 		// Check to see if it partially filled
 		if o.FirstOrder().Filled().GreaterThan(decimal.Zero) && o.Status() != Canceled {
-			log.Warnf("%s: recalculating second order size since first order was partially filled", o.UUID().String())
-			o.recalculateSecondOrderSizeFromFilled()
-
 			// Continue on
 			break
 		}
@@ -577,9 +574,15 @@ func (o *OrderPair) handleFirstOrder() (err error) {
 			o.FirstOrder().Refresh()
 			if o.FirstOrder().Status() == order.Filled {
 				// We're good to move on
-				return
+				break
 			}
 			if o.FirstOrder().Status() == order.Canceled {
+				// Check to see if it partially filled
+				if o.FirstOrder().Filled().GreaterThan(decimal.Zero) && o.Status() != Canceled {
+					// Continue on
+					break
+				}
+
 				// Mark pair as failed and bail
 				err = fmt.Errorf("first order was canceled")
 				o.setStatus(Canceled)
@@ -596,6 +599,8 @@ func (o *OrderPair) handleFirstOrder() (err error) {
 		o.setStatus(Broken)
 		o.setStatusDetails(err)
 	}
+
+	o.recalculateSecondOrderSizeFromFilled()
 
 	return
 }
@@ -623,6 +628,9 @@ func (o *OrderPair) handleSecondOrder() (err error) {
 	case order.Filled:
 		// Mark pair as success
 		o.setStatus(Success)
+
+	case order.Pending:
+		fallthrough
 
 	case order.Partial:
 		// Somehow the order was marked done when not fully updated or filled. We need to
