@@ -279,14 +279,14 @@ func (svc *Service) MakeRoom(direction Direction) error {
 		oldest := pairs[0]
 		var idx int
 		for i, pair := range pairs {
-			if pair.CreatedAt().Before(oldest.CreatedAt()) && !oldest.IsDone() {
+			if pair.CreatedAt().Before(oldest.CreatedAt()) && oldest.Status() == Open {
 				oldest = pair
 				idx = i
 			}
 		}
 
 		// Cancel oldest pair
-		if !oldest.IsDone() {
+		if oldest.Status() == Open {
 			log.Infof("%s: canceling pair to make room", oldest.UUID().String())
 			err = oldest.Cancel()
 			if err != nil {
