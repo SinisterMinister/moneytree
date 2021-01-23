@@ -380,6 +380,11 @@ func (o *OrderPair) execute() {
 		return
 	}
 
+	// Recalculate the second order if necessary
+	if !o.FirstOrder().Filled().Equal(o.FirstRequest().Quantity()) {
+		o.recalculateSecondOrderSizeFromFilled()
+	}
+
 	// Execute second request
 	err = o.executeSecondRequest()
 	if err != nil {
@@ -574,13 +579,13 @@ func (o *OrderPair) handleFirstOrder() (err error) {
 			o.FirstOrder().Refresh()
 			if o.FirstOrder().Status() == order.Filled {
 				// We're good to move on
-				break
+				return
 			}
 			if o.FirstOrder().Status() == order.Canceled {
 				// Check to see if it partially filled
 				if o.FirstOrder().Filled().GreaterThan(decimal.Zero) && o.Status() != Canceled {
 					// Continue on
-					break
+					return
 				}
 
 				// Mark pair as failed and bail
@@ -599,8 +604,6 @@ func (o *OrderPair) handleFirstOrder() (err error) {
 		o.setStatus(Broken)
 		o.setStatusDetails(err)
 	}
-
-	o.recalculateSecondOrderSizeFromFilled()
 
 	return
 }
