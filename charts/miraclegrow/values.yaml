@@ -5,10 +5,10 @@
 replicaCount: 1
 
 image:
-  repository: nginx
-  pullPolicy: IfNotPresent
+  repository: hub.sinimini.com/docker/miraclegrow
+  pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
-  tag: ""
+  tag: latest
 
 imagePullSecrets: []
 nameOverride: ""
@@ -17,8 +17,8 @@ fullnameOverride: ""
 updateFrequency: 2.5s
 
 moneytree:
-  host: moneytree.sinimini.com
-  port: 4444
+  host:
+  port:
 
 podAnnotations: {}
 

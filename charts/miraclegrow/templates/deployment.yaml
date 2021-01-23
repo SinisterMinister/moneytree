@@ -5,9 +5,7 @@ metadata:
   labels:
     {{- include "miraclegrow.labels" . | nindent 4 }}
 spec:
-  {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
-  {{- end }}
   selector:
     matchLabels:
       {{- include "miraclegrow.selectorLabels" . | nindent 6 }}
@@ -26,15 +24,6 @@ spec:
       {{- end }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
-      initContainers:
-        - name: copy-config
-          image: busybox:1.28
-          command: ['sh', '-c', 'cp /config/config.yaml /shared']
-          volumeMounts:
-            - name: shared
-              mountPath: /shared
-            - name: config
-              mountPath: /config
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
@@ -46,10 +35,12 @@ spec:
           {{- end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
+            - ./miraclegrow
+            - grow
             - --host
-            - "{{ .Values.moneytree.host }}"
+            - "{{ .Values.moneytree.host | default .Release.Name }}"
             - --port
-            - "{{ .Values.moneytree.port }}"
+            - "{{ .Values.moneytree.port | default 44444 }}"
             - --updateFrequency
             - "{{ .Values.updateFrequency }}"
 

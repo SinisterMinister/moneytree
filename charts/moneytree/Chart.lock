@@ -4,6 +4,6 @@ dependencies:
   version: 9.1.1
 - name: miraclegrow
   repository: https://hub.sinimini.com/artifactory/helm
-  version: 0.1.1
-digest: sha256:314f7e17aaf80feb9cedc62e026617d35f88c9c2a2195dab3fe785ab59b726ee
-generated: "2021-01-22T22:59:06.83514675-07:00"
+  version: 0.2.0
+digest: sha256:6ae1485b23a2882b98f2f161bbf5d0e884c7245652ec561f6f5f0a4d7ed39e97
+generated: "2021-01-23T00:17:54.361666319-07:00"
