@@ -1,12 +1,11 @@
 FROM hub.sinimini.com/docker/golang:1.14 AS builder
 LABEL stage=builder
 WORKDIR /workspace
-COPY . .
 RUN git clone https://github.com/SinisterMinister/moneytree.git && \
-    cd moneytree/cmd/miraclegrow && CGO_ENABLED=0 GOOS=linux go build -a -o ../../bin/miraclegrow
+    cd moneytree/cmd/miraclegrow && CGO_ENABLED=0 GOOS=linux go build -a -o /workspace/miraclegrow
 
 FROM hub.sinimini.com/docker/alpine AS final
 WORKDIR /
-COPY --from=builder /workspace/bin/miraclegrow .
+COPY --from=builder /workspace/miraclegrow .
 RUN echo -n "{}" > config.yaml
 CMD ["./miraclegrow", "grow"]
