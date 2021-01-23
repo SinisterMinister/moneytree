@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/go-playground/log/v7"
-	"github.com/sinisterminister/miraclegrow/pkg/grow"
+	"github.com/sinisterminister/moneytree/pkg/miraclegrow"
 	"github.com/spf13/cobra"
 )
 
@@ -53,9 +53,9 @@ to quickly create a Cobra application.`,
 		}
 		address := fmt.Sprintf("%s:%d", host, port)
 
-		svc := grow.NewService(address, updateFrequency)
+		svc := miraclegrow.NewService(address, updateFrequency)
 
-		svc.Grow(make(chan bool))
+		svc.MakeItGrow(make(chan bool))
 	},
 }
 
