@@ -17,7 +17,7 @@ require (
 	github.com/sinisterminister/miraclegrow v0.0.0-20210122224630-799d7deca2fc
 	github.com/spf13/cobra v1.1.1
 	github.com/spf13/viper v1.7.1
-	golang.org/x/sys v0.0.0-20210122093101-04d7465088b8 // indirect
+	golang.org/x/sys v0.0.0-20210122235752-a8b976e07c7b // indirect
 	google.golang.org/genproto v0.0.0-20210122163508-8081c04a3579 // indirect
 	google.golang.org/grpc v1.35.0
 	google.golang.org/protobuf v1.25.0
