@@ -17,11 +17,19 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
 	"os"
+
+	"github.com/go-playground/log/v7"
+	"github.com/go-playground/log/v7/handlers/console"
+	"github.com/go-playground/log/v7/handlers/json"
+	"github.com/spf13/cobra"
 
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
+)
+
+const (
+	envPrefix = "grow"
 )
 
 var cfgFile string
@@ -57,11 +65,22 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.miraclegrow.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.miraclegrow/config.yaml)")
 
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// Setup json logging for containers
+	if _, err := os.Stat("/.dockerenv"); err == nil {
+		// Setup the console logger
+		log.AddHandler(json.New(os.Stdout), log.InfoLevel, log.WarnLevel, log.ErrorLevel, log.NoticeLevel, log.FatalLevel, log.AlertLevel, log.PanicLevel)
+		if viper.GetBool("debug") {
+			log.AddHandler(json.New(os.Stdout), log.DebugLevel)
+		}
+	} else {
+		// Setup the console logger
+		log.AddHandler(console.New(true), log.InfoLevel, log.WarnLevel, log.ErrorLevel, log.NoticeLevel, log.FatalLevel, log.AlertLevel, log.PanicLevel)
+		if viper.GetBool("debug") {
+			log.AddHandler(console.New(true), log.DebugLevel)
+		}
+	}
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -78,10 +97,14 @@ func initConfig() {
 		}
 
 		// Search config in home directory with name ".miraclegrow" (without extension).
+		viper.SetConfigName("config")
+		viper.SetConfigType("yaml")
+		viper.AddConfigPath("/etc/miraclegrow/")
+		viper.AddConfigPath("$HOME/.miraclegrow")
 		viper.AddConfigPath(home)
-		viper.SetConfigName(".miraclegrow")
 	}
 
+	viper.SetEnvPrefix(envPrefix)
 	viper.AutomaticEnv() // read in environment variables that match
 
 	// If a config file is found, read it in.

@@ -59,10 +59,6 @@ func init() {
 	// will be global for your application.
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.moneytree.yaml)")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -79,8 +75,11 @@ func initConfig() {
 		}
 
 		// Search config in home directory with name ".moneytree" (without extension).
+		viper.SetConfigName("config")
+		viper.SetConfigType("yaml")
+		viper.AddConfigPath("/etc/moneytree/")
+		viper.AddConfigPath("$HOME/.moneytree")
 		viper.AddConfigPath(home)
-		viper.SetConfigName(".moneytree")
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match

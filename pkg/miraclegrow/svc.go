@@ -19,6 +19,7 @@ type Service struct {
 
 func NewService(address string, updateFrequency time.Duration) (svc *Service) {
 	// Set up a connection to the server.
+	log.Infof("connecting to %s...", address)
 	conn, err := grpc.Dial(address, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
