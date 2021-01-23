@@ -2,9 +2,11 @@ package miraclegrow
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	"github.com/go-playground/log/v7"
+	"github.com/heptiolabs/healthcheck"
 	"github.com/sinisterminister/moneytree/pkg/pair"
 	"github.com/sinisterminister/moneytree/pkg/proto"
 	"google.golang.org/grpc"
@@ -27,7 +29,8 @@ func NewService(address string, updateFrequency time.Duration) (svc *Service) {
 }
 
 func (svc *Service) MakeItGrow(stop <-chan bool) (err error) {
-	ticker := time.NewTicker(svc.updateFrequency)
+	svc.startHealthcheckHandler()
+	ticker := time.NewTimer(1)
 	for {
 		select {
 		case <-stop:
@@ -44,6 +47,7 @@ func (svc *Service) MakeItGrow(stop <-chan bool) (err error) {
 			if err != nil {
 				return err
 			}
+			ticker.Reset(svc.updateFrequency)
 		case <-stop:
 			// Try to bail out if necessary
 			return
@@ -101,4 +105,15 @@ func (svc *Service) placePair(direction pair.Direction) (err error) {
 	}
 	log.Infof("Pair returned: %s %s", direction, response.GetPair().Uuid)
 	return
+}
+
+func (svc *Service) startHealthcheckHandler() {
+	// Create a healthcheck.Handler
+	health := healthcheck.NewHandler()
+
+	// Our app is not happy if we've got more than 512 goroutines running.
+	health.AddLivenessCheck("goroutine-threshold", healthcheck.GoroutineCountCheck(512))
+
+	// Expose the /live and /ready endpoints over HTTP (on port 8086)
+	go http.ListenAndServe("0.0.0.0:8086", health)
 }
