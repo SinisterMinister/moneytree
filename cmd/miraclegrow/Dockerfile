@@ -3,7 +3,7 @@ LABEL stage=builder
 WORKDIR /workspace
 COPY . .
 RUN git clone https://github.com/SinisterMinister/moneytree.git && \
-    cd moneytree/cmd/moneytree && CGO_ENABLED=0 GOOS=linux go build -a -o bin/miraclegrow
+    cd moneytree/cmd/moneytree && CGO_ENABLED=0 GOOS=linux go build -a -o ../../bin/miraclegrow
 
 FROM hub.sinimini.com/docker/alpine AS final
 WORKDIR /
