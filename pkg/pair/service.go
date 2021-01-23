@@ -125,8 +125,9 @@ func (svc *Service) NewFromDAO(dao OrderPairDAO) (*OrderPair, error) {
 					return nil, fmt.Errorf("could not load first order: %w", err)
 				}
 				orderPair.firstOrder = order
+			} else {
+				orderPair.firstOrder = svc.trader.OrderSvc().OrderFromDTO(dao.FirstOrder)
 			}
-
 		}
 
 		// Load the second order if it's been placed
@@ -137,7 +138,10 @@ func (svc *Service) NewFromDAO(dao OrderPairDAO) (*OrderPair, error) {
 					return nil, fmt.Errorf("could not load second order: %w", err)
 				}
 				orderPair.secondOrder = order
+			} else {
+				orderPair.secondOrder = svc.trader.OrderSvc().OrderFromDTO(dao.SecondOrder)
 			}
+
 		}
 
 		// Load the reversal order if it's been placed
@@ -148,6 +152,8 @@ func (svc *Service) NewFromDAO(dao OrderPairDAO) (*OrderPair, error) {
 					return nil, fmt.Errorf("could not load reversal order: %w", err)
 				}
 				orderPair.reversalOrder = order
+			} else {
+				orderPair.reversalOrder = svc.trader.OrderSvc().OrderFromDTO(dao.ReversalOrder)
 			}
 		}
 
