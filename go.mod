@@ -3,6 +3,8 @@ module github.com/sinisterminister/moneytree
 go 1.14
 
 require (
+	github.com/go-playground/ansi v2.1.0+incompatible // indirect
+	github.com/go-playground/log v6.3.0+incompatible
 	github.com/go-playground/log/v7 v7.0.2
 	github.com/golang/mock v1.4.3
 	github.com/golang/protobuf v1.4.3
@@ -16,6 +18,7 @@ require (
 	github.com/sinisterminister/go-coinbasepro/v2 v2.1.0
 	github.com/sinisterminister/miraclegrow v0.0.0-20210122224630-799d7deca2fc
 	github.com/spf13/cobra v1.1.1
+	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.1
 	golang.org/x/sys v0.0.0-20210122235752-a8b976e07c7b // indirect
 	google.golang.org/genproto v0.0.0-20210122163508-8081c04a3579 // indirect

@@ -1,0 +1,9 @@
+dependencies:
+- name: postgresql
+  repository: https://charts.bitnami.com/bitnami
+  version: 9.1.1
+- name: miraclegrow
+  repository: https://hub.sinimini.com/artifactory/helm
+  version: 0.1.1
+digest: sha256:314f7e17aaf80feb9cedc62e026617d35f88c9c2a2195dab3fe785ab59b726ee
+generated: "2021-01-22T22:59:06.83514675-07:00"
