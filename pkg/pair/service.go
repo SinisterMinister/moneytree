@@ -279,18 +279,23 @@ func (svc *Service) MakeRoom(direction Direction) error {
 		oldest := pairs[0]
 		var idx int
 		for i, pair := range pairs {
-			if pair.CreatedAt().Before(oldest.CreatedAt()) {
+			if pair.CreatedAt().Before(oldest.CreatedAt()) && !oldest.IsDone() {
 				oldest = pair
 				idx = i
 			}
 		}
 
 		// Cancel oldest pair
-		log.Infof("%s: canceling pair to make room", oldest.UUID().String())
-		err = oldest.Cancel()
-		if err != nil {
-			return fmt.Errorf("could not cancel oldest pair to make room: %w", err)
+		if !oldest.IsDone() {
+			log.Infof("%s: canceling pair to make room", oldest.UUID().String())
+			err = oldest.Cancel()
+			if err != nil {
+				return fmt.Errorf("could not cancel oldest pair to make room: %w", err)
+			}
 		}
+		// Wait for the pair to make room
+		<-oldest.Done()
+
 		copy(pairs[idx:], pairs[idx+1:])     // Shift pairs[idx+1:] left one index.
 		pairs[len(pairs)-1] = &OrderPair{}   // Erase last element (write zero value).
 		pairs = pairs[idx+1:][:len(pairs)-1] // Truncate slice.
