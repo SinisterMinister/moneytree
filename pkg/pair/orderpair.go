@@ -548,12 +548,6 @@ func (o *OrderPair) handleFirstOrder() (err error) {
 	// Handle first order outcome
 	switch o.FirstOrder().Status() {
 	case order.Canceled:
-		// Check to see if it partially filled
-		if o.FirstOrder().Filled().GreaterThan(decimal.Zero) && o.Status() != Canceled {
-			// Continue on
-			break
-		}
-
 		// Mark pair as failed and bail
 		err = fmt.Errorf("first order was canceled")
 		o.setStatus(Canceled)
