@@ -703,7 +703,7 @@ func (o *OrderPair) buildReversalRequest() error {
 	}
 
 	// Determine the size of the order
-	size := o.FirstRequest().Quantity().Sub(filled)
+	size := o.FirstOrder().Filled().Sub(filled)
 	log.Infof("%s: use quantity %s for reversal order", o.UUID().String(), size.StringFixed(8))
 
 	// Build reversal order
