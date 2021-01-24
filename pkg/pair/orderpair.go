@@ -368,6 +368,9 @@ func (o *OrderPair) execute() {
 			<-o.ReversalOrder().Done()
 			log.Infof("%s: reversal order complete", o.UUID().String())
 
+			// Load the reversal fees
+			o.ReversalOrder().Refresh()
+
 			// Save the pair
 			err = o.Save()
 			if err != nil {
