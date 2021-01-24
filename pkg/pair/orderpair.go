@@ -652,9 +652,9 @@ func (o *OrderPair) handleSecondOrder() (err error) {
 				return
 			}
 			if o.SecondOrder().Status() == order.Canceled {
-				// Mark pair as failed and bail
-				err = fmt.Errorf("first order was canceled")
-				o.setStatus(Canceled)
+				// Mark pair as reversed and bail
+				err = fmt.Errorf("second order was canceled. setting status to %s and reversing", Reversed)
+				o.setStatus(Reversed)
 				o.setStatusDetails(err)
 				return
 			}
