@@ -320,6 +320,7 @@ func (o *OrderPair) execute() {
 
 		if o.Status() == Canceled && o.FirstOrder() != nil && o.FirstOrder().Filled().GreaterThan(decimal.Zero) {
 			log.Errorf("%s: reversing pair", o.UUID().String())
+			o.setStatus(Reversed)
 			err = o.buildReversalRequest()
 			if err != nil {
 				log.WithError(err).Errorf("%s: could not build reverse request", o.UUID().String())
