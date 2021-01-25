@@ -273,28 +273,28 @@ func (svc *Service) MakeRoom(direction Direction) error {
 		}
 	}
 
-	// If there are too many open, make room by canceling the newest pair to lose the least
+	// If there are too many open, make room by canceling the oldest pair to lose the least
 	for len(pairs) >= viper.GetInt("maxOpenPairs") {
 		// Find the oldest pair
-		newest := pairs[0]
+		oldest := pairs[0]
 		var idx int
 		for i, pair := range pairs {
-			if pair.CreatedAt().After(newest.CreatedAt()) && newest.Status() == Open {
-				newest = pair
+			if pair.CreatedAt().After(oldest.CreatedAt()) && oldest.Status() == Open {
+				oldest = pair
 				idx = i
 			}
 		}
 
 		// Cancel oldest pair
-		if newest.Status() == Open {
-			log.Infof("%s: canceling pair to make room", newest.UUID().String())
-			err = newest.Cancel()
+		if oldest.Status() == Open {
+			log.Infof("%s: canceling pair to make room", oldest.UUID().String())
+			err = oldest.Cancel()
 			if err != nil {
 				return fmt.Errorf("could not cancel oldest pair to make room: %w", err)
 			}
 		}
 		// Wait for the pair to make room
-		<-newest.Done()
+		<-oldest.Done()
 
 		copy(pairs[idx:], pairs[idx+1:])     // Shift pairs[idx+1:] left one index.
 		pairs[len(pairs)-1] = &OrderPair{}   // Erase last element (write zero value).
