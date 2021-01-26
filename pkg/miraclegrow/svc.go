@@ -105,11 +105,11 @@ func (svc *Service) startWatering() (err error) {
 			}
 		}
 
-		// If the current price is below the moving average, going up
+		// If the current price is below the moving average, going down
 		if currentPrice.LessThan(movingAverage) {
-			// Make sure gaining momentum
+			// Make sure losing momentum
 			if oscillator.LessThanOrEqual(decimal.Zero) {
-				// Place the upward pair
+				// Place the downward pair
 				svc.placePair(pair.Downward)
 			}
 		}
