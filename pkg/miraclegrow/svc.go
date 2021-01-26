@@ -49,7 +49,7 @@ func (svc *Service) MakeItGrow(stop <-chan bool) (err error) {
 			log.Infof("water the moneytree")
 			err = svc.startWatering()
 			if err != nil {
-				return err
+				log.WithError(err).Error("something happened while watering")
 			}
 			ticker.Reset(svc.updateFrequency)
 		case <-stop:
