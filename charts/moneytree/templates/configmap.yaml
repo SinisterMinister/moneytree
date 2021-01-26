@@ -25,7 +25,7 @@ data:
       
     debug: {{ .Values.moneytree.enableDebugLogs }}
     disableFees: {{ .Values.moneytree.disableFees }}
-    maxOpenPairs: {{ .Values.moneytree.maxOpenOrders }}
+    maxOpenPairs: {{ .Values.moneytree.maxOpenPairs }}
     targetReturn: {{ .Values.moneytree.targetReturn }}
     forceMakerOrders: {{ .Values.moneytree.forceMakerOrders}}
 
