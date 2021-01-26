@@ -381,6 +381,12 @@ func (o *OrderPair) execute() {
 
 		o.setEndedAt()
 		close(o.done)
+
+		// Save the pair
+		err = o.Save()
+		if err != nil {
+			log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
+		}
 		return
 	}
 
