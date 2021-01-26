@@ -268,7 +268,7 @@ func (svc *Service) MakeRoom(direction Direction) error {
 		return fmt.Errorf("could not load open pairs to make room: %w", err)
 	}
 	for _, pair := range openPairs {
-		if pair.Direction() == direction {
+		if pair.Direction() == direction && pair.Status() == Open {
 			pairs = append(pairs, pair)
 		}
 	}
@@ -279,7 +279,7 @@ func (svc *Service) MakeRoom(direction Direction) error {
 		newest := pairs[0]
 		var idx int
 		for i, pair := range pairs {
-			if pair.CreatedAt().After(newest.CreatedAt()) && newest.Status() == Open {
+			if pair.CreatedAt().After(newest.CreatedAt()) {
 				newest = pair
 				idx = i
 			}
