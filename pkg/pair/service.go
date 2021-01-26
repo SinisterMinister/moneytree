@@ -296,9 +296,8 @@ func (svc *Service) MakeRoom(direction Direction) error {
 		// Wait for the pair to make room
 		<-newest.Done()
 
-		copy(pairs[idx:], pairs[idx+1:])     // Shift pairs[idx+1:] left one index.
-		pairs[len(pairs)-1] = &OrderPair{}   // Erase last element (write zero value).
-		pairs = pairs[idx+1:][:len(pairs)-1] // Truncate slice.
+		// Remove the pair from the slice
+		pairs = append(pairs[:idx], pairs[idx+1:]...)
 	}
 
 	return nil
