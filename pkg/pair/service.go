@@ -279,7 +279,7 @@ func (svc *Service) MakeRoom(direction Direction) error {
 		oldest := pairs[0]
 		var idx int
 		for i, pair := range pairs {
-			if pair.CreatedAt().After(oldest.CreatedAt()) && oldest.Status() == Open {
+			if pair.CreatedAt().Before(oldest.CreatedAt()) && oldest.Status() == Open {
 				oldest = pair
 				idx = i
 			}
