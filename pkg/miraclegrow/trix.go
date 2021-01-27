@@ -70,7 +70,7 @@ func (svc *Service) turnTrix() (err error) {
 
 func (svc *Service) getCurrentTrixIndicators(ctx context.Context) (currentPrice decimal.Decimal, movingAvg decimal.Decimal, oscillator decimal.Decimal, err error) {
 	log.Infof("calculate trix moving average and oscillator")
-	candles, err := svc.moneytree.GetCandles(ctx, &proto.GetCandlesRequest{Duration: proto.GetCandlesRequest_FIVE_MINUTES, StartTime: time.Now().Add(-1 * time.Hour).Unix(), EndTime: time.Now().Unix()})
+	candles, err := svc.moneytree.GetCandles(ctx, &proto.GetCandlesRequest{Duration: proto.GetCandlesRequest_FIVE_MINUTES, StartTime: time.Now().Add(-3 * time.Hour).Unix(), EndTime: time.Now().Unix()})
 	if err != nil {
 		log.WithError(err).Error("could not get candles")
 		return
