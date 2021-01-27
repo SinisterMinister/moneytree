@@ -3,7 +3,6 @@ package miraclegrow
 import (
 	"context"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/go-playground/log/v7"
@@ -11,7 +10,6 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/sinisterminister/moneytree/pkg/pair"
 	"github.com/sinisterminister/moneytree/pkg/proto"
-	"github.com/sinisterminister/moneytree/pkg/trix"
 	"google.golang.org/grpc"
 )
 
@@ -141,36 +139,4 @@ func (svc *Service) startHealthcheckHandler() {
 
 	// Expose the /live and /ready endpoints over HTTP (on port 8086)
 	go http.ListenAndServe("0.0.0.0:8086", health)
-}
-
-func (svc *Service) getCurrentTrixIndicators(ctx context.Context) (currentPrice decimal.Decimal, movingAvg decimal.Decimal, oscillator decimal.Decimal, err error) {
-	log.Infof("calculate trix moving average and oscillator")
-	candles, err := svc.moneytree.GetCandles(ctx, &proto.GetCandlesRequest{Duration: proto.GetCandlesRequest_ONE_MINUTE, StartTime: time.Now().Add(-1 * time.Hour).Unix(), EndTime: time.Now().Unix()})
-	if err != nil {
-		log.WithError(err).Error("could not get candles")
-		return
-	}
-
-	// Set the current price
-	currentPrice, err = decimal.NewFromString(candles.GetCandles()[0].Close)
-	if err != nil {
-		log.WithError(err).Error("could not parse current price")
-		return
-	}
-
-	// Convert the candle values to floats so we can use them while reversing the sort
-	rawValues := []float64{}
-	for _, can := range candles.GetCandles() {
-		val, e := strconv.ParseFloat(can.Close, 64)
-		if e != nil {
-			return
-		}
-		rawValues = append([]float64{val}, rawValues...)
-	}
-
-	ma, osc := trix.GetTrixIndicator(rawValues)
-	movingAvg = decimal.NewFromFloat(ma)
-	oscillator = decimal.NewFromFloat(osc)
-	log.Infof("cp: %s ma: %s osc: %s", currentPrice, movingAvg, oscillator)
-	return
 }
