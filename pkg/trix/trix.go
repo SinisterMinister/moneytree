@@ -2,17 +2,17 @@ package trix
 
 import "github.com/sinisterminister/moneytree/pkg/ewma"
 
-func GetTrixIndicator(periods []float64) (ma float64, oscillator float64) {
+func GetTrixIndicator(prices []float64, periods float64) (ma float64, oscillator float64) {
 	singleSmoothedValues := []float64{}
 	doubleSmoothedValues := []float64{}
 	tripleSmoothedValues := []float64{}
 
-	singleSmoothed := ewma.NewMovingAverage(float64(len(periods)) / 2)
-	doubleSmoothed := ewma.NewMovingAverage(float64(len(periods)) / 2)
-	tripleSmoothed := ewma.NewMovingAverage(float64(len(periods)) / 2)
+	singleSmoothed := ewma.NewMovingAverage(periods)
+	doubleSmoothed := ewma.NewMovingAverage(periods)
+	tripleSmoothed := ewma.NewMovingAverage(periods)
 
 	// Calculate the single smoothed moving average values
-	for _, price := range periods {
+	for _, price := range prices {
 		singleSmoothed.Add(price)
 		if singleSmoothed.Value() != 0.0 {
 			singleSmoothedValues = append(singleSmoothedValues, singleSmoothed.Value())

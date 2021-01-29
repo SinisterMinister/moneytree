@@ -93,7 +93,7 @@ func (svc *Service) getCurrentTrixIndicators(ctx context.Context) (currentPrice 
 		rawValues = append([]float64{val}, rawValues...)
 	}
 
-	ma, osc := trix.GetTrixIndicator(rawValues)
+	ma, osc := trix.GetTrixIndicator(rawValues, 6)
 	movingAvg = decimal.NewFromFloat(ma)
 	oscillator = decimal.NewFromFloat(osc)
 	log.Infof("cp: %s ma: %s osc: %s", currentPrice, movingAvg, oscillator)
