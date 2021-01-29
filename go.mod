@@ -14,7 +14,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/satori/go.uuid v1.2.0
 	github.com/shopspring/decimal v1.2.0
-	github.com/sinisterminister/currencytrader v0.4.0
+	github.com/sinisterminister/currencytrader v0.5.0
 	github.com/sinisterminister/go-coinbasepro/v2 v2.1.0
 	github.com/sinisterminister/miraclegrow v0.0.0-20210122224630-799d7deca2fc
 	github.com/spf13/cobra v1.1.1

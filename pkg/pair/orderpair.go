@@ -713,9 +713,27 @@ func (o *OrderPair) buildReversalRequest() error {
 	size := o.FirstOrder().Filled().Sub(filled)
 	log.Infof("%s: use quantity %s for reversal order", o.UUID().String(), size.StringFixed(8))
 
-	// Build reversal order
-	req := order.NewRequest(o.svc.market, o.SecondRequest().Type(),
-		o.SecondRequest().Side(), size, ticker.Ask(), false)
+	// Remove fees to not lose USD
+	_, f1 := o.FirstOrder().Fees()
+	_, f2 := o.SecondOrder().Fees()
+	fee := f1.Add(f2)
+	rates, err := getFees(o.svc.trader)
+	if err != nil {
+		log.WithError(err).Warn("could not get fee rates to predict loss")
+	} else {
+		// This isn't 100% correct but I'm too tired to figure it out right now
+		fee = fee.Add(size.Mul(o.FirstRequest().Price()).Mul(rates.MakerRate()))
+	}
+
+	// Build reversal request
+	var req types.OrderRequest
+	if o.Direction() == Upward {
+		req = order.NewRequest(o.svc.market, order.Market,
+			o.SecondRequest().Side(), size, decimal.Zero, decimal.Zero, false)
+	} else {
+		req = order.NewRequest(o.svc.market, order.Market,
+			o.SecondRequest().Side(), decimal.Zero, decimal.Zero, size.Mul(o.FirstRequest().Price()).Sub(fee), false)
+	}
 
 	// Add to pair
 	o.mtx.Lock()
