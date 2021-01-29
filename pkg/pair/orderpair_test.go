@@ -63,8 +63,8 @@ func validate_HappyPath_Upward(ctrl *gomock.Controller) testValidateHarness {
 	scenario := "upward trending happy path"
 	trader, market := buildStubs(ctrl)
 
-	first := order.NewRequest(market, order.Limit, order.Buy, decimal.NewFromFloat(100), decimal.NewFromFloat(100), false)
-	second := order.NewRequest(market, order.Limit, order.Sell, decimal.NewFromFloat(99), decimal.NewFromFloat(200), false)
+	first := order.NewRequest(market, order.Limit, order.Buy, decimal.NewFromFloat(100), decimal.NewFromFloat(100), decimal.Zero, false)
+	second := order.NewRequest(market, order.Limit, order.Sell, decimal.NewFromFloat(99), decimal.NewFromFloat(200), decimal.Zero, false)
 
 	return testValidateHarness{scenario, trader, market, first, second}
 }
@@ -73,8 +73,8 @@ func validate_HappyPath_Downward(ctrl *gomock.Controller) testValidateHarness {
 	scenario := "downward trending happy path"
 	trader, market := buildStubs(ctrl)
 
-	first := order.NewRequest(market, order.Limit, order.Sell, decimal.NewFromFloat(99), decimal.NewFromFloat(200), false)
-	second := order.NewRequest(market, order.Limit, order.Buy, decimal.NewFromFloat(100), decimal.NewFromFloat(100), false)
+	first := order.NewRequest(market, order.Limit, order.Sell, decimal.NewFromFloat(99), decimal.NewFromFloat(200), decimal.Zero, false)
+	second := order.NewRequest(market, order.Limit, order.Buy, decimal.NewFromFloat(100), decimal.NewFromFloat(100), decimal.Zero, false)
 
 	return testValidateHarness{scenario, trader, market, first, second}
 }
@@ -110,8 +110,8 @@ func validate_LosingProposition_LossOfBaseCurrency(ctrl *gomock.Controller) test
 	scenario := "prevent losing base currency"
 	trader, market := buildStubs(ctrl)
 
-	first := order.NewRequest(market, order.Limit, order.Buy, decimal.NewFromFloat(100), decimal.NewFromFloat(100), false)
-	second := order.NewRequest(market, order.Limit, order.Sell, decimal.NewFromFloat(101), decimal.NewFromFloat(200), false)
+	first := order.NewRequest(market, order.Limit, order.Buy, decimal.NewFromFloat(100), decimal.NewFromFloat(100), decimal.Zero, false)
+	second := order.NewRequest(market, order.Limit, order.Sell, decimal.NewFromFloat(101), decimal.NewFromFloat(200), decimal.Zero, false)
 
 	return testValidateHarness{scenario, trader, market, first, second}
 }
@@ -120,8 +120,8 @@ func validate_LosingProposition_LossOfQuoteCurrency(ctrl *gomock.Controller) tes
 	scenario := "prevent losing quote currency"
 	trader, market := buildStubs(ctrl)
 
-	first := order.NewRequest(market, order.Limit, order.Buy, decimal.NewFromFloat(100), decimal.NewFromFloat(100), false)
-	second := order.NewRequest(market, order.Limit, order.Sell, decimal.NewFromFloat(99), decimal.NewFromFloat(99), false)
+	first := order.NewRequest(market, order.Limit, order.Buy, decimal.NewFromFloat(100), decimal.NewFromFloat(100), decimal.Zero, false)
+	second := order.NewRequest(market, order.Limit, order.Sell, decimal.NewFromFloat(99), decimal.NewFromFloat(99), decimal.Zero, false)
 
 	return testValidateHarness{scenario, trader, market, first, second}
 }
@@ -130,8 +130,8 @@ func validate_LosingProposition_LossOfBaseCurrencyFromFees(ctrl *gomock.Controll
 	scenario := "prevent losing base currency to fees"
 	trader, market := buildStubs(ctrl)
 
-	first := order.NewRequest(market, order.Limit, order.Buy, decimal.NewFromFloat(100), decimal.NewFromFloat(100), false)
-	second := order.NewRequest(market, order.Limit, order.Sell, decimal.NewFromFloat(100), decimal.NewFromFloat(200), false)
+	first := order.NewRequest(market, order.Limit, order.Buy, decimal.NewFromFloat(100), decimal.NewFromFloat(100), decimal.Zero, false)
+	second := order.NewRequest(market, order.Limit, order.Sell, decimal.NewFromFloat(100), decimal.NewFromFloat(200), decimal.Zero, false)
 
 	return testValidateHarness{scenario, trader, market, first, second}
 }
@@ -140,8 +140,8 @@ func validate_LosingProposition_LossOfQuoteCurrencyFromFees(ctrl *gomock.Control
 	scenario := "prevent losing quote currency to fees"
 	trader, market := buildStubs(ctrl)
 
-	first := order.NewRequest(market, order.Limit, order.Buy, decimal.NewFromFloat(100), decimal.NewFromFloat(100), false)
-	second := order.NewRequest(market, order.Limit, order.Sell, decimal.NewFromFloat(99), decimal.NewFromFloat(100), false)
+	first := order.NewRequest(market, order.Limit, order.Buy, decimal.NewFromFloat(100), decimal.NewFromFloat(100), decimal.Zero, false)
+	second := order.NewRequest(market, order.Limit, order.Sell, decimal.NewFromFloat(99), decimal.NewFromFloat(100), decimal.Zero, false)
 
 	return testValidateHarness{scenario, trader, market, first, second}
 }
@@ -150,8 +150,8 @@ func TestValidate_SameSide(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	_, market := buildStubs(ctrl)
 
-	first := order.NewRequest(market, order.Limit, order.Buy, decimal.NewFromFloat(100), decimal.NewFromFloat(100), false)
-	second := order.NewRequest(market, order.Limit, order.Buy, decimal.NewFromFloat(101), decimal.NewFromFloat(200), false)
+	first := order.NewRequest(market, order.Limit, order.Buy, decimal.NewFromFloat(100), decimal.NewFromFloat(100), decimal.Zero, false)
+	second := order.NewRequest(market, order.Limit, order.Buy, decimal.NewFromFloat(101), decimal.NewFromFloat(200), decimal.Zero, false)
 
 	op := &OrderPair{
 		firstRequest:  first,

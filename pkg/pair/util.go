@@ -102,12 +102,12 @@ func BuildSpreadBasedPair(svc *Service, dir Direction) (pair *OrderPair, err err
 	var op *OrderPair
 	var sellReq, buyReq types.OrderRequest
 	if dir == Upward {
-		sellReq = order.NewRequest(svc.market, order.Limit, order.Sell, sellSize, sellPrice, false)
-		buyReq = order.NewRequest(svc.market, order.Limit, order.Buy, buySize, buyPrice, viper.GetBool("forceMakerOrders"))
+		sellReq = order.NewRequest(svc.market, order.Limit, order.Sell, sellSize, sellPrice, decimal.Zero, false)
+		buyReq = order.NewRequest(svc.market, order.Limit, order.Buy, buySize, buyPrice, decimal.Zero, viper.GetBool("forceMakerOrders"))
 		op, err = svc.New(buyReq, sellReq)
 	} else {
-		sellReq = order.NewRequest(svc.market, order.Limit, order.Sell, sellSize, sellPrice, viper.GetBool("forceMakerOrders"))
-		buyReq = order.NewRequest(svc.market, order.Limit, order.Buy, buySize, buyPrice, false)
+		sellReq = order.NewRequest(svc.market, order.Limit, order.Sell, sellSize, sellPrice, decimal.Zero, viper.GetBool("forceMakerOrders"))
+		buyReq = order.NewRequest(svc.market, order.Limit, order.Buy, buySize, buyPrice, decimal.Zero, false)
 		op, err = svc.New(sellReq, buyReq)
 	}
 	log.WithFields(
