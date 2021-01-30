@@ -63,6 +63,7 @@ func BuildSpreadBasedPair(svc *Service, dir Direction) (pair *OrderPair, err err
 		if err != nil {
 			return nil, err
 		}
+		buySize = buySize.Round(int32(baseCurrency.Precision()))
 
 		// 2a - 2ab - tab - 2abf
 		n := two.Mul(buySize).Sub(two.Mul(buySize).Mul(buyPrice)).Sub(targetReturn.Mul(buySize).Mul(buyPrice)).Sub(two.Mul(buySize).Mul(buyPrice).Mul(fee1))
