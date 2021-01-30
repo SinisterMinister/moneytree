@@ -396,6 +396,9 @@ func (o *OrderPair) execute() {
 			<-o.ReversalOrder().Done()
 			log.Infof("%s: reversal order complete", o.UUID().String())
 
+			// Give the system a second to get consistent
+			<-time.Tick(time.Second)
+
 			// Load the reversal fees
 			o.ReversalOrder().Refresh()
 
@@ -507,6 +510,9 @@ func (o *OrderPair) execute() {
 			<-o.ReversalOrder().Done()
 			log.Infof("%s: reversal order complete", o.UUID().String())
 
+			// Give the system a second to get consistent
+			<-time.Tick(time.Second)
+
 			// Get the fees
 			o.ReversalOrder().Refresh()
 
@@ -578,6 +584,9 @@ func (o *OrderPair) handleFirstOrder() (err error) {
 	<-o.FirstOrder().Done()
 	log.Infof("%s: first order complete", o.UUID().String())
 
+	// Give the system a second to get consistent
+	<-time.Tick(time.Second)
+
 	// Refresh the order to make sure we have the fees
 	err = o.FirstOrder().Refresh()
 	if err != nil {
@@ -646,6 +655,9 @@ func (o *OrderPair) handleSecondOrder() (err error) {
 	// Wait for the second order to close
 	<-o.SecondOrder().Done()
 	log.Infof("%s: second order complete", o.UUID().String())
+
+	// Give the system a second to get consistent
+	<-time.Tick(time.Second)
 
 	// Refresh the order to get the fees
 	err = o.SecondOrder().Refresh()
