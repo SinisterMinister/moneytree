@@ -31,9 +31,13 @@ func BuildSpreadBasedPair(svc *Service, dir Direction) (pair *OrderPair, err err
 	// Set the profit target
 	targetReturn := decimal.NewFromFloat(viper.GetFloat64("targetReturn"))
 
+	// Setup the numbers we need
+	two := decimal.NewFromFloat(2)
+
 	// Set the prices and fees
-	var buyPrice, sellPrice, fee1, fee2 decimal.Decimal
-	if dir == Upward {
+	var buyPrice, buySize, sellPrice, sellSize, fee1, fee2 decimal.Decimal
+	switch dir {
+	case Upward:
 		fee2 = orderFee.MakerRate()
 
 		// Force maker orders
@@ -53,7 +57,21 @@ func BuildSpreadBasedPair(svc *Service, dir Direction) (pair *OrderPair, err err
 
 		// Determine sell price from spread
 		sellPrice = buyPrice.Add(buyPrice.Mul(spread)).Round(int32(quoteCurrency.Precision()))
-	} else {
+
+		// Set the base size
+		buySize, err = size(svc, buyPrice, dir)
+		if err != nil {
+			return nil, err
+		}
+
+		// 2a - 2ab - tab - 2abf
+		n := two.Mul(buySize).Sub(two.Mul(buySize).Mul(buyPrice)).Sub(targetReturn.Mul(buySize).Mul(buyPrice)).Sub(two.Mul(buySize).Mul(buyPrice).Mul(fee1))
+		// t + 2gd + 2 - 2d
+		d := targetReturn.Add(two.Mul(fee2).Mul(sellPrice)).Add(two).Sub(two.Mul(sellPrice))
+
+		// Set sell size
+		sellSize = n.Div(d).Round(int32(baseCurrency.Precision()))
+	case Downward:
 		fee1 = orderFee.MakerRate()
 
 		// Force maker orders
@@ -73,30 +91,24 @@ func BuildSpreadBasedPair(svc *Service, dir Direction) (pair *OrderPair, err err
 
 		// Determine buy price from spread
 		buyPrice = sellPrice.Sub(sellPrice.Mul(spread)).Round(int32(quoteCurrency.Precision()))
+
+		// Set sell size to base size
+		sellSize, err = size(svc, sellPrice, dir)
+		if err != nil {
+			return nil, err
+		}
+		sellSize = sellSize.Round(int32(baseCurrency.Precision()))
+
+		// -2c + 2cd - tcd - 2gcd
+		n := two.Neg().Mul(sellSize).Add(two.Mul(sellSize).Mul(sellPrice)).Sub(targetReturn.Mul(sellSize).Mul(sellPrice)).Sub(two.Mul(fee2).Mul(sellSize).Mul(sellPrice))
+		// tb + 2bf - 2 + 2b
+		d := targetReturn.Mul(buyPrice).Add(two.Mul(buyPrice).Mul(fee1)).Sub(two).Add(two.Mul(buyPrice))
+
+		// Set buy size
+		buySize = n.Div(d).Round(int32(baseCurrency.Precision()))
+	default:
+		return nil, fmt.Errorf("unhandled direction %s", dir)
 	}
-
-	// Set the sizes
-	size, err := size(svc, ticker, dir)
-	if err != nil {
-		return nil, err
-	}
-
-	// Set buy size to base size
-	buySize := size.Round(int32(baseCurrency.Precision()))
-
-	// Setup the numbers we need
-	two := decimal.NewFromFloat(2)
-
-	// 2a - 2ab - tab - 2abf
-	n := two.Mul(buySize).Sub(two.Mul(buySize).Mul(buyPrice)).Sub(targetReturn.Mul(buySize).Mul(buyPrice)).Sub(two.Mul(buySize).Mul(buyPrice).Mul(fee1))
-	// t + 2gd + 2 - 2d
-	d := targetReturn.Add(two.Mul(fee2).Mul(sellPrice)).Add(two).Sub(two.Mul(sellPrice))
-
-	// Set sell size
-	sellSize := n.Div(d)
-
-	// Round to correct precision
-	sellSize = sellSize.Round(int32(baseCurrency.Precision()))
 
 	// Create order pair
 	var op *OrderPair
@@ -139,7 +151,7 @@ func getFees(trader types.Trader) (f types.Fees, err error) {
 	return
 }
 
-func size(svc *Service, ticker types.Ticker, dir Direction) (decimal.Decimal, error) {
+func size(svc *Service, price decimal.Decimal, dir Direction) (decimal.Decimal, error) {
 	// Get the max order size from max number of open orders plus 1 to add a buffer
 	maxOpenPairs := decimal.NewFromFloat(viper.GetFloat64("maxOpenPairs")).Add(decimal.NewFromFloat(1))
 
@@ -163,7 +175,7 @@ func size(svc *Service, ticker types.Ticker, dir Direction) (decimal.Decimal, er
 
 	if dir == Upward {
 		quoteWallet := svc.market.QuoteCurrency().Wallet()
-		size = quoteWallet.Available().Div(ticker.Bid()).Div(ratio)
+		size = quoteWallet.Available().Div(price).Div(ratio)
 	} else {
 		baseWallet := svc.market.BaseCurrency().Wallet()
 		size = baseWallet.Available().Div(ratio)
