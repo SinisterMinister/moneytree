@@ -710,7 +710,7 @@ func (o *OrderPair) recalculateSecondOrderSizeFromFilled() {
 	ratio := o.SecondRequest().Quantity().Div(o.firstRequest.Quantity())
 
 	// Calculate the new size
-	size := o.FirstOrder().Filled().Mul(ratio).Round(int32(o.svc.market.BaseCurrency().Precision()))
+	size := o.FirstOrder().Filled().Mul(ratio).RoundBank(int32(o.svc.market.BaseCurrency().Precision()))
 
 	// Build updated DTO
 	dto := o.SecondRequest().ToDTO()
@@ -742,17 +742,17 @@ func (o *OrderPair) buildReversalRequest() error {
 		log.WithError(err).Warn("could not get fee rates to predict loss")
 	} else {
 		// This isn't 100% correct but I'm too tired to figure it out right now
-		fee = fee.Add(size.Mul(o.FirstRequest().Price()).Mul(rates.MakerRate()))
+		fee = fee.Add(size.Mul(o.FirstRequest().Price()).Mul(rates.TakerRate()))
 	}
 
 	// Build reversal request
 	var req types.OrderRequest
+	side := o.SecondRequest().Side()
 	if o.Direction() == Upward {
-		req = order.NewRequest(o.svc.market, order.Market,
-			o.SecondRequest().Side(), size, decimal.Zero, decimal.Zero, false)
+		req = order.NewRequest(o.svc.market, order.Market, side, size, decimal.Zero, decimal.Zero, false)
 	} else {
-		req = order.NewRequest(o.svc.market, order.Market,
-			o.SecondRequest().Side(), decimal.Zero, decimal.Zero, size.Mul(o.FirstRequest().Price()).Sub(fee), false)
+		funds := size.Mul(o.FirstRequest().Price()).Sub(fee).RoundBank(int32(o.svc.market.QuoteCurrency().Precision()))
+		req = order.NewRequest(o.svc.market, order.Market, side, decimal.Zero, decimal.Zero, funds, false)
 	}
 
 	// Add to pair
