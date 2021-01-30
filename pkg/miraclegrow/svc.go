@@ -123,7 +123,7 @@ func (svc *Service) placePair(direction pair.Direction) (err error) {
 	defer cancel()
 	response, err := svc.moneytree.PlacePair(ctx, &proto.PlacePairRequest{Direction: string(direction)})
 	if err != nil {
-		log.Fatalf("could not place pair: %v", err)
+		log.Errorf("could not place pair: %v", err)
 		return
 	}
 	log.Infof("Pair returned: %s %s", direction, response.GetPair().Uuid)
