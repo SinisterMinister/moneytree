@@ -13,7 +13,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/satori/go.uuid v1.2.0
 	github.com/shopspring/decimal v1.2.0
-	github.com/sinisterminister/currencytrader v0.5.2
+	github.com/sinisterminister/currencytrader v0.5.3
 	github.com/sinisterminister/go-coinbasepro/v2 v2.1.0
 	github.com/spf13/cobra v1.1.1
 	github.com/spf13/viper v1.7.1
