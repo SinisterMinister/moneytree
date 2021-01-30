@@ -17,9 +17,11 @@ import (
 type OrderPair struct {
 	svc *Service
 
-	mtx    sync.RWMutex
-	runner sync.Once
-	stop   chan bool
+	mtx     sync.RWMutex
+	runner  sync.Once
+	ready   chan bool
+	stop    chan bool
+	execErr error
 
 	uuid          uuid.UUID
 	createdAt     time.Time
@@ -226,13 +228,25 @@ func (o *OrderPair) Save() error {
 }
 
 // Execute triggers the order pair execution
-func (o *OrderPair) Execute() {
+func (o *OrderPair) Execute() error {
+	o.svc.mutex.RLock()
+	ready := o.ready
+	o.svc.mutex.RUnlock()
+
 	// Only execute once
 	o.runner.Do(func() {
 		// Run execution in a separate goroutine
 		log.Infof("%s: executing pair", o.UUID().String())
 		go o.execute()
 	})
+
+	// Wait for the execution to finish starting
+	<-ready
+
+	// Return any errors
+	o.svc.mutex.RLock()
+	defer o.svc.mutex.RUnlock()
+	return o.execErr
 }
 
 func (o *OrderPair) Cancel() (err error) {
@@ -267,6 +281,14 @@ func (o *OrderPair) Cancel() (err error) {
 		<-o.SecondOrder().Done()
 	}
 
+	// Wait a sec just in case a reversal needs to happen
+	<-time.Tick(time.Second)
+
+	if o.ReversalOrder() != nil && !o.ReversalOrder().IsDone() {
+		log.Infof("%s: waiting on reversal order to close", o.UUID().String())
+		<-o.ReversalOrder().Done()
+	}
+
 	return
 }
 
@@ -289,8 +311,10 @@ func (o *OrderPair) execute() {
 		log.WithError(err).Errorf("%s: could not execute first request", o.UUID().String())
 		o.setStatus(Failed)
 		o.setStatusDetails(err)
-		o.setEndedAt()
+		o.setExecErr(err)
 		close(o.done)
+		close(o.ready)
+		o.setEndedAt()
 
 		// Save the pair
 		err = o.Save()
@@ -300,8 +324,11 @@ func (o *OrderPair) execute() {
 		return
 	}
 
-	// Save the pair
+	// Mark the pair as ready
+	close(o.ready)
 	o.setStatus(Open)
+
+	// Save the pair
 	err = o.Save()
 	if err != nil {
 		log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
@@ -696,13 +723,6 @@ func (o *OrderPair) recalculateSecondOrderSizeFromFilled() {
 }
 
 func (o *OrderPair) buildReversalRequest() error {
-	// Get the current ticker
-	ticker, err := o.svc.market.Ticker()
-	if err != nil {
-		return fmt.Errorf("could not get ticker: %w", err)
-	}
-	log.Infof("%s: using price %s for reversal order", o.UUID().String(), ticker.Ask().StringFixed(2))
-
 	// Get the second order filled amount
 	var filled decimal.Decimal
 	if o.SecondOrder() != nil {
@@ -711,7 +731,7 @@ func (o *OrderPair) buildReversalRequest() error {
 
 	// Determine the size of the order
 	size := o.FirstOrder().Filled().Sub(filled)
-	log.Infof("%s: use quantity %s for reversal order", o.UUID().String(), size.StringFixed(8))
+	log.Infof("%s: use quantity %s for reversal order calculations", o.UUID().String(), size.StringFixed(8))
 
 	// Remove fees to not lose USD
 	_, f1 := o.FirstOrder().Fees()
@@ -799,6 +819,13 @@ func (o *OrderPair) setEndedAt() {
 	defer o.mtx.Unlock()
 
 	o.endedAt = time.Now()
+}
+
+func (o *OrderPair) setExecErr(err error) {
+	o.mtx.Lock()
+	defer o.mtx.Unlock()
+
+	o.execErr = err
 }
 
 func (o *OrderPair) validate() error {
