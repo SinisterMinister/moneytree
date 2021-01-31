@@ -735,10 +735,14 @@ func (o *OrderPair) recalculateSecondOrderSizeFromFilled() {
 }
 
 func (o *OrderPair) buildReversalRequest() error {
-	// Get the second order filled amount
-	var filled decimal.Decimal
+	var filled, f1, f2 decimal.Decimal
+	// Get first order fees
+	_, f1 = o.FirstOrder().Fees()
+
+	// Get the second order filled amount and fees
 	if o.SecondOrder() != nil {
 		filled = o.SecondOrder().Filled()
+		_, f2 = o.SecondOrder().Fees()
 	}
 
 	// Determine the size of the order
@@ -746,8 +750,6 @@ func (o *OrderPair) buildReversalRequest() error {
 	log.Infof("%s: use quantity %s for reversal order calculations", o.UUID().String(), size.StringFixed(8))
 
 	// Remove fees to not lose USD
-	_, f1 := o.FirstOrder().Fees()
-	_, f2 := o.SecondOrder().Fees()
 	fee := f1.Add(f2)
 	rates, err := getFees(o.svc.trader)
 	if err != nil {
