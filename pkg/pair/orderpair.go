@@ -761,7 +761,7 @@ func (o *OrderPair) buildReversalRequest() error {
 	var req types.OrderRequest
 	side := o.SecondRequest().Side()
 	if o.Direction() == Upward {
-		qty := size.Add(fee.Div(o.FirstRequest().Price()))
+		qty := size.Add(fee.Div(o.FirstRequest().Price())).RoundBank(int32(o.svc.market.BaseCurrency().Precision()))
 		req = order.NewRequest(o.svc.market, order.Market, side, qty, decimal.Zero, decimal.Zero, false)
 	} else {
 		funds := size.Mul(o.FirstRequest().Price()).Sub(fee).RoundBank(int32(o.svc.market.QuoteCurrency().Precision()))
