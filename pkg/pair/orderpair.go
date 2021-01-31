@@ -735,39 +735,70 @@ func (o *OrderPair) recalculateSecondOrderSizeFromFilled() {
 }
 
 func (o *OrderPair) buildReversalRequest() error {
-	var filled, f1, f2 decimal.Decimal
-	// Get first order fees
-	_, f1 = o.FirstOrder().Fees()
+	var (
+		req    types.OrderRequest
+		f1, f2 decimal.Decimal
+	)
 
-	// Get the second order filled amount and fees
+	// Get the reversal order side
+	side := o.SecondRequest().Side()
+
+	// Get fees
+	_, f1 = o.FirstOrder().Fees()
 	if o.SecondOrder() != nil {
-		filled = o.SecondOrder().Filled()
 		_, f2 = o.SecondOrder().Fees()
 	}
 
-	// Determine the size of the order
-	size := o.FirstOrder().Filled().Sub(filled)
-	log.Infof("%s: use quantity %s for reversal order calculations", o.UUID().String(), size.StringFixed(8))
-
-	// Remove fees to not lose USD
-	fee := f1.Add(f2)
+	// Get fee rates
 	rates, err := getFees(o.svc.trader)
 	if err != nil {
-		log.WithError(err).Warn("could not get fee rates to predict loss")
-	} else {
-		// This isn't 100% correct but I'm too tired to figure it out right now
-		fee = fee.Add(size.Mul(o.FirstRequest().Price()).Mul(rates.TakerRate()))
+		log.WithError(err).Warnf("%s: could not get fee rates to predict loss", o.UUID().String())
 	}
 
-	// Build reversal request
-	var req types.OrderRequest
-	side := o.SecondRequest().Side()
-	if o.Direction() == Upward {
-		qty := size.Add(fee.Div(o.FirstRequest().Price())).RoundBank(int32(o.svc.market.BaseCurrency().Precision()))
-		req = order.NewRequest(o.svc.market, order.Market, side, qty, decimal.Zero, decimal.Zero, false)
-	} else {
-		funds := size.Mul(o.FirstRequest().Price()).Sub(fee).RoundBank(int32(o.svc.market.QuoteCurrency().Precision()))
+	// Build the request based on direction
+	switch o.Direction() {
+	case Upward:
+		var outgoing, incoming decimal.Decimal
+		outgoing = o.FirstOrder().Filled().Mul(o.FirstRequest().Price()).Add(f1.Add(f2))
+
+		// Get the second order filled amount
+		if o.SecondOrder() != nil {
+			incoming = o.SecondOrder().Filled().Mul(o.SecondRequest().Price())
+		}
+
+		// Get the unfilled amount
+		unfilled := incoming.Sub(outgoing)
+
+		// Set the funds
+		funds := unfilled.Div(decimal.NewFromInt(1).Sub(rates.TakerRate())).RoundBank(int32(o.svc.market.QuoteCurrency().Precision()))
+
+		// Build the request
 		req = order.NewRequest(o.svc.market, order.Market, side, decimal.Zero, decimal.Zero, funds, false)
+
+	case Downward:
+		var outgoing, incoming decimal.Decimal
+
+		incoming = o.FirstOrder().Filled().Mul(o.FirstRequest().Price())
+
+		// Get the second order filled amount
+		if o.SecondOrder() != nil {
+			outgoing = o.SecondOrder().Filled().Mul(o.SecondRequest().Price())
+		}
+
+		// Add in the fees
+		outgoing = outgoing.Add(f1.Add(f2))
+
+		// Get the unfilled amount
+		unfilled := incoming.Sub(outgoing)
+
+		// Set the funds
+		funds := unfilled.Div(decimal.NewFromInt(1).Add(rates.TakerRate())).RoundBank(int32(o.svc.market.QuoteCurrency().Precision()))
+
+		// Build the request
+		req = order.NewRequest(o.svc.market, order.Market, side, decimal.Zero, decimal.Zero, funds, false)
+
+	default:
+		return fmt.Errorf("unexpected direction %s", o.Direction())
 	}
 
 	// Add to pair
