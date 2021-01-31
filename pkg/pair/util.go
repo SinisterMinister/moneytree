@@ -65,10 +65,10 @@ func BuildSpreadBasedPair(svc *Service, dir Direction) (pair *OrderPair, err err
 		}
 		buySize = buySize.Round(int32(baseCurrency.Precision()))
 
-		// 2a - 2ab - tab - 2abf
-		n := two.Mul(buySize).Sub(two.Mul(buySize).Mul(buyPrice)).Sub(targetReturn.Mul(buySize).Mul(buyPrice)).Sub(two.Mul(buySize).Mul(buyPrice).Mul(fee1))
-		// t + 2gd + 2 - 2d
-		d := targetReturn.Add(two.Mul(fee2).Mul(sellPrice)).Add(two).Sub(two.Mul(sellPrice))
+		// 2a - 2ab - ta - 2abf
+		n := two.Mul(buySize).Sub(two.Mul(buySize).Mul(buyPrice)).Sub(targetReturn.Mul(buySize)).Sub(two.Mul(buySize).Mul(buyPrice).Mul(fee1))
+		// td + 2gd + 2 - 2d
+		d := targetReturn.Mul(sellPrice).Add(two.Mul(fee2).Mul(sellPrice)).Add(two).Sub(two.Mul(sellPrice))
 
 		// Set sell size
 		sellSize = n.Div(d).Round(int32(baseCurrency.Precision()))
@@ -102,8 +102,8 @@ func BuildSpreadBasedPair(svc *Service, dir Direction) (pair *OrderPair, err err
 
 		// -2c + 2cd - tcd - 2gcd
 		n := two.Neg().Mul(sellSize).Add(two.Mul(sellSize).Mul(sellPrice)).Sub(targetReturn.Mul(sellSize).Mul(sellPrice)).Sub(two.Mul(fee2).Mul(sellSize).Mul(sellPrice))
-		// tb + 2bf - 2 + 2b
-		d := targetReturn.Mul(buyPrice).Add(two.Mul(buyPrice).Mul(fee1)).Sub(two).Add(two.Mul(buyPrice))
+		// t + 2bf - 2 + 2b
+		d := targetReturn.Add(two.Mul(buyPrice).Mul(fee1)).Sub(two).Add(two.Mul(buyPrice))
 
 		// Set buy size
 		buySize = n.Div(d).Round(int32(baseCurrency.Precision()))
