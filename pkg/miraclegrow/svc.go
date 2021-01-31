@@ -89,7 +89,7 @@ func (svc *Service) startWatering() (err error) {
 		svc.placePair(pair.Upward)
 	} else {
 		// We'll place the pair based on the trix indicators
-		currentPrice, movingAverage, oscillator, err := svc.getCurrentTrixIndicators(ctx)
+		currentPrice, movingAverage, oscillator, err := svc.getFiveMinuteTrixIndicators(ctx)
 		if err != nil {
 			log.WithError(err).Error("could not get trix indicators")
 		}
