@@ -767,7 +767,7 @@ func (o *OrderPair) buildReversalRequest() error {
 		}
 
 		// Get the unfilled amount
-		unfilled := incoming.Sub(outgoing)
+		unfilled := outgoing.Sub(incoming)
 
 		// Set the funds
 		funds := unfilled.Div(decimal.NewFromInt(1).Sub(rates.TakerRate())).RoundBank(int32(o.svc.market.QuoteCurrency().Precision()))
