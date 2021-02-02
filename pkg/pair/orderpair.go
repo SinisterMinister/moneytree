@@ -574,7 +574,7 @@ func (o *OrderPair) executeReversalRequest() (err error) {
 		return
 	}
 
-	log.Infof("%s: placing reversal order - %s %s @ %s", o.uuid.String(), o.reversalRequest.Side(), o.reversalRequest.Quantity(), o.reversalRequest.Price())
+	log.Infof("%s: placing reversal order - %s %s", o.uuid.String(), o.reversalRequest.Side(), o.reversalRequest.Funds())
 	o.reversalOrder, err = o.svc.market.AttemptOrder(o.reversalRequest)
 	return
 }
