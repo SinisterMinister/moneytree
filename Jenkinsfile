@@ -44,7 +44,7 @@ pipeline {
                     steps {
                         container('docker') {
                             withCredentials([usernamePassword(credentialsId: "hub", usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
-                                sh "docker login -u $USERNAME -p $PASSWORD hub.sinimini.com"
+                                sh 'docker login -u $USERNAME -p $PASSWORD hub.sinimini.com'
                             }
                             sh "docker push hub.sinimini.com/docker/moneytree:latest"
                             sh "docker push hub.sinimini.com/docker/miraclegrow:latest"
@@ -61,7 +61,7 @@ pipeline {
                     steps {
                         container('docker') {
                             withCredentials([usernamePassword(credentialsId: "hub", usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
-                                sh "docker login -u $USERNAME -p $PASSWORD hub.sinimini.com"
+                                sh 'docker login -u $USERNAME -p $PASSWORD hub.sinimini.com'
                             }
                             sh "docker push hub.sinimini.com/docker/moneytree:$BRANCH_NAME"
                             sh "docker push hub.sinimini.com/docker/miraclegrow:$BRANCH_NAME"
