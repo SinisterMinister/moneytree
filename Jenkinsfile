@@ -10,23 +10,25 @@ pipeline {
         }
     }
     stages {
-        stage('Build Moneytree') {
-            steps {
-                container('docker') {
-                    dir('cmd/moneytree') {
-                        sh "docker build -t hub.sinimini.com/docker/moneytree:latest ."
-                        sh "docker tag hub.sinimini.com/docker/moneytree:latest hub.sinimini.com/docker/moneytree:$BRANCH_NAME"
+        parallel {
+            stage('Build Moneytree') {
+                steps {
+                    container('docker') {
+                        dir('cmd/moneytree') {
+                            sh "docker build -t hub.sinimini.com/docker/moneytree:latest ."
+                            sh "docker tag hub.sinimini.com/docker/moneytree:latest hub.sinimini.com/docker/moneytree:$BRANCH_NAME"
+                        }
                     }
                 }
             }
-        }
 
-        stage('Build MiracleGrow') {
-            steps {
-                container('docker') {
-                    dir('cmd/miraclegrow') {
-                        sh "docker build -t hub.sinimini.com/docker/miraclegrow:latest ."
-                        sh "docker tag hub.sinimini.com/docker/miraclegrow:latest hub.sinimini.com/docker/miraclegrow:$BRANCH_NAME"
+            stage('Build MiracleGrow') {
+                steps {
+                    container('docker') {
+                        dir('cmd/miraclegrow') {
+                            sh "docker build -t hub.sinimini.com/docker/miraclegrow:latest ."
+                            sh "docker tag hub.sinimini.com/docker/miraclegrow:latest hub.sinimini.com/docker/miraclegrow:$BRANCH_NAME"
+                        }
                     }
                 }
             }
