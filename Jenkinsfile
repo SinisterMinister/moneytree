@@ -15,6 +15,7 @@ pipeline {
                 container('docker') {
                     dir('cmd/moneytree') {
                         sh "docker build -t hub.sinimini.com/docker/moneytree:latest ."
+                        sh "docker tag hub.sinimini.com/docker/moneytree:latest hub.sinimini.com/docker/moneytree:$BRANCH_NAME"
                     }
                 }
             }
@@ -25,12 +26,15 @@ pipeline {
                 container('docker') {
                     dir('cmd/miraclegrow') {
                         sh "docker build -t hub.sinimini.com/docker/miraclegrow:latest ."
+                        sh "docker tag hub.sinimini.com/docker/miraclegrow:latest hub.sinimini.com/docker/miraclegrow:$BRANCH_NAME"
                     }
                 }
             }
         }
-
-        stage('Push Containers') {
+        stage('Push Latest Containers') {
+            when {
+                branch 'master'
+            }
             steps {
                 container('docker') {
                     withCredentials([usernamePassword(credentialsId: "hub", usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
@@ -38,6 +42,23 @@ pipeline {
                     }
                     sh "docker push hub.sinimini.com/docker/moneytree:latest"
                     sh "docker push hub.sinimini.com/docker/miraclegrow:latest"
+                }
+            }
+        }
+
+        stage('Push Branch Containers') {
+            when {
+                not {
+                    branch 'master'
+                }
+            }
+            steps {
+                container('docker') {
+                    withCredentials([usernamePassword(credentialsId: "hub", usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+                        sh "docker login -u $USERNAME -p $PASSWORD hub.sinimini.com"
+                    }
+                    sh "docker push hub.sinimini.com/docker/moneytree:$BRANCH_NAME"
+                    sh "docker push hub.sinimini.com/docker/miraclegrow:$BRANCH_NAME"
                 }
             }
         }
