@@ -792,7 +792,7 @@ func (o *OrderPair) buildReversalRequest() error {
 		unfilled := incoming.Sub(outgoing)
 
 		// Set the funds
-		funds := unfilled.Div(decimal.NewFromInt(1).Add(rates.TakerRate())).RoundBank(int32(o.svc.market.QuoteCurrency().Precision()))
+		funds := unfilled.Div(decimal.NewFromInt(1).Sub(rates.TakerRate())).RoundBank(int32(o.svc.market.QuoteCurrency().Precision()))
 
 		// Build the request
 		req = order.NewRequest(o.svc.market, order.Market, side, decimal.Zero, decimal.Zero, funds, false)
