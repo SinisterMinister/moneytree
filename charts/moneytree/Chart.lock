@@ -5,5 +5,8 @@ dependencies:
 - name: miraclegrow
   repository: https://hub.sinimini.com/artifactory/helm
   version: 0.2.0
-digest: sha256:6ae1485b23a2882b98f2f161bbf5d0e884c7245652ec561f6f5f0a4d7ed39e97
-generated: "2021-01-23T00:17:54.361666319-07:00"
+- name: grafana
+  repository: https://grafana.github.io/helm-charts
+  version: 6.2.1
+digest: sha256:6eab2fb103da64adaad67339a1823db73fdda35940ba05bfd83073d22f62a068
+generated: "2021-02-03T22:59:03.912060476-07:00"
