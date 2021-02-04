@@ -71,9 +71,4 @@ pipeline {
             }
         }
     }
-    post {
-        success {
-            build job: 'SinisterMinister/automation/master', wait: false
-        }
-    }
 }
