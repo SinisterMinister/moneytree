@@ -94,10 +94,17 @@ func (svc *Service) startWatering() (err error) {
 			log.WithError(err).Error("could not get trix indicators")
 		}
 
+		// Get one minute trix oscillator
+		_, _, oneMinuteOscillator, err := svc.getOneMinuteTrixIndicators(ctx)
+		if err != nil {
+			log.WithError(err).Error("could not get 1min trix indicators")
+			return err
+		}
+
 		// If the current price is above the moving average, going up
 		if currentPrice.GreaterThan(movingAverage) {
 			// Make sure gaining momentum
-			if oscillator.GreaterThanOrEqual(decimal.Zero) {
+			if oscillator.GreaterThan(decimal.Zero) && oneMinuteOscillator.GreaterThan(decimal.Zero) {
 				// Place the upward pair
 				svc.placePair(pair.Upward)
 			}
@@ -106,7 +113,7 @@ func (svc *Service) startWatering() (err error) {
 		// If the current price is below the moving average, going down
 		if currentPrice.LessThan(movingAverage) {
 			// Make sure losing momentum
-			if oscillator.LessThanOrEqual(decimal.Zero) {
+			if oscillator.LessThan(decimal.Zero) && oneMinuteOscillator.LessThan(decimal.Zero) {
 				// Place the downward pair
 				svc.placePair(pair.Downward)
 			}

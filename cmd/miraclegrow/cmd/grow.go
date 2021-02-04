@@ -55,7 +55,7 @@ to quickly create a Cobra application.`,
 
 		svc := miraclegrow.NewService(address, updateFrequency)
 
-		svc.TrixR5Kids(make(chan bool))
+		svc.MakeItGrow(make(chan bool))
 	},
 }
 
