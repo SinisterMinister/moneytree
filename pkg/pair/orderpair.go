@@ -766,13 +766,13 @@ func (o *OrderPair) buildReversalRequest() error {
 
 	// Get how much cash remains to be filled
 	remains := incoming.Sub(outgoing)
-	funds = remains.Div(decimal.NewFromInt(1).Sub(rates.TakerRate())).RoundBank(int32(o.svc.market.QuoteCurrency().Precision()))
-
 	// Build the request
 	if remains.IsPositive() {
 		req = order.NewRequest(o.svc.market, order.Market, order.Buy, decimal.Zero, decimal.Zero, funds.Abs(), false)
+		funds = remains.Div(decimal.NewFromInt(1).Add(rates.TakerRate())).RoundBank(int32(o.svc.market.QuoteCurrency().Precision()))
 	} else {
 		req = order.NewRequest(o.svc.market, order.Market, order.Sell, decimal.Zero, decimal.Zero, funds.Abs(), false)
+		funds = remains.Div(decimal.NewFromInt(1).Sub(rates.TakerRate())).RoundBank(int32(o.svc.market.QuoteCurrency().Precision()))
 	}
 
 	// Add to pair
