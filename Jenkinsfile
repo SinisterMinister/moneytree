@@ -16,7 +16,7 @@ pipeline {
                     steps {
                         container('docker') {
                             dir('cmd/moneytree') {
-                                sh "docker build -t hub.sinimini.com/docker/moneytree:latest ."
+                                sh "docker build --build-arg branch=$BRANCH_NAME -t hub.sinimini.com/docker/moneytree:latest ."
                                 sh "docker tag hub.sinimini.com/docker/moneytree:latest hub.sinimini.com/docker/moneytree:$BRANCH_NAME"
                             }
                         }
@@ -27,7 +27,7 @@ pipeline {
                     steps {
                         container('docker') {
                             dir('cmd/miraclegrow') {
-                                sh "docker build -t hub.sinimini.com/docker/miraclegrow:latest ."
+                                sh "docker build --build-arg branch=$BRANCH_NAME -t hub.sinimini.com/docker/miraclegrow:latest ."
                                 sh "docker tag hub.sinimini.com/docker/miraclegrow:latest hub.sinimini.com/docker/miraclegrow:$BRANCH_NAME"
                             }
                         }
@@ -69,11 +69,6 @@ pipeline {
                     }
                 }
             }
-        }
-    }
-    post {
-        success {
-            build job: 'SinisterMinister/automation/master', wait: false
         }
     }
 }
