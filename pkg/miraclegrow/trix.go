@@ -42,6 +42,11 @@ func (svc *Service) TrixR5Kids(stop <-chan bool) (err error) {
 func (svc *Service) turnTrix() (err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*15)
 	defer cancel()
+	pairs, err := svc.moneytree.GetOpenPairs(ctx, &proto.NullRequest{})
+	if err != nil {
+		log.WithError(err).Error("could not get open pairs")
+		return
+	}
 	currentPrice, movingAverage, fiveMinuteOscillator, err := svc.getFiveMinuteTrixIndicators(ctx)
 	if err != nil {
 		log.WithError(err).Error("could not get 5min trix indicators")
@@ -56,20 +61,39 @@ func (svc *Service) turnTrix() (err error) {
 	}
 
 	// If the current price is above the moving average, going up
-	if currentPrice.GreaterThan(movingAverage) {
-		// Make sure gaining momentum
-		if fiveMinuteOscillator.GreaterThan(decimal.Zero) && oneMinuteOscillator.GreaterThan(decimal.Zero) {
-			// Place the upward pair
-			svc.placePair(pair.Upward)
-		}
-	}
+	if currentPrice.GreaterThan(movingAverage) &&
+		// Make sure gaining momentum in both 1m and 5m intervals
+		fiveMinuteOscillator.GreaterThan(decimal.Zero) && oneMinuteOscillator.GreaterThan(decimal.Zero) {
 
-	// If the current price is below the moving average, going down
-	if currentPrice.LessThan(movingAverage) {
+		// Place the upward pair
+		svc.placePair(pair.Upward)
+
+	} else if currentPrice.LessThan(movingAverage) &&
 		// Make sure losing momentum
-		if fiveMinuteOscillator.LessThan(decimal.Zero) && oneMinuteOscillator.LessThan(decimal.Zero) {
-			// Place the downward pair
+		fiveMinuteOscillator.LessThan(decimal.Zero) && oneMinuteOscillator.LessThan(decimal.Zero) {
+
+		// Place the downward pair
+		svc.placePair(pair.Downward)
+	} else {
+		// Get the the direction with the least number of pairs
+		var upCount, downCount int
+		for _, p := range pairs.GetPairs() {
+			switch pair.Direction(p.Direction) {
+			case pair.Upward:
+				if p.BuyOrder.Status == "FILLED" {
+					upCount++
+				}
+			case pair.Downward:
+				if p.SellOrder.Status == "FILLED" {
+					downCount++
+				}
+			}
+		}
+		log.Infof("pair counts - total: %d, up: %d, down: %d", len(pairs.GetPairs()), upCount, downCount)
+		if upCount > downCount {
 			svc.placePair(pair.Downward)
+		} else {
+			svc.placePair(pair.Upward)
 		}
 	}
 	return
