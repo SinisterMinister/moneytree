@@ -7,7 +7,6 @@ import (
 
 	"github.com/go-playground/log/v7"
 	"github.com/heptiolabs/healthcheck"
-	"github.com/shopspring/decimal"
 	"github.com/sinisterminister/moneytree/pkg/pair"
 	"github.com/sinisterminister/moneytree/pkg/proto"
 	"google.golang.org/grpc"
@@ -85,32 +84,8 @@ func (svc *Service) startWatering() (err error) {
 	log.Infof("pair counts - total: %d, up: %d, down: %d", len(pairs.GetPairs()), upCount, downCount)
 	if upCount > downCount {
 		svc.placePair(pair.Downward)
-	} else if upCount < downCount {
-		svc.placePair(pair.Upward)
 	} else {
-		// We'll place the pair based on the trix indicators
-		currentPrice, movingAverage, oscillator, err := svc.getFiveMinuteTrixIndicators(ctx)
-		if err != nil {
-			log.WithError(err).Error("could not get trix indicators")
-		}
-
-		// If the current price is above the moving average, going up
-		if currentPrice.GreaterThan(movingAverage) {
-			// Make sure gaining momentum
-			if oscillator.GreaterThanOrEqual(decimal.Zero) {
-				// Place the upward pair
-				svc.placePair(pair.Upward)
-			}
-		}
-
-		// If the current price is below the moving average, going down
-		if currentPrice.LessThan(movingAverage) {
-			// Make sure losing momentum
-			if oscillator.LessThanOrEqual(decimal.Zero) {
-				// Place the downward pair
-				svc.placePair(pair.Downward)
-			}
-		}
+		svc.placePair(pair.Upward)
 	}
 
 	return
