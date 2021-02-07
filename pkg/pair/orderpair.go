@@ -736,8 +736,8 @@ func (o *OrderPair) recalculateSecondOrderSizeFromFilled() {
 
 func (o *OrderPair) buildReversalRequest() error {
 	var (
-		req                       types.OrderRequest
-		outgoing, incoming, funds decimal.Decimal
+		req            types.OrderRequest
+		remains, funds decimal.Decimal
 	)
 
 	// Get fee rates
@@ -748,30 +748,30 @@ func (o *OrderPair) buildReversalRequest() error {
 
 	// Get how much cash went out in the buy order
 	if o.BuyOrder() != nil {
-		outgoing = o.BuyOrder().Filled().Mul(o.BuyOrder().Request().Price())
+		remains = remains.Sub(o.BuyOrder().Filled().Mul(o.BuyOrder().Request().Price()))
 		_, fee := o.BuyOrder().Fees()
 
 		// Capture the fees
-		outgoing = outgoing.Add(fee)
+		remains = remains.Sub(fee)
 	}
 
 	// Get how much cash came back with the sell order
 	if o.SellOrder() != nil {
-		incoming = o.SellOrder().Filled().Mul(o.SellOrder().Request().Price())
+		remains = remains.Add(o.SellOrder().Filled().Mul(o.SellOrder().Request().Price()))
 		_, fee := o.SellOrder().Fees()
 
 		// Capture the fees
-		outgoing = outgoing.Add(fee)
+		remains = remains.Sub(fee)
 	}
 
 	// Get how much cash remains to be filled
 	one := decimal.NewFromInt(1)
-	remains := incoming.Sub(outgoing)
-	funds = remains.Div(rates.TakerRate().Add(one)).RoundBank(int32(o.svc.market.QuoteCurrency().Precision()))
 	// Build the request
 	if funds.IsPositive() {
-		req = order.NewRequest(o.svc.market, order.Market, order.Buy, decimal.Zero, decimal.Zero, funds, false)
+		funds = remains.Div(rates.TakerRate().Sub(one)).RoundBank(int32(o.svc.market.QuoteCurrency().Precision()))
+		req = order.NewRequest(o.svc.market, order.Market, order.Buy, decimal.Zero, decimal.Zero, funds.Abs(), false)
 	} else {
+		funds = remains.Div(rates.TakerRate().Add(one)).RoundBank(int32(o.svc.market.QuoteCurrency().Precision()))
 		req = order.NewRequest(o.svc.market, order.Market, order.Sell, decimal.Zero, decimal.Zero, funds.Abs(), false)
 	}
 
