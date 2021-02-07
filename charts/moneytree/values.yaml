@@ -189,7 +189,7 @@ grafana:
                 },
                 "gridPos": {
                   "h": 6,
-                  "w": 8,
+                  "w": 6,
                   "x": 0,
                   "y": 0
                 },
@@ -215,7 +215,7 @@ grafana:
                     "group": [],
                     "metricColumn": "none",
                     "rawQuery": true,
-                    "rawSql": "-- Start with general gains\nselect\n  sum(\"usdReturn\") + sum(\"btcUsdReturn\") - sum(\"fees\") as amount\nfrom (\n    select\n  \"uuid\",\n  \"createdAt\",\n  \"endedAt\",\n  \"status\",\n  \"direction\",\n  case when \"buyPrice\" <> '0' then \"buyPrice\" end as \"buyPrice\",\n  case when \"sellPrice\" <> '0' then \"sellPrice\" end as \"sellPrice\",\n  case when \"revPrice\" <> '0' then \"revPrice\" end as \"revPrice\",\n  case when \"buyQty\" <> '0' then \"buyQty\" end as \"buyQty\",\n  case when \"sellQty\" <> '0' then \"sellQty\" end as \"sellQty\",\n  case when \"revQty\" <> '0' then \"revQty\" end as \"revQty\",\n  case when \"buyFilled\" <> '0' then \"buyFilled\" end as \"buyFilled\",\n  case when \"sellFilled\" <> '0' then \"sellFilled\" end as \"sellFilled\",\n  case when \"revFilled\" <> '0' then \"revFilled\" end as \"revFilled\",\n  case when \"btcReturn\"<> '0' then (\"btcReturn\")::varchar else '' end as \"btcReturn\",\n  case when (\"btcReturn\" * \"firstPrice\") <> '0' then (\"btcReturn\" * \"firstPrice\") else 0 end as \"btcUsdReturn\",\n  case when \"usdReturn\" <> '0' then \"usdReturn\" else 0 end as \"usdReturn\",\n  case when \"fees\" <> '0' then \"fees\" end as \"fees\",\n  case when (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees <> 0 then (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees end as \"totalReturn\"\nfrom (\nselect \n  *,\n  CASE \n    WHEN \"status\" = 'SUCCESS' then \"buyFilled\" - \"sellFilled\"\n    WHEN \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then \"revFilled\" - \"buyFilled\" - \"sellFilled\"\n    WHEN \"status\" = 'REVERSED' and \"direction\" = 'UP' then \"buyFilled\" - \"sellFilled\" - \"revFilled\"\n  end as \"btcReturn\",\n  CASE \n    WHEN \"status\" = 'SUCCESS' then \"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\"\n    WHEN \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then \"firstPrice\" * \"firstFilled\" - \"revPrice\" * \"revFilled\"\n    WHEN \"status\" = 'REVERSED' and \"direction\" = 'UP' then \"revPrice\" * \"revFilled\" - (\"firstPrice\" * \"firstFilled\" - \"secondPrice\" * \"secondFilled\")\n  end as \"usdReturn\"\nfrom\n  (\n  SELECT \n  uuid,\n  data->>'createdAt' as \"createdAt\", \n  CASE WHEN data->>'endedAt' <> '0001-01-01T00:00:00Z' THEN data->>'endedAt' END as \"endedAt\",\n  'UP' as \"direction\",\n  data->>'status' as \"status\",\n  (data->'firstRequest'->>'price')::decimal as \"firstPrice\",\n  (data->'firstOrder'->>'filled')::decimal as \"firstFilled\",\n  (data->'secondRequest'->>'price')::decimal as \"secondPrice\",\n  (data->'secondOrder'->>'filled')::decimal as \"secondFilled\",\n  (data->'firstRequest'->>'price')::decimal as \"buyPrice\", \n  (data->'firstRequest'->>'quantity')::decimal as \"buyQty\",\n  case when data->'firstOrder'->>'filled' = '0' then 0 else (data->'firstOrder'->>'filled')::decimal end as \"buyFilled\", \n  case when data->'firstOrder'->>'status' <> '' then data->'firstOrder'->>'status'end as \"buyStatus\",\n  (data->'secondRequest'->>'price')::decimal as \"sellPrice\", \n  (data->'secondRequest'->>'quantity')::decimal as \"sellQty\", \n  case when data->'secondOrder'->>'filled' = '0' then 0 else (data->'secondOrder'->>'filled')::decimal end as \"sellFilled\", \n  data->'secondOrder'->>'status' as \"sellStatus\",\n  case when data->'reversalOrder'->'request'->>'price' = '0' then 0 else (data->'reversalOrder'->'request'->>'price')::decimal end as \"revPrice\", \n  case when data->'reversalOrder'->'request'->>'quantity' = '0' then 0 else (data->'reversalOrder'->'request'->>'quantity')::decimal end as \"revQty\", \n  case when data->'reversalOrder'->>'filled' = '0' then 0 else (data->'reversalOrder'->>'filled')::decimal end as \"revFilled\", \n  data->'reversalOrder'->>'status' as \"revStatus\",\n  (data->'firstOrder'->>'fees')::decimal + (data->'secondOrder'->>'fees')::decimal + (data->'reversalOrder'->>'fees')::decimal as \"fees\"\nFROM \n  orderpairs \nWHERE\n  data->>'direction' = 'UP'\n  \nUNION ALL\n\nSELECT \n  uuid,\n  data->>'createdAt' as \"createdAt\", \n  CASE WHEN data->>'endedAt' = '0001-01-01T00:00:00Z' THEN '' ELSE data->>'endedAt' END as \"endedAt\",\n  'DOWN' as \"direction\",\n  data->>'status' as \"status\",\n  (data->'firstRequest'->>'price')::decimal as \"firstPrice\",\n  (data->'firstOrder'->>'filled')::decimal as \"firstFilled\",\n  (data->'secondRequest'->>'price')::decimal as \"secondPrice\",\n  (data->'secondOrder'->>'filled')::decimal as \"secondFilled\",\n  (data->'secondRequest'->>'price')::decimal as \"buyPrice\", \n  (data->'secondRequest'->>'quantity')::decimal as \"buyQty\", \n  case when data->'secondOrder'->>'filled' = '0' then 0 else (data->'secondOrder'->>'filled')::decimal end as \"buyFilled\", \n  data->'secondOrder'->>'status' as \"buyStatus\",\n  (data->'firstRequest'->>'price')::decimal as \"sellPrice\", \n  (data->'firstRequest'->>'quantity')::decimal as \"sellQty\", \n  case when data->'firstOrder'->>'filled' = '0' then 0 else (data->'firstOrder'->>'filled')::decimal end as \"sellFilled\", \n  data->'firstOrder'->>'status' as \"sellStatus\",\n  case when data->'reversalOrder'->'request'->>'price' = '0' then 0 else (data->'reversalOrder'->'request'->>'price')::decimal end as \"revPrice\", \n  case when data->'reversalOrder'->'request'->>'quantity' = '0' then 0 else (data->'reversalOrder'->'request'->>'quantity')::decimal end as \"revQty\", \n  case when data->'reversalOrder'->>'filled' = '0' then 0 else (data->'reversalOrder'->>'filled')::decimal end as \"revFilled\", \n  data->'reversalOrder'->>'status' as \"revStatus\",\n  (data->'firstOrder'->>'fees')::decimal + (data->'secondOrder'->>'fees')::decimal + (data->'reversalOrder'->>'fees')::decimal as \"fees\"\nFROM \n  orderpairs \nWHERE\n  data->>'direction' = 'DOWN'\n) as pairs\n\nORDER BY\n  pairs.\"createdAt\"\n) as pairReturns\nWHERE $__timeFilter(GREATEST(\"createdAt\", \"endedAt\"))\n\n) as btc\n\n-- Add zero at the end to give something to select when nothing exists\nUNION ALL\n\nselect\n  0 as amount\n\n",
+                    "rawSql": "-- Start with general gains\nselect\n  sum(\"totalReturn\") as amount\nfrom (\n select\n    \"uuid\",\n    \"createdAt\",\n    \"endedAt\",\n    \"status\",\n    \"direction\",\n    case when \"buyPrice\" <> '0' then \"buyPrice\" end as \"buyPrice\",\n    case when \"sellPrice\" <> '0' then \"sellPrice\" end as \"sellPrice\",\n    case when \"revPrice\" <> '0' then \"revPrice\" end as \"revPrice\",\n    case when \"buyQty\" <> '0' then \"buyQty\" end as \"buyQty\",\n    case when \"sellQty\" <> '0' then \"sellQty\" end as \"sellQty\",\n    case when \"revFunds\" <> '0' then \"revFunds\" end as \"revFunds\",\n    case when \"buyFilled\" <> '0' then \"buyFilled\" end as \"buyFilled\",\n    case when \"sellFilled\" <> '0' then \"sellFilled\" end as \"sellFilled\",\n    case when \"revFilled\" <> '0' then \"revFilled\" end as \"revFilled\",\n    case when \"btcReturn\"<> '0' then \"btcReturn\" end as \"btcReturn\",\n    case when (\"btcReturn\" * \"firstPrice\") <> '0' then (\"btcReturn\" * \"firstPrice\") end as \"btcUsdReturn\",\n    case when \"usdReturn\" <> '0' then \"usdReturn\" end as \"usdReturn\",\n    case when \"fees\" <> '0' then \"fees\" end as \"fees\",\n    case when (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees <> 0 then (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees end as \"totalReturn\"\nfrom (\n    select\n        *,\n        case \n            when \"status\" = 'SUCCESS' then \"buyFilled\" - \"sellFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then \"revFilled\" - \"buyFilled\" - \"sellFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'UP' then \"buyFilled\" - \"sellFilled\" - \"revFilled\"\n            else 0\n        end as \"btcReturn\",\n        case \n            when \"status\" = 'SUCCESS' then \"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then (\"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\") - \"revPrice\" * \"revFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'UP' then (\"revPrice\" * \"revFilled\") - ABS(\"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\")\n            else 0\n        end as \"usdReturn\"\n    from (\n        select\n            *,\n            case when \"direction\" = 'UP' then \"firstStatus\" else \"secondStatus\" end as \"buyStatus\",\n            case when \"direction\" = 'UP' then \"firstPrice\" else \"secondPrice\" end as \"buyPrice\",\n            case when \"direction\" = 'UP' then \"firstQty\" else \"secondQty\" end as \"buyQty\",\n            case when \"direction\" = 'UP' then \"firstFilled\" else \"secondFilled\" end as \"buyFilled\",\n            case when \"direction\" = 'UP' then \"firstFees\" else \"secondFees\" end as \"buyFees\",\n            \n            case when \"direction\" = 'DOWN' then \"firstStatus\" else \"secondStatus\" end as \"sellStatus\",\n            case when \"direction\" = 'DOWN' then \"firstPrice\" else \"secondPrice\" end as \"sellPrice\",\n            case when \"direction\" = 'DOWN' then \"firstQty\" else \"secondQty\" end as \"sellQty\",\n            case when \"direction\" = 'DOWN' then \"firstFilled\" else \"secondFilled\" end as \"sellFilled\",\n            case when \"direction\" = 'DOWN' then \"firstFees\" else \"secondFees\" end as \"sellFees\",\n            \"firstFees\" + \"secondFees\" + \"revFees\" as \"fees\"\n        from (\n            select \n                uuid,\n                data->>'createdAt' as \"createdAt\", \n                case when data->>'endedAt' = '0001-01-01T00:00:00Z' then '' else data->>'endedAt' end as \"endedAt\",\n                data->>'direction' as \"direction\",\n                data->>'status' as \"status\",\n                data->'firstOrder'->>'status' as \"firstStatus\",\n                data->'secondOrder'->>'status' as \"secondStatus\",\n                data->'reversalOrder'->>'status' as \"revStatus\",\n                (data->'firstRequest'->>'price')::decimal as \"firstPrice\",\n                (data->'secondRequest'->>'price')::decimal as \"secondPrice\",\n                (data->'reversalOrder'->'request'->>'price')::decimal as \"revPrice\",\n                (data->'firstRequest'->>'quantity')::decimal as \"firstQty\",\n                (data->'secondRequest'->>'quantity')::decimal as \"secondQty\",\n                (data->'reversalRequest'->>'funds')::decimal as \"revFunds\",\n                (data->'firstOrder'->>'filled')::decimal as \"firstFilled\",\n                (data->'secondOrder'->>'filled')::decimal as \"secondFilled\",\n                (data->'reversalOrder'->>'filled')::decimal as \"revFilled\",\n                (data->'reversalOrder'->>'fees')::decimal as \"revFees\",\n                (data->'secondOrder'->>'fees')::decimal as \"secondFees\",\n                (data->'firstOrder'->>'fees')::decimal as \"firstFees\"\n            from \n                orderpairs \n        ) as pairs\n    ) as \"pairsWithReturns\"\n) as pairReturns\n\nWHERE $__timeFilter(GREATEST(\"createdAt\", \"endedAt\"))\n) as btc\n\n-- Add zero at the end to give something to select when nothing exists\nUNION ALL\n\nselect\n  0 as amount\n\n",
                     "refId": "A",
                     "select": [
                       [
@@ -283,8 +283,8 @@ grafana:
                 },
                 "gridPos": {
                   "h": 6,
-                  "w": 8,
-                  "x": 8,
+                  "w": 6,
+                  "x": 6,
                   "y": 0
                 },
                 "id": 38,
@@ -309,7 +309,7 @@ grafana:
                     "group": [],
                     "metricColumn": "none",
                     "rawQuery": true,
-                    "rawSql": "-- Start with general gains\nselect\n  sum(\"usdReturn\") - sum(\"fees\") as amount\nfrom (\n    select\n  \"uuid\",\n  \"createdAt\",\n  \"endedAt\",\n  \"status\",\n  \"direction\",\n  case when \"buyPrice\" <> '0' then \"buyPrice\" end as \"buyPrice\",\n  case when \"sellPrice\" <> '0' then \"sellPrice\" end as \"sellPrice\",\n  case when \"revPrice\" <> '0' then \"revPrice\" end as \"revPrice\",\n  case when \"buyQty\" <> '0' then \"buyQty\" end as \"buyQty\",\n  case when \"sellQty\" <> '0' then \"sellQty\" end as \"sellQty\",\n  case when \"revQty\" <> '0' then \"revQty\" end as \"revQty\",\n  case when \"buyFilled\" <> '0' then \"buyFilled\" end as \"buyFilled\",\n  case when \"sellFilled\" <> '0' then \"sellFilled\" end as \"sellFilled\",\n  case when \"revFilled\" <> '0' then \"revFilled\" end as \"revFilled\",\n  case when \"btcReturn\"<> '0' then (\"btcReturn\")::varchar else '' end as \"btcReturn\",\n  case when (\"btcReturn\" * \"firstPrice\") <> '0' then ((\"btcReturn\" * \"firstPrice\"))::varchar else '' end as \"btcUsdReturn\",\n  case when \"usdReturn\" <> '0' then \"usdReturn\" else 0 end as \"usdReturn\",\n  case when \"fees\" <> '0' then \"fees\" end as \"fees\",\n  case when (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees <> 0 then (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees end as \"totalReturn\"\nfrom (\nselect \n  *,\n  CASE \n    WHEN \"status\" = 'SUCCESS' then \"buyFilled\" - \"sellFilled\"\n    WHEN \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then \"revFilled\" - \"buyFilled\" - \"sellFilled\"\n    WHEN \"status\" = 'REVERSED' and \"direction\" = 'UP' then \"buyFilled\" - \"sellFilled\" - \"revFilled\"\n  end as \"btcReturn\",\n  CASE \n    WHEN \"status\" = 'SUCCESS' then \"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\"\n    WHEN \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then \"firstPrice\" * \"firstFilled\" - \"revPrice\" * \"revFilled\"\n    WHEN \"status\" = 'REVERSED' and \"direction\" = 'UP' then \"revPrice\" * \"revFilled\" - (\"firstPrice\" * \"firstFilled\" - \"secondPrice\" * \"secondFilled\")\n  end as \"usdReturn\"\nfrom\n  (\n  SELECT \n  uuid,\n  data->>'createdAt' as \"createdAt\", \n  CASE WHEN data->>'endedAt' <> '0001-01-01T00:00:00Z' THEN data->>'endedAt' END as \"endedAt\",\n  'UP' as \"direction\",\n  data->>'status' as \"status\",\n  (data->'firstRequest'->>'price')::decimal as \"firstPrice\",\n  (data->'firstOrder'->>'filled')::decimal as \"firstFilled\",\n  (data->'secondRequest'->>'price')::decimal as \"secondPrice\",\n  (data->'secondOrder'->>'filled')::decimal as \"secondFilled\",\n  (data->'firstRequest'->>'price')::decimal as \"buyPrice\", \n  (data->'firstRequest'->>'quantity')::decimal as \"buyQty\",\n  case when data->'firstOrder'->>'filled' = '0' then 0 else (data->'firstOrder'->>'filled')::decimal end as \"buyFilled\", \n  case when data->'firstOrder'->>'status' <> '' then data->'firstOrder'->>'status'end as \"buyStatus\",\n  (data->'secondRequest'->>'price')::decimal as \"sellPrice\", \n  (data->'secondRequest'->>'quantity')::decimal as \"sellQty\", \n  case when data->'secondOrder'->>'filled' = '0' then 0 else (data->'secondOrder'->>'filled')::decimal end as \"sellFilled\", \n  data->'secondOrder'->>'status' as \"sellStatus\",\n  case when data->'reversalOrder'->'request'->>'price' = '0' then 0 else (data->'reversalOrder'->'request'->>'price')::decimal end as \"revPrice\", \n  case when data->'reversalOrder'->'request'->>'quantity' = '0' then 0 else (data->'reversalOrder'->'request'->>'quantity')::decimal end as \"revQty\", \n  case when data->'reversalOrder'->>'filled' = '0' then 0 else (data->'reversalOrder'->>'filled')::decimal end as \"revFilled\", \n  data->'reversalOrder'->>'status' as \"revStatus\",\n  (data->'firstOrder'->>'fees')::decimal + (data->'secondOrder'->>'fees')::decimal + (data->'reversalOrder'->>'fees')::decimal as \"fees\"\nFROM \n  orderpairs \nWHERE\n  data->>'direction' = 'UP'\n  \nUNION ALL\n\nSELECT \n  uuid,\n  data->>'createdAt' as \"createdAt\", \n  CASE WHEN data->>'endedAt' = '0001-01-01T00:00:00Z' THEN '' ELSE data->>'endedAt' END as \"endedAt\",\n  'DOWN' as \"direction\",\n  data->>'status' as \"status\",\n  (data->'firstRequest'->>'price')::decimal as \"firstPrice\",\n  (data->'firstOrder'->>'filled')::decimal as \"firstFilled\",\n  (data->'secondRequest'->>'price')::decimal as \"secondPrice\",\n  (data->'secondOrder'->>'filled')::decimal as \"secondFilled\",\n  (data->'secondRequest'->>'price')::decimal as \"buyPrice\", \n  (data->'secondRequest'->>'quantity')::decimal as \"buyQty\", \n  case when data->'secondOrder'->>'filled' = '0' then 0 else (data->'secondOrder'->>'filled')::decimal end as \"buyFilled\", \n  data->'secondOrder'->>'status' as \"buyStatus\",\n  (data->'firstRequest'->>'price')::decimal as \"sellPrice\", \n  (data->'firstRequest'->>'quantity')::decimal as \"sellQty\", \n  case when data->'firstOrder'->>'filled' = '0' then 0 else (data->'firstOrder'->>'filled')::decimal end as \"sellFilled\", \n  data->'firstOrder'->>'status' as \"sellStatus\",\n  case when data->'reversalOrder'->'request'->>'price' = '0' then 0 else (data->'reversalOrder'->'request'->>'price')::decimal end as \"revPrice\", \n  case when data->'reversalOrder'->'request'->>'quantity' = '0' then 0 else (data->'reversalOrder'->'request'->>'quantity')::decimal end as \"revQty\", \n  case when data->'reversalOrder'->>'filled' = '0' then 0 else (data->'reversalOrder'->>'filled')::decimal end as \"revFilled\", \n  data->'reversalOrder'->>'status' as \"revStatus\",\n  (data->'firstOrder'->>'fees')::decimal + (data->'secondOrder'->>'fees')::decimal + (data->'reversalOrder'->>'fees')::decimal as \"fees\"\nFROM \n  orderpairs \nWHERE\n  data->>'direction' = 'DOWN'\n) as pairs\n\nORDER BY\n  pairs.\"createdAt\"\n) as pairReturns\nWHERE $__timeFilter(GREATEST(\"createdAt\", \"endedAt\"))\n\n) as btc\n\n-- Add zero at the end to give something to select when nothing exists\nUNION ALL\n\nselect\n  0 as amount\n\n",
+                    "rawSql": "-- Start with general gains\nselect\n  sum(\"usdReturn\") - sum(\"fees\") as amount\nfrom (\nselect\n    \"uuid\",\n    \"createdAt\",\n    \"endedAt\",\n    \"status\",\n    \"direction\",\n    case when \"buyPrice\" <> '0' then \"buyPrice\" end as \"buyPrice\",\n    case when \"sellPrice\" <> '0' then \"sellPrice\" end as \"sellPrice\",\n    case when \"revPrice\" <> '0' then \"revPrice\" end as \"revPrice\",\n    case when \"buyQty\" <> '0' then \"buyQty\" end as \"buyQty\",\n    case when \"sellQty\" <> '0' then \"sellQty\" end as \"sellQty\",\n    case when \"revFunds\" <> '0' then \"revFunds\" end as \"revFunds\",\n    case when \"buyFilled\" <> '0' then \"buyFilled\" end as \"buyFilled\",\n    case when \"sellFilled\" <> '0' then \"sellFilled\" end as \"sellFilled\",\n    case when \"revFilled\" <> '0' then \"revFilled\" end as \"revFilled\",\n    case when \"btcReturn\"<> '0' then \"btcReturn\" end as \"btcReturn\",\n    case when (\"btcReturn\" * \"firstPrice\") <> '0' then (\"btcReturn\" * \"firstPrice\") end as \"btcUsdReturn\",\n    case when \"usdReturn\" <> '0' then \"usdReturn\" end as \"usdReturn\",\n    case when \"fees\" <> '0' then \"fees\" end as \"fees\",\n    case when (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees <> 0 then (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees end as \"totalReturn\"\nfrom (\n    select\n        *,\n        case \n            when \"status\" = 'SUCCESS' then \"buyFilled\" - \"sellFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then \"revFilled\" - \"buyFilled\" - \"sellFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'UP' then \"buyFilled\" - \"sellFilled\" - \"revFilled\"\n            else 0\n        end as \"btcReturn\",\n        case \n            when \"status\" = 'SUCCESS' then \"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then (\"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\") - \"revPrice\" * \"revFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'UP' then (\"revPrice\" * \"revFilled\") - ABS(\"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\")\n            else 0\n        end as \"usdReturn\"\n    from (\n        select\n            *,\n            case when \"direction\" = 'UP' then \"firstStatus\" else \"secondStatus\" end as \"buyStatus\",\n            case when \"direction\" = 'UP' then \"firstPrice\" else \"secondPrice\" end as \"buyPrice\",\n            case when \"direction\" = 'UP' then \"firstQty\" else \"secondQty\" end as \"buyQty\",\n            case when \"direction\" = 'UP' then \"firstFilled\" else \"secondFilled\" end as \"buyFilled\",\n            case when \"direction\" = 'UP' then \"firstFees\" else \"secondFees\" end as \"buyFees\",\n            \n            case when \"direction\" = 'DOWN' then \"firstStatus\" else \"secondStatus\" end as \"sellStatus\",\n            case when \"direction\" = 'DOWN' then \"firstPrice\" else \"secondPrice\" end as \"sellPrice\",\n            case when \"direction\" = 'DOWN' then \"firstQty\" else \"secondQty\" end as \"sellQty\",\n            case when \"direction\" = 'DOWN' then \"firstFilled\" else \"secondFilled\" end as \"sellFilled\",\n            case when \"direction\" = 'DOWN' then \"firstFees\" else \"secondFees\" end as \"sellFees\",\n            \"firstFees\" + \"secondFees\" + \"revFees\" as \"fees\"\n        from (\n            select \n                uuid,\n                data->>'createdAt' as \"createdAt\", \n                case when data->>'endedAt' = '0001-01-01T00:00:00Z' then '' else data->>'endedAt' end as \"endedAt\",\n                data->>'direction' as \"direction\",\n                data->>'status' as \"status\",\n                data->'firstOrder'->>'status' as \"firstStatus\",\n                data->'secondOrder'->>'status' as \"secondStatus\",\n                data->'reversalOrder'->>'status' as \"revStatus\",\n                (data->'firstRequest'->>'price')::decimal as \"firstPrice\",\n                (data->'secondRequest'->>'price')::decimal as \"secondPrice\",\n                (data->'reversalOrder'->'request'->>'price')::decimal as \"revPrice\",\n                (data->'firstRequest'->>'quantity')::decimal as \"firstQty\",\n                (data->'secondRequest'->>'quantity')::decimal as \"secondQty\",\n                (data->'reversalRequest'->>'funds')::decimal as \"revFunds\",\n                (data->'firstOrder'->>'filled')::decimal as \"firstFilled\",\n                (data->'secondOrder'->>'filled')::decimal as \"secondFilled\",\n                (data->'reversalOrder'->>'filled')::decimal as \"revFilled\",\n                (data->'reversalOrder'->>'fees')::decimal as \"revFees\",\n                (data->'secondOrder'->>'fees')::decimal as \"secondFees\",\n                (data->'firstOrder'->>'fees')::decimal as \"firstFees\"\n            from \n                orderpairs \n        ) as pairs\n    ) as \"pairsWithReturns\"\n) as pairReturns\n\nWHERE $__timeFilter(GREATEST(\"createdAt\", \"endedAt\"))\n) as btc\n\n-- Add zero at the end to give something to select when nothing exists\nUNION ALL\n\nselect\n  0 as amount\n\n",
                     "refId": "A",
                     "select": [
                       [
@@ -333,7 +333,7 @@ grafana:
                 ],
                 "timeFrom": null,
                 "timeShift": null,
-                "title": "USD Return",
+                "title": "USD Return (Less Fees)",
                 "type": "stat"
               },
               {
@@ -377,8 +377,8 @@ grafana:
                 },
                 "gridPos": {
                   "h": 6,
-                  "w": 8,
-                  "x": 16,
+                  "w": 6,
+                  "x": 12,
                   "y": 0
                 },
                 "id": 36,
@@ -403,7 +403,7 @@ grafana:
                     "group": [],
                     "metricColumn": "none",
                     "rawQuery": true,
-                    "rawSql": "-- Start with general gains\nselect\n  sum(case when \"btcUsdReturn\" = '' then 0 else (\"btcUsdReturn\")::decimal end) as amount\nfrom (\n  select\n  \"uuid\",\n  \"createdAt\",\n  \"endedAt\",\n  \"status\",\n  \"direction\",\n  case when \"buyPrice\" <> '0' then \"buyPrice\" end as \"buyPrice\",\n  case when \"sellPrice\" <> '0' then \"sellPrice\" end as \"sellPrice\",\n  case when \"revPrice\" <> '0' then \"revPrice\" end as \"revPrice\",\n  case when \"buyQty\" <> '0' then \"buyQty\" end as \"buyQty\",\n  case when \"sellQty\" <> '0' then \"sellQty\" end as \"sellQty\",\n  case when \"revQty\" <> '0' then \"revQty\" end as \"revQty\",\n  case when \"buyFilled\" <> '0' then \"buyFilled\" end as \"buyFilled\",\n  case when \"sellFilled\" <> '0' then \"sellFilled\" end as \"sellFilled\",\n  case when \"revFilled\" <> '0' then \"revFilled\" end as \"revFilled\",\n  case when \"btcReturn\"<> '0' then (\"btcReturn\")::varchar else '' end as \"btcReturn\",\n  case when (\"btcReturn\" * \"firstPrice\") <> '0' then ((\"btcReturn\" * \"firstPrice\"))::varchar else '' end as \"btcUsdReturn\",\n  case when \"usdReturn\" <> '0' then \"usdReturn\" end as \"usdReturn\",\n  case when \"fees\" <> '0' then \"fees\" end as \"fees\",\n  case when (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees <> 0 then (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees end as \"totalReturn\"\nfrom (\nselect \n  *,\n  CASE \n    WHEN \"status\" = 'SUCCESS' then \"buyFilled\" - \"sellFilled\"\n    WHEN \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then \"revFilled\" - \"buyFilled\" - \"sellFilled\"\n    WHEN \"status\" = 'REVERSED' and \"direction\" = 'UP' then \"buyFilled\" - \"sellFilled\" - \"revFilled\"\n  end as \"btcReturn\",\n  CASE \n    WHEN \"status\" = 'SUCCESS' then \"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\"\n    WHEN \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then \"firstPrice\" * \"firstFilled\" - \"revPrice\" * \"revFilled\"\n    WHEN \"status\" = 'REVERSED' and \"direction\" = 'UP' then \"revPrice\" * \"revFilled\" - (\"firstPrice\" * \"firstFilled\" - \"secondPrice\" * \"secondFilled\")\n  end as \"usdReturn\"\nfrom\n  (\n  SELECT \n  uuid,\n  data->>'createdAt' as \"createdAt\", \n  CASE WHEN data->>'endedAt' <> '0001-01-01T00:00:00Z' THEN data->>'endedAt' END as \"endedAt\",\n  'UP' as \"direction\",\n  data->>'status' as \"status\",\n  (data->'firstRequest'->>'price')::decimal as \"firstPrice\",\n  (data->'firstOrder'->>'filled')::decimal as \"firstFilled\",\n  (data->'secondRequest'->>'price')::decimal as \"secondPrice\",\n  (data->'secondOrder'->>'filled')::decimal as \"secondFilled\",\n  (data->'firstRequest'->>'price')::decimal as \"buyPrice\", \n  (data->'firstRequest'->>'quantity')::decimal as \"buyQty\",\n  case when data->'firstOrder'->>'filled' = '0' then 0 else (data->'firstOrder'->>'filled')::decimal end as \"buyFilled\", \n  case when data->'firstOrder'->>'status' <> '' then data->'firstOrder'->>'status'end as \"buyStatus\",\n  (data->'secondRequest'->>'price')::decimal as \"sellPrice\", \n  (data->'secondRequest'->>'quantity')::decimal as \"sellQty\", \n  case when data->'secondOrder'->>'filled' = '0' then 0 else (data->'secondOrder'->>'filled')::decimal end as \"sellFilled\", \n  data->'secondOrder'->>'status' as \"sellStatus\",\n  case when data->'reversalOrder'->'request'->>'price' = '0' then 0 else (data->'reversalOrder'->'request'->>'price')::decimal end as \"revPrice\", \n  case when data->'reversalOrder'->'request'->>'quantity' = '0' then 0 else (data->'reversalOrder'->'request'->>'quantity')::decimal end as \"revQty\", \n  case when data->'reversalOrder'->>'filled' = '0' then 0 else (data->'reversalOrder'->>'filled')::decimal end as \"revFilled\", \n  data->'reversalOrder'->>'status' as \"revStatus\",\n  (data->'firstOrder'->>'fees')::decimal + (data->'secondOrder'->>'fees')::decimal + (data->'reversalOrder'->>'fees')::decimal as \"fees\"\nFROM \n  orderpairs \nWHERE\n  data->>'direction' = 'UP'\n  \nUNION ALL\n\nSELECT \n  uuid,\n  data->>'createdAt' as \"createdAt\", \n  CASE WHEN data->>'endedAt' = '0001-01-01T00:00:00Z' THEN '' ELSE data->>'endedAt' END as \"endedAt\",\n  'DOWN' as \"direction\",\n  data->>'status' as \"status\",\n  (data->'firstRequest'->>'price')::decimal as \"firstPrice\",\n  (data->'firstOrder'->>'filled')::decimal as \"firstFilled\",\n  (data->'secondRequest'->>'price')::decimal as \"secondPrice\",\n  (data->'secondOrder'->>'filled')::decimal as \"secondFilled\",\n  (data->'secondRequest'->>'price')::decimal as \"buyPrice\", \n  (data->'secondRequest'->>'quantity')::decimal as \"buyQty\", \n  case when data->'secondOrder'->>'filled' = '0' then 0 else (data->'secondOrder'->>'filled')::decimal end as \"buyFilled\", \n  data->'secondOrder'->>'status' as \"buyStatus\",\n  (data->'firstRequest'->>'price')::decimal as \"sellPrice\", \n  (data->'firstRequest'->>'quantity')::decimal as \"sellQty\", \n  case when data->'firstOrder'->>'filled' = '0' then 0 else (data->'firstOrder'->>'filled')::decimal end as \"sellFilled\", \n  data->'firstOrder'->>'status' as \"sellStatus\",\n  case when data->'reversalOrder'->'request'->>'price' = '0' then 0 else (data->'reversalOrder'->'request'->>'price')::decimal end as \"revPrice\", \n  case when data->'reversalOrder'->'request'->>'quantity' = '0' then 0 else (data->'reversalOrder'->'request'->>'quantity')::decimal end as \"revQty\", \n  case when data->'reversalOrder'->>'filled' = '0' then 0 else (data->'reversalOrder'->>'filled')::decimal end as \"revFilled\", \n  data->'reversalOrder'->>'status' as \"revStatus\",\n  (data->'firstOrder'->>'fees')::decimal + (data->'secondOrder'->>'fees')::decimal + (data->'reversalOrder'->>'fees')::decimal as \"fees\"\nFROM \n  orderpairs \nWHERE\n  data->>'direction' = 'DOWN'\n) as pairs\n\nORDER BY\n  pairs.\"createdAt\"\n) as pairReturns\nWHERE $__timeFilter(GREATEST(\"createdAt\", \"endedAt\"))\n\n) as btc\n\n-- Add zero at the end to give something to select when nothing exists\nUNION ALL\n\nselect\n  0 as amount\n\n",
+                    "rawSql": "-- Start with general gains\nselect\n  sum(\"btcUsdReturn\") as amount\nfrom (\n  select\n    \"uuid\",\n    \"createdAt\",\n    \"endedAt\",\n    \"status\",\n    \"direction\",\n    case when \"buyPrice\" <> '0' then \"buyPrice\" end as \"buyPrice\",\n    case when \"sellPrice\" <> '0' then \"sellPrice\" end as \"sellPrice\",\n    case when \"revPrice\" <> '0' then \"revPrice\" end as \"revPrice\",\n    case when \"buyQty\" <> '0' then \"buyQty\" end as \"buyQty\",\n    case when \"sellQty\" <> '0' then \"sellQty\" end as \"sellQty\",\n    case when \"revFunds\" <> '0' then \"revFunds\" end as \"revFunds\",\n    case when \"buyFilled\" <> '0' then \"buyFilled\" end as \"buyFilled\",\n    case when \"sellFilled\" <> '0' then \"sellFilled\" end as \"sellFilled\",\n    case when \"revFilled\" <> '0' then \"revFilled\" end as \"revFilled\",\n    case when \"btcReturn\"<> '0' then \"btcReturn\" end as \"btcReturn\",\n    case when (\"btcReturn\" * \"firstPrice\") <> '0' then (\"btcReturn\" * \"firstPrice\") end as \"btcUsdReturn\",\n    case when \"usdReturn\" <> '0' then \"usdReturn\" end as \"usdReturn\",\n    case when \"fees\" <> '0' then \"fees\" end as \"fees\",\n    case when (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees <> 0 then (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees end as \"totalReturn\"\nfrom (\n    select\n        *,\n        case \n            when \"status\" = 'SUCCESS' then \"buyFilled\" - \"sellFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then \"revFilled\" - \"buyFilled\" - \"sellFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'UP' then \"buyFilled\" - \"sellFilled\" - \"revFilled\"\n            else 0\n        end as \"btcReturn\",\n        case \n            when \"status\" = 'SUCCESS' then \"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then (\"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\") - \"revPrice\" * \"revFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'UP' then (\"revPrice\" * \"revFilled\") - ABS(\"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\")\n            else 0\n        end as \"usdReturn\"\n    from (\n        select\n            *,\n            case when \"direction\" = 'UP' then \"firstStatus\" else \"secondStatus\" end as \"buyStatus\",\n            case when \"direction\" = 'UP' then \"firstPrice\" else \"secondPrice\" end as \"buyPrice\",\n            case when \"direction\" = 'UP' then \"firstQty\" else \"secondQty\" end as \"buyQty\",\n            case when \"direction\" = 'UP' then \"firstFilled\" else \"secondFilled\" end as \"buyFilled\",\n            case when \"direction\" = 'UP' then \"firstFees\" else \"secondFees\" end as \"buyFees\",\n            \n            case when \"direction\" = 'DOWN' then \"firstStatus\" else \"secondStatus\" end as \"sellStatus\",\n            case when \"direction\" = 'DOWN' then \"firstPrice\" else \"secondPrice\" end as \"sellPrice\",\n            case when \"direction\" = 'DOWN' then \"firstQty\" else \"secondQty\" end as \"sellQty\",\n            case when \"direction\" = 'DOWN' then \"firstFilled\" else \"secondFilled\" end as \"sellFilled\",\n            case when \"direction\" = 'DOWN' then \"firstFees\" else \"secondFees\" end as \"sellFees\",\n            \"firstFees\" + \"secondFees\" + \"revFees\" as \"fees\"\n        from (\n            select \n                uuid,\n                data->>'createdAt' as \"createdAt\", \n                case when data->>'endedAt' = '0001-01-01T00:00:00Z' then '' else data->>'endedAt' end as \"endedAt\",\n                data->>'direction' as \"direction\",\n                data->>'status' as \"status\",\n                data->'firstOrder'->>'status' as \"firstStatus\",\n                data->'secondOrder'->>'status' as \"secondStatus\",\n                data->'reversalOrder'->>'status' as \"revStatus\",\n                (data->'firstRequest'->>'price')::decimal as \"firstPrice\",\n                (data->'secondRequest'->>'price')::decimal as \"secondPrice\",\n                (data->'reversalOrder'->'request'->>'price')::decimal as \"revPrice\",\n                (data->'firstRequest'->>'quantity')::decimal as \"firstQty\",\n                (data->'secondRequest'->>'quantity')::decimal as \"secondQty\",\n                (data->'reversalRequest'->>'funds')::decimal as \"revFunds\",\n                (data->'firstOrder'->>'filled')::decimal as \"firstFilled\",\n                (data->'secondOrder'->>'filled')::decimal as \"secondFilled\",\n                (data->'reversalOrder'->>'filled')::decimal as \"revFilled\",\n                (data->'reversalOrder'->>'fees')::decimal as \"revFees\",\n                (data->'secondOrder'->>'fees')::decimal as \"secondFees\",\n                (data->'firstOrder'->>'fees')::decimal as \"firstFees\"\n            from \n                orderpairs \n        ) as pairs\n    ) as \"pairsWithReturns\"\n) as pairReturns\n\nWHERE $__timeFilter(GREATEST(\"createdAt\", \"endedAt\"))\n) as btc\n\n-- Add zero at the end to give something to select when nothing exists\nUNION ALL\n\nselect\n  0 as amount\n\n",
                     "refId": "A",
                     "select": [
                       [
@@ -428,6 +428,100 @@ grafana:
                 "timeFrom": null,
                 "timeShift": null,
                 "title": "BTC Return (USD)",
+                "type": "stat"
+              },
+              {
+                "datasource": null,
+                "fieldConfig": {
+                  "defaults": {
+                    "custom": {
+                      "align": null
+                    },
+                    "decimals": 2,
+                    "mappings": [],
+                    "thresholds": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "semi-dark-green",
+                          "value": null
+                        },
+                        {
+                          "color": "semi-dark-red",
+                          "value": 0
+                        }
+                      ]
+                    },
+                    "unit": "currencyUSD"
+                  },
+                  "overrides": [
+                    {
+                      "matcher": {
+                        "id": "byName",
+                        "options": "uuid"
+                      },
+                      "properties": [
+                        {
+                          "id": "custom.width",
+                          "value": 340
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "gridPos": {
+                  "h": 6,
+                  "w": 6,
+                  "x": 18,
+                  "y": 0
+                },
+                "id": 48,
+                "options": {
+                  "colorMode": "value",
+                  "graphMode": "area",
+                  "justifyMode": "auto",
+                  "orientation": "auto",
+                  "reduceOptions": {
+                    "calcs": [
+                      "sum"
+                    ],
+                    "fields": "",
+                    "values": false
+                  },
+                  "textMode": "auto"
+                },
+                "pluginVersion": "7.3.5",
+                "targets": [
+                  {
+                    "format": "table",
+                    "group": [],
+                    "metricColumn": "none",
+                    "rawQuery": true,
+                    "rawSql": "-- Start with general gains\nselect\n  sum(\"fees\") as amount\nfrom (\n  select\n    \"uuid\",\n    \"createdAt\",\n    \"endedAt\",\n    \"status\",\n    \"direction\",\n    case when \"buyPrice\" <> '0' then \"buyPrice\" end as \"buyPrice\",\n    case when \"sellPrice\" <> '0' then \"sellPrice\" end as \"sellPrice\",\n    case when \"revPrice\" <> '0' then \"revPrice\" end as \"revPrice\",\n    case when \"buyQty\" <> '0' then \"buyQty\" end as \"buyQty\",\n    case when \"sellQty\" <> '0' then \"sellQty\" end as \"sellQty\",\n    case when \"revFunds\" <> '0' then \"revFunds\" end as \"revFunds\",\n    case when \"buyFilled\" <> '0' then \"buyFilled\" end as \"buyFilled\",\n    case when \"sellFilled\" <> '0' then \"sellFilled\" end as \"sellFilled\",\n    case when \"revFilled\" <> '0' then \"revFilled\" end as \"revFilled\",\n    case when \"btcReturn\"<> '0' then \"btcReturn\" end as \"btcReturn\",\n    case when (\"btcReturn\" * \"firstPrice\") <> '0' then (\"btcReturn\" * \"firstPrice\") end as \"btcUsdReturn\",\n    case when \"usdReturn\" <> '0' then \"usdReturn\" end as \"usdReturn\",\n    case when \"fees\" <> '0' then \"fees\" end as \"fees\",\n    case when (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees <> 0 then (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees end as \"totalReturn\"\nfrom (\n    select\n        *,\n        case \n            when \"status\" = 'SUCCESS' then \"buyFilled\" - \"sellFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then \"revFilled\" - \"buyFilled\" - \"sellFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'UP' then \"buyFilled\" - \"sellFilled\" - \"revFilled\"\n            else 0\n        end as \"btcReturn\",\n        case \n            when \"status\" = 'SUCCESS' then \"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then (\"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\") - \"revPrice\" * \"revFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'UP' then (\"revPrice\" * \"revFilled\") - ABS(\"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\")\n            else 0\n        end as \"usdReturn\"\n    from (\n        select\n            *,\n            case when \"direction\" = 'UP' then \"firstStatus\" else \"secondStatus\" end as \"buyStatus\",\n            case when \"direction\" = 'UP' then \"firstPrice\" else \"secondPrice\" end as \"buyPrice\",\n            case when \"direction\" = 'UP' then \"firstQty\" else \"secondQty\" end as \"buyQty\",\n            case when \"direction\" = 'UP' then \"firstFilled\" else \"secondFilled\" end as \"buyFilled\",\n            case when \"direction\" = 'UP' then \"firstFees\" else \"secondFees\" end as \"buyFees\",\n            \n            case when \"direction\" = 'DOWN' then \"firstStatus\" else \"secondStatus\" end as \"sellStatus\",\n            case when \"direction\" = 'DOWN' then \"firstPrice\" else \"secondPrice\" end as \"sellPrice\",\n            case when \"direction\" = 'DOWN' then \"firstQty\" else \"secondQty\" end as \"sellQty\",\n            case when \"direction\" = 'DOWN' then \"firstFilled\" else \"secondFilled\" end as \"sellFilled\",\n            case when \"direction\" = 'DOWN' then \"firstFees\" else \"secondFees\" end as \"sellFees\",\n            \"firstFees\" + \"secondFees\" + \"revFees\" as \"fees\"\n        from (\n            select \n                uuid,\n                data->>'createdAt' as \"createdAt\", \n                case when data->>'endedAt' = '0001-01-01T00:00:00Z' then '' else data->>'endedAt' end as \"endedAt\",\n                data->>'direction' as \"direction\",\n                data->>'status' as \"status\",\n                data->'firstOrder'->>'status' as \"firstStatus\",\n                data->'secondOrder'->>'status' as \"secondStatus\",\n                data->'reversalOrder'->>'status' as \"revStatus\",\n                (data->'firstRequest'->>'price')::decimal as \"firstPrice\",\n                (data->'secondRequest'->>'price')::decimal as \"secondPrice\",\n                (data->'reversalOrder'->'request'->>'price')::decimal as \"revPrice\",\n                (data->'firstRequest'->>'quantity')::decimal as \"firstQty\",\n                (data->'secondRequest'->>'quantity')::decimal as \"secondQty\",\n                (data->'reversalRequest'->>'funds')::decimal as \"revFunds\",\n                (data->'firstOrder'->>'filled')::decimal as \"firstFilled\",\n                (data->'secondOrder'->>'filled')::decimal as \"secondFilled\",\n                (data->'reversalOrder'->>'filled')::decimal as \"revFilled\",\n                (data->'reversalOrder'->>'fees')::decimal as \"revFees\",\n                (data->'secondOrder'->>'fees')::decimal as \"secondFees\",\n                (data->'firstOrder'->>'fees')::decimal as \"firstFees\"\n            from \n                orderpairs \n        ) as pairs\n    ) as \"pairsWithReturns\"\n) as pairReturns\n\nWHERE $__timeFilter(GREATEST(\"createdAt\", \"endedAt\"))\n) as btc\n\n-- Add zero at the end to give something to select when nothing exists\nUNION ALL\n\nselect\n  0 as amount\n\n",
+                    "refId": "A",
+                    "select": [
+                      [
+                        {
+                          "params": [
+                            "value"
+                          ],
+                          "type": "column"
+                        }
+                      ]
+                    ],
+                    "timeColumn": "time",
+                    "where": [
+                      {
+                        "name": "$__timeFilter",
+                        "params": [],
+                        "type": "macro"
+                      }
+                    ]
+                  }
+                ],
+                "timeFrom": null,
+                "timeShift": null,
+                "title": "Fees",
                 "type": "stat"
               },
               {
@@ -1322,7 +1416,7 @@ grafana:
                       "properties": [
                         {
                           "id": "custom.width",
-                          "value": 86
+                          "value": 79
                         }
                       ]
                     },
@@ -1365,6 +1459,18 @@ grafana:
                           "value": 100
                         }
                       ]
+                    },
+                    {
+                      "matcher": {
+                        "id": "byName",
+                        "options": "revFunds"
+                      },
+                      "properties": [
+                        {
+                          "id": "custom.width",
+                          "value": 101
+                        }
+                      ]
                     }
                   ]
                 },
@@ -1391,7 +1497,7 @@ grafana:
                     "group": [],
                     "metricColumn": "none",
                     "rawQuery": true,
-                    "rawSql": "  select\n  \"uuid\",\n  \"createdAt\",\n  \"endedAt\",\n  \"status\",\n  \"direction\",\n  case when \"buyPrice\" <> '0' then \"buyPrice\" end as \"buyPrice\",\n  case when \"sellPrice\" <> '0' then \"sellPrice\" end as \"sellPrice\",\n  case when \"revPrice\" <> '0' then \"revPrice\" end as \"revPrice\",\n  case when \"buyQty\" <> '0' then \"buyQty\" end as \"buyQty\",\n  case when \"sellQty\" <> '0' then \"sellQty\" end as \"sellQty\",\n  case when \"revQty\" <> '0' then \"revQty\" end as \"revQty\",\n  case when \"buyFilled\" <> '0' then \"buyFilled\" end as \"buyFilled\",\n  case when \"sellFilled\" <> '0' then \"sellFilled\" end as \"sellFilled\",\n  case when \"revFilled\" <> '0' then \"revFilled\" end as \"revFilled\",\n  case when \"btcReturn\"<> '0' then (\"btcReturn\")::varchar else '' end as \"btcReturn\",\n  case when (\"btcReturn\" * \"firstPrice\") <> '0' then ((\"btcReturn\" * \"firstPrice\"))::varchar else '' end as \"btcUsdReturn\",\n  case when \"usdReturn\" <> '0' then \"usdReturn\" end as \"usdReturn\",\n  case when \"fees\" <> '0' then \"fees\" end as \"fees\",\n  case when (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees <> 0 then (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees end as \"totalReturn\"\nfrom (\nselect \n  *,\n  CASE \n    WHEN \"status\" = 'SUCCESS' then \"buyFilled\" - \"sellFilled\"\n    WHEN \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then \"revFilled\" - \"buyFilled\" - \"sellFilled\"\n    WHEN \"status\" = 'REVERSED' and \"direction\" = 'UP' then \"buyFilled\" - \"sellFilled\" - \"revFilled\"\n  end as \"btcReturn\",\n  CASE \n    WHEN \"status\" = 'SUCCESS' then \"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\"\n    WHEN \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then \"firstPrice\" * \"firstFilled\" - \"revPrice\" * \"revFilled\"\n    WHEN \"status\" = 'REVERSED' and \"direction\" = 'UP' then \"revPrice\" * \"revFilled\" - (\"firstPrice\" * \"firstFilled\" - \"secondPrice\" * \"secondFilled\")\n  end as \"usdReturn\"\nfrom\n  (\n  SELECT \n  uuid,\n  data->>'createdAt' as \"createdAt\", \n  CASE WHEN data->>'endedAt' <> '0001-01-01T00:00:00Z' THEN data->>'endedAt' END as \"endedAt\",\n  'UP' as \"direction\",\n  data->>'status' as \"status\",\n  (data->'firstRequest'->>'price')::decimal as \"firstPrice\",\n  (data->'firstOrder'->>'filled')::decimal as \"firstFilled\",\n  (data->'secondRequest'->>'price')::decimal as \"secondPrice\",\n  (data->'secondOrder'->>'filled')::decimal as \"secondFilled\",\n  (data->'firstRequest'->>'price')::decimal as \"buyPrice\", \n  (data->'firstRequest'->>'quantity')::decimal as \"buyQty\",\n  case when data->'firstOrder'->>'filled' = '0' then 0 else (data->'firstOrder'->>'filled')::decimal end as \"buyFilled\", \n  case when data->'firstOrder'->>'status' <> '' then data->'firstOrder'->>'status'end as \"buyStatus\",\n  (data->'secondRequest'->>'price')::decimal as \"sellPrice\", \n  (data->'secondRequest'->>'quantity')::decimal as \"sellQty\", \n  case when data->'secondOrder'->>'filled' = '0' then 0 else (data->'secondOrder'->>'filled')::decimal end as \"sellFilled\", \n  data->'secondOrder'->>'status' as \"sellStatus\",\n  case when data->'reversalOrder'->'request'->>'price' = '0' then 0 else (data->'reversalOrder'->'request'->>'price')::decimal end as \"revPrice\", \n  case when data->'reversalOrder'->'request'->>'quantity' = '0' then 0 else (data->'reversalOrder'->'request'->>'quantity')::decimal end as \"revQty\", \n  case when data->'reversalOrder'->>'filled' = '0' then 0 else (data->'reversalOrder'->>'filled')::decimal end as \"revFilled\", \n  data->'reversalOrder'->>'status' as \"revStatus\",\n  (data->'firstOrder'->>'fees')::decimal + (data->'secondOrder'->>'fees')::decimal + (data->'reversalOrder'->>'fees')::decimal as \"fees\"\nFROM \n  orderpairs \nWHERE\n  data->>'direction' = 'UP'\n  \nUNION ALL\n\nSELECT \n  uuid,\n  data->>'createdAt' as \"createdAt\", \n  CASE WHEN data->>'endedAt' = '0001-01-01T00:00:00Z' THEN '' ELSE data->>'endedAt' END as \"endedAt\",\n  'DOWN' as \"direction\",\n  data->>'status' as \"status\",\n  (data->'firstRequest'->>'price')::decimal as \"firstPrice\",\n  (data->'firstOrder'->>'filled')::decimal as \"firstFilled\",\n  (data->'secondRequest'->>'price')::decimal as \"secondPrice\",\n  (data->'secondOrder'->>'filled')::decimal as \"secondFilled\",\n  (data->'secondRequest'->>'price')::decimal as \"buyPrice\", \n  (data->'secondRequest'->>'quantity')::decimal as \"buyQty\", \n  case when data->'secondOrder'->>'filled' = '0' then 0 else (data->'secondOrder'->>'filled')::decimal end as \"buyFilled\", \n  data->'secondOrder'->>'status' as \"buyStatus\",\n  (data->'firstRequest'->>'price')::decimal as \"sellPrice\", \n  (data->'firstRequest'->>'quantity')::decimal as \"sellQty\", \n  case when data->'firstOrder'->>'filled' = '0' then 0 else (data->'firstOrder'->>'filled')::decimal end as \"sellFilled\", \n  data->'firstOrder'->>'status' as \"sellStatus\",\n  case when data->'reversalOrder'->'request'->>'price' = '0' then 0 else (data->'reversalOrder'->'request'->>'price')::decimal end as \"revPrice\", \n  case when data->'reversalOrder'->'request'->>'quantity' = '0' then 0 else (data->'reversalOrder'->'request'->>'quantity')::decimal end as \"revQty\", \n  case when data->'reversalOrder'->>'filled' = '0' then 0 else (data->'reversalOrder'->>'filled')::decimal end as \"revFilled\", \n  data->'reversalOrder'->>'status' as \"revStatus\",\n  (data->'firstOrder'->>'fees')::decimal + (data->'secondOrder'->>'fees')::decimal + (data->'reversalOrder'->>'fees')::decimal as \"fees\"\nFROM \n  orderpairs \nWHERE\n  data->>'direction' = 'DOWN'\n) as pairs\n\nORDER BY\n  pairs.\"createdAt\"\n) as pairReturns\n\nWHERE \"status\" = 'SUCCESS'\nAND $__timeFilter(GREATEST(\"createdAt\", \"endedAt\"))",
+                    "rawSql": "select\n    \"uuid\",\n    \"createdAt\",\n    \"endedAt\",\n    \"direction\",\n    case when \"buyPrice\" <> '0' then \"buyPrice\" end as \"buyPrice\",\n    case when \"sellPrice\" <> '0' then \"sellPrice\" end as \"sellPrice\",\n    case when \"buyQty\" <> '0' then \"buyQty\" end as \"buyQty\",\n    case when \"sellQty\" <> '0' then \"sellQty\" end as \"sellQty\",\n    case when \"buyFilled\" <> '0' then \"buyFilled\" end as \"buyFilled\",\n    case when \"sellFilled\" <> '0' then \"sellFilled\" end as \"sellFilled\",\n    case when \"btcReturn\"<> '0' then \"btcReturn\" end as \"btcReturn\",\n    case when (\"btcReturn\" * \"firstPrice\") <> '0' then (\"btcReturn\" * \"firstPrice\") end as \"btcUsdReturn\",\n    case when \"usdReturn\" <> '0' then \"usdReturn\" end as \"usdReturn\",\n    case when \"fees\" <> '0' then \"fees\" end as \"fees\",\n    case when (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees <> 0 then (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees end as \"totalReturn\"\nfrom (\n    select\n        *,\n        case \n            when \"status\" = 'SUCCESS' then \"buyFilled\" - \"sellFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then \"revFilled\" - \"buyFilled\" - \"sellFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'UP' then \"buyFilled\" - \"sellFilled\" - \"revFilled\"\n            else 0\n        end as \"btcReturn\",\n        case \n            when \"status\" = 'SUCCESS' then \"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then (\"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\") - \"revPrice\" * \"revFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'UP' then (\"revPrice\" * \"revFilled\") - ABS(\"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\")\n            else 0\n        end as \"usdReturn\"\n    from (\n        select\n            *,\n            case when \"direction\" = 'UP' then \"firstStatus\" else \"secondStatus\" end as \"buyStatus\",\n            case when \"direction\" = 'UP' then \"firstPrice\" else \"secondPrice\" end as \"buyPrice\",\n            case when \"direction\" = 'UP' then \"firstQty\" else \"secondQty\" end as \"buyQty\",\n            case when \"direction\" = 'UP' then \"firstFilled\" else \"secondFilled\" end as \"buyFilled\",\n            case when \"direction\" = 'UP' then \"firstFees\" else \"secondFees\" end as \"buyFees\",\n            \n            case when \"direction\" = 'DOWN' then \"firstStatus\" else \"secondStatus\" end as \"sellStatus\",\n            case when \"direction\" = 'DOWN' then \"firstPrice\" else \"secondPrice\" end as \"sellPrice\",\n            case when \"direction\" = 'DOWN' then \"firstQty\" else \"secondQty\" end as \"sellQty\",\n            case when \"direction\" = 'DOWN' then \"firstFilled\" else \"secondFilled\" end as \"sellFilled\",\n            case when \"direction\" = 'DOWN' then \"firstFees\" else \"secondFees\" end as \"sellFees\",\n            \"firstFees\" + \"secondFees\" + \"revFees\" as \"fees\"\n        from (\n            select \n                uuid,\n                data->>'createdAt' as \"createdAt\", \n                case when data->>'endedAt' = '0001-01-01T00:00:00Z' then '' else data->>'endedAt' end as \"endedAt\",\n                data->>'direction' as \"direction\",\n                data->>'status' as \"status\",\n                data->'firstOrder'->>'status' as \"firstStatus\",\n                data->'secondOrder'->>'status' as \"secondStatus\",\n                data->'reversalOrder'->>'status' as \"revStatus\",\n                (data->'firstRequest'->>'price')::decimal as \"firstPrice\",\n                (data->'secondRequest'->>'price')::decimal as \"secondPrice\",\n                (data->'reversalOrder'->'request'->>'price')::decimal as \"revPrice\",\n                (data->'firstRequest'->>'quantity')::decimal as \"firstQty\",\n                (data->'secondRequest'->>'quantity')::decimal as \"secondQty\",\n                (data->'reversalRequest'->>'funds')::decimal as \"revFunds\",\n                (data->'firstOrder'->>'filled')::decimal as \"firstFilled\",\n                (data->'secondOrder'->>'filled')::decimal as \"secondFilled\",\n                (data->'reversalOrder'->>'filled')::decimal as \"revFilled\",\n                (data->'reversalOrder'->>'fees')::decimal as \"revFees\",\n                (data->'secondOrder'->>'fees')::decimal as \"secondFees\",\n                (data->'firstOrder'->>'fees')::decimal as \"firstFees\"\n            from \n                orderpairs \n        ) as pairs\n    ) as \"pairsWithReturns\"\n) as pairReturns\n\nWHERE \"status\" = 'SUCCESS'\nAND $__timeFilter(GREATEST(\"createdAt\", \"endedAt\"))",
                     "refId": "A",
                     "select": [
                       [
@@ -1556,7 +1662,7 @@ grafana:
                       "properties": [
                         {
                           "id": "custom.width",
-                          "value": 241
+                          "value": 242
                         }
                       ]
                     },
@@ -1808,7 +1914,7 @@ grafana:
                       "properties": [
                         {
                           "id": "custom.width",
-                          "value": 86
+                          "value": 84
                         }
                       ]
                     },
@@ -1820,7 +1926,7 @@ grafana:
                       "properties": [
                         {
                           "id": "custom.width",
-                          "value": 92
+                          "value": 101
                         },
                         {
                           "id": "noValue",
@@ -1851,6 +1957,18 @@ grafana:
                           "value": 100
                         }
                       ]
+                    },
+                    {
+                      "matcher": {
+                        "id": "byName",
+                        "options": "revFunds"
+                      },
+                      "properties": [
+                        {
+                          "id": "custom.width",
+                          "value": 91
+                        }
+                      ]
                     }
                   ]
                 },
@@ -1865,8 +1983,8 @@ grafana:
                   "showHeader": true,
                   "sortBy": [
                     {
-                      "desc": false,
-                      "displayName": "totalReturn"
+                      "desc": true,
+                      "displayName": "endedAt"
                     }
                   ]
                 },
@@ -1877,7 +1995,7 @@ grafana:
                     "group": [],
                     "metricColumn": "none",
                     "rawQuery": true,
-                    "rawSql": "  select\n  \"uuid\",\n  \"createdAt\",\n  \"endedAt\",\n  \"status\",\n  \"direction\",\n  case when \"buyPrice\" <> '0' then \"buyPrice\" end as \"buyPrice\",\n  case when \"sellPrice\" <> '0' then \"sellPrice\" end as \"sellPrice\",\n  case when \"revPrice\" <> '0' then \"revPrice\" end as \"revPrice\",\n  case when \"buyQty\" <> '0' then \"buyQty\" end as \"buyQty\",\n  case when \"sellQty\" <> '0' then \"sellQty\" end as \"sellQty\",\n  case when \"revQty\" <> '0' then \"revQty\" end as \"revQty\",\n  case when \"buyFilled\" <> '0' then \"buyFilled\" end as \"buyFilled\",\n  case when \"sellFilled\" <> '0' then \"sellFilled\" end as \"sellFilled\",\n  case when \"revFilled\" <> '0' then \"revFilled\" end as \"revFilled\",\n  case when \"btcReturn\"<> '0' then (\"btcReturn\")::varchar else '' end as \"btcReturn\",\n  case when (\"btcReturn\" * \"firstPrice\") <> '0' then ((\"btcReturn\" * \"firstPrice\"))::varchar else '' end as \"btcUsdReturn\",\n  case when \"usdReturn\" <> '0' then \"usdReturn\" end as \"usdReturn\",\n  case when \"fees\" <> '0' then \"fees\" end as \"fees\",\n  case when (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees <> 0 then (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees end as \"totalReturn\"\nfrom (\nselect \n  *,\n  CASE \n    WHEN \"status\" = 'SUCCESS' then \"buyFilled\" - \"sellFilled\"\n    WHEN \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then \"revFilled\" - \"buyFilled\" - \"sellFilled\"\n    WHEN \"status\" = 'REVERSED' and \"direction\" = 'UP' then \"buyFilled\" - \"sellFilled\" - \"revFilled\"\n  end as \"btcReturn\",\n  CASE \n    WHEN \"status\" = 'SUCCESS' then \"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\"\n    WHEN \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then \"firstPrice\" * \"firstFilled\" - \"revPrice\" * \"revFilled\"\n    WHEN \"status\" = 'REVERSED' and \"direction\" = 'UP' then \"revPrice\" * \"revFilled\" - (\"firstPrice\" * \"firstFilled\" - \"secondPrice\" * \"secondFilled\")\n  end as \"usdReturn\"\nfrom\n  (\n  SELECT \n  uuid,\n  data->>'createdAt' as \"createdAt\", \n  CASE WHEN data->>'endedAt' <> '0001-01-01T00:00:00Z' THEN data->>'endedAt' END as \"endedAt\",\n  'UP' as \"direction\",\n  data->>'status' as \"status\",\n  (data->'firstRequest'->>'price')::decimal as \"firstPrice\",\n  (data->'firstOrder'->>'filled')::decimal as \"firstFilled\",\n  (data->'secondRequest'->>'price')::decimal as \"secondPrice\",\n  (data->'secondOrder'->>'filled')::decimal as \"secondFilled\",\n  (data->'firstRequest'->>'price')::decimal as \"buyPrice\", \n  (data->'firstRequest'->>'quantity')::decimal as \"buyQty\",\n  case when data->'firstOrder'->>'filled' = '0' then 0 else (data->'firstOrder'->>'filled')::decimal end as \"buyFilled\", \n  case when data->'firstOrder'->>'status' <> '' then data->'firstOrder'->>'status'end as \"buyStatus\",\n  (data->'secondRequest'->>'price')::decimal as \"sellPrice\", \n  (data->'secondRequest'->>'quantity')::decimal as \"sellQty\", \n  case when data->'secondOrder'->>'filled' = '0' then 0 else (data->'secondOrder'->>'filled')::decimal end as \"sellFilled\", \n  data->'secondOrder'->>'status' as \"sellStatus\",\n  case when data->'reversalOrder'->'request'->>'price' = '0' then 0 else (data->'reversalOrder'->'request'->>'price')::decimal end as \"revPrice\", \n  case when data->'reversalOrder'->'request'->>'quantity' = '0' then 0 else (data->'reversalOrder'->'request'->>'quantity')::decimal end as \"revQty\", \n  case when data->'reversalOrder'->>'filled' = '0' then 0 else (data->'reversalOrder'->>'filled')::decimal end as \"revFilled\", \n  data->'reversalOrder'->>'status' as \"revStatus\",\n  (data->'firstOrder'->>'fees')::decimal + (data->'secondOrder'->>'fees')::decimal + (data->'reversalOrder'->>'fees')::decimal as \"fees\"\nFROM \n  orderpairs \nWHERE\n  data->>'direction' = 'UP'\n  \nUNION ALL\n\nSELECT \n  uuid,\n  data->>'createdAt' as \"createdAt\", \n  CASE WHEN data->>'endedAt' = '0001-01-01T00:00:00Z' THEN '' ELSE data->>'endedAt' END as \"endedAt\",\n  'DOWN' as \"direction\",\n  data->>'status' as \"status\",\n  (data->'firstRequest'->>'price')::decimal as \"firstPrice\",\n  (data->'firstOrder'->>'filled')::decimal as \"firstFilled\",\n  (data->'secondRequest'->>'price')::decimal as \"secondPrice\",\n  (data->'secondOrder'->>'filled')::decimal as \"secondFilled\",\n  (data->'secondRequest'->>'price')::decimal as \"buyPrice\", \n  (data->'secondRequest'->>'quantity')::decimal as \"buyQty\", \n  case when data->'secondOrder'->>'filled' = '0' then 0 else (data->'secondOrder'->>'filled')::decimal end as \"buyFilled\", \n  data->'secondOrder'->>'status' as \"buyStatus\",\n  (data->'firstRequest'->>'price')::decimal as \"sellPrice\", \n  (data->'firstRequest'->>'quantity')::decimal as \"sellQty\", \n  case when data->'firstOrder'->>'filled' = '0' then 0 else (data->'firstOrder'->>'filled')::decimal end as \"sellFilled\", \n  data->'firstOrder'->>'status' as \"sellStatus\",\n  case when data->'reversalOrder'->'request'->>'price' = '0' then 0 else (data->'reversalOrder'->'request'->>'price')::decimal end as \"revPrice\", \n  case when data->'reversalOrder'->'request'->>'quantity' = '0' then 0 else (data->'reversalOrder'->'request'->>'quantity')::decimal end as \"revQty\", \n  case when data->'reversalOrder'->>'filled' = '0' then 0 else (data->'reversalOrder'->>'filled')::decimal end as \"revFilled\", \n  data->'reversalOrder'->>'status' as \"revStatus\",\n  (data->'firstOrder'->>'fees')::decimal + (data->'secondOrder'->>'fees')::decimal + (data->'reversalOrder'->>'fees')::decimal as \"fees\"\nFROM \n  orderpairs \nWHERE\n  data->>'direction' = 'DOWN'\n) as pairs\n\nORDER BY\n  pairs.\"createdAt\"\n) as pairReturns\n\nWHERE \"status\" = 'REVERSED'\nAND $__timeFilter(GREATEST(\"createdAt\", \"endedAt\"))",
+                    "rawSql": "select\n    \"uuid\",\n    \"createdAt\",\n    \"endedAt\",\n    \"direction\",\n    case when \"buyPrice\" <> '0' then \"buyPrice\" end as \"buyPrice\",\n    case when \"sellPrice\" <> '0' then \"sellPrice\" end as \"sellPrice\",\n    case when \"revPrice\" <> '0' then \"revPrice\" end as \"revPrice\",\n    case when \"buyQty\" <> '0' then \"buyQty\" end as \"buyQty\",\n    case when \"sellQty\" <> '0' then \"sellQty\" end as \"sellQty\",\n    case when \"revFunds\" <> '0' then \"revFunds\" end as \"revFunds\",\n    case when \"buyFilled\" <> '0' then \"buyFilled\" end as \"buyFilled\",\n    case when \"sellFilled\" <> '0' then \"sellFilled\" end as \"sellFilled\",\n    case when \"revFilled\" <> '0' then \"revFilled\" end as \"revFilled\",\n    case when \"btcReturn\"<> '0' then \"btcReturn\" end as \"btcReturn\",\n    case when (\"btcReturn\" * \"firstPrice\") <> '0' then (\"btcReturn\" * \"firstPrice\") end as \"btcUsdReturn\",\n    case when \"usdReturn\" <> '0' then \"usdReturn\" end as \"usdReturn\",\n    case when \"fees\" <> '0' then \"fees\" end as \"fees\",\n    case when (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees <> 0 then (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees end as \"totalReturn\"\nfrom (\n    select\n        *,\n        case \n            when \"status\" = 'SUCCESS' then \"buyFilled\" - \"sellFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then \"revFilled\" - \"buyFilled\" - \"sellFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'UP' then \"buyFilled\" - \"sellFilled\" - \"revFilled\"\n        end as \"btcReturn\",\n        case \n            when \"status\" = 'SUCCESS' then \"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then (\"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\") - \"revPrice\" * \"revFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'UP' then (\"revPrice\" * \"revFilled\") - ABS(\"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\")\n        end as \"usdReturn\"\n    from (\n        select\n            *,\n            case when \"direction\" = 'UP' then \"firstStatus\" else \"secondStatus\" end as \"buyStatus\",\n            case when \"direction\" = 'UP' then \"firstPrice\" else \"secondPrice\" end as \"buyPrice\",\n            case when \"direction\" = 'UP' then \"firstQty\" else \"secondQty\" end as \"buyQty\",\n            case when \"direction\" = 'UP' then \"firstFilled\" else \"secondFilled\" end as \"buyFilled\",\n            case when \"direction\" = 'UP' then \"firstFees\" else \"secondFees\" end as \"buyFees\",\n            \n            case when \"direction\" = 'DOWN' then \"firstStatus\" else \"secondStatus\" end as \"sellStatus\",\n            case when \"direction\" = 'DOWN' then \"firstPrice\" else \"secondPrice\" end as \"sellPrice\",\n            case when \"direction\" = 'DOWN' then \"firstQty\" else \"secondQty\" end as \"sellQty\",\n            case when \"direction\" = 'DOWN' then \"firstFilled\" else \"secondFilled\" end as \"sellFilled\",\n            case when \"direction\" = 'DOWN' then \"firstFees\" else \"secondFees\" end as \"sellFees\",\n            \"firstFees\" + \"secondFees\" + \"revFees\" as \"fees\"\n        from (\n            select \n                uuid,\n                data->>'createdAt' as \"createdAt\", \n                case when data->>'endedAt' = '0001-01-01T00:00:00Z' then '' else data->>'endedAt' end as \"endedAt\",\n                data->>'direction' as \"direction\",\n                data->>'status' as \"status\",\n                data->'firstOrder'->>'status' as \"firstStatus\",\n                data->'secondOrder'->>'status' as \"secondStatus\",\n                data->'reversalOrder'->>'status' as \"revStatus\",\n                (data->'firstRequest'->>'price')::decimal as \"firstPrice\",\n                (data->'secondRequest'->>'price')::decimal as \"secondPrice\",\n                (data->'reversalOrder'->'request'->>'price')::decimal as \"revPrice\",\n                (data->'firstRequest'->>'quantity')::decimal as \"firstQty\",\n                (data->'secondRequest'->>'quantity')::decimal as \"secondQty\",\n                (data->'reversalRequest'->>'funds')::decimal as \"revFunds\",\n                (data->'firstOrder'->>'filled')::decimal as \"firstFilled\",\n                (data->'secondOrder'->>'filled')::decimal as \"secondFilled\",\n                (data->'reversalOrder'->>'filled')::decimal as \"revFilled\",\n                (data->'reversalOrder'->>'fees')::decimal as \"revFees\",\n                (data->'secondOrder'->>'fees')::decimal as \"secondFees\",\n                (data->'firstOrder'->>'fees')::decimal as \"firstFees\"\n            from \n                orderpairs \n        ) as pairs\n    ) as \"pairsWithReturns\"\n) as pairReturns\n\nWHERE \"status\" = 'REVERSED'\nAND $__timeFilter(GREATEST(\"createdAt\", \"endedAt\"))",
                     "refId": "A",
                     "select": [
                       [
@@ -1942,488 +2060,6 @@ grafana:
                   "w": 4,
                   "x": 0,
                   "y": 24
-                },
-                "id": 4,
-                "options": {
-                  "colorMode": "value",
-                  "graphMode": "none",
-                  "justifyMode": "auto",
-                  "orientation": "auto",
-                  "reduceOptions": {
-                    "calcs": [
-                      "mean"
-                    ],
-                    "fields": "",
-                    "values": false
-                  },
-                  "textMode": "auto"
-                },
-                "pluginVersion": "7.3.5",
-                "targets": [
-                  {
-                    "format": "table",
-                    "group": [],
-                    "metricColumn": "none",
-                    "rawQuery": true,
-                    "rawSql": "SELECT\n  count(1) as \"Total Orders\"\nfrom\n  orderpairs\nwhere\n  $__timeFilter(data->>'createdAt')",
-                    "refId": "A",
-                    "select": [
-                      [
-                        {
-                          "params": [
-                            "value"
-                          ],
-                          "type": "column"
-                        }
-                      ]
-                    ],
-                    "timeColumn": "time",
-                    "where": [
-                      {
-                        "name": "$__timeFilter",
-                        "params": [],
-                        "type": "macro"
-                      }
-                    ]
-                  }
-                ],
-                "timeFrom": null,
-                "timeShift": null,
-                "title": "All Pairs",
-                "type": "stat"
-              },
-              {
-                "datasource": null,
-                "fieldConfig": {
-                  "defaults": {
-                    "custom": {
-                      "align": null,
-                      "displayMode": "auto",
-                      "filterable": false
-                    },
-                    "decimals": 2,
-                    "mappings": [],
-                    "thresholds": {
-                      "mode": "absolute",
-                      "steps": [
-                        {
-                          "color": "green",
-                          "value": null
-                        },
-                        {
-                          "color": "red",
-                          "value": 80
-                        }
-                      ]
-                    }
-                  },
-                  "overrides": [
-                    {
-                      "matcher": {
-                        "id": "byName",
-                        "options": "createdAt"
-                      },
-                      "properties": [
-                        {
-                          "id": "custom.width",
-                          "value": 239
-                        }
-                      ]
-                    },
-                    {
-                      "matcher": {
-                        "id": "byName",
-                        "options": "endedAt"
-                      },
-                      "properties": [
-                        {
-                          "id": "custom.width",
-                          "value": 241
-                        }
-                      ]
-                    },
-                    {
-                      "matcher": {
-                        "id": "byName",
-                        "options": "buyPrice"
-                      },
-                      "properties": [
-                        {
-                          "id": "custom.width",
-                          "value": 86
-                        }
-                      ]
-                    },
-                    {
-                      "matcher": {
-                        "id": "byName",
-                        "options": "buyQty"
-                      },
-                      "properties": [
-                        {
-                          "id": "custom.width",
-                          "value": 99
-                        },
-                        {
-                          "id": "decimals",
-                          "value": 8
-                        }
-                      ]
-                    },
-                    {
-                      "matcher": {
-                        "id": "byName",
-                        "options": "buyFilled"
-                      },
-                      "properties": [
-                        {
-                          "id": "custom.width",
-                          "value": 104
-                        },
-                        {
-                          "id": "decimals",
-                          "value": 8
-                        },
-                        {
-                          "id": "noValue",
-                          "value": "-"
-                        }
-                      ]
-                    },
-                    {
-                      "matcher": {
-                        "id": "byName",
-                        "options": "sellPrice"
-                      },
-                      "properties": [
-                        {
-                          "id": "custom.width",
-                          "value": 75
-                        }
-                      ]
-                    },
-                    {
-                      "matcher": {
-                        "id": "byName",
-                        "options": "sellQty"
-                      },
-                      "properties": [
-                        {
-                          "id": "custom.width",
-                          "value": 98
-                        },
-                        {
-                          "id": "decimals",
-                          "value": 8
-                        }
-                      ]
-                    },
-                    {
-                      "matcher": {
-                        "id": "byName",
-                        "options": "sellFilled"
-                      },
-                      "properties": [
-                        {
-                          "id": "custom.width",
-                          "value": 98
-                        },
-                        {
-                          "id": "decimals",
-                          "value": 8
-                        },
-                        {
-                          "id": "noValue",
-                          "value": "-"
-                        }
-                      ]
-                    },
-                    {
-                      "matcher": {
-                        "id": "byName",
-                        "options": "revPrice"
-                      },
-                      "properties": [
-                        {
-                          "id": "custom.width",
-                          "value": 76
-                        },
-                        {
-                          "id": "noValue",
-                          "value": "-"
-                        }
-                      ]
-                    },
-                    {
-                      "matcher": {
-                        "id": "byName",
-                        "options": "revQty"
-                      },
-                      "properties": [
-                        {
-                          "id": "custom.width",
-                          "value": 95
-                        },
-                        {
-                          "id": "decimals",
-                          "value": 8
-                        },
-                        {
-                          "id": "noValue",
-                          "value": "-"
-                        }
-                      ]
-                    },
-                    {
-                      "matcher": {
-                        "id": "byName",
-                        "options": "revFilled"
-                      },
-                      "properties": [
-                        {
-                          "id": "custom.width",
-                          "value": 93
-                        },
-                        {
-                          "id": "decimals",
-                          "value": 8
-                        },
-                        {
-                          "id": "noValue",
-                          "value": "-"
-                        }
-                      ]
-                    },
-                    {
-                      "matcher": {
-                        "id": "byName",
-                        "options": "revStatus"
-                      },
-                      "properties": [
-                        {
-                          "id": "custom.width",
-                          "value": 77
-                        }
-                      ]
-                    },
-                    {
-                      "matcher": {
-                        "id": "byName",
-                        "options": "fees"
-                      },
-                      "properties": [
-                        {
-                          "id": "custom.width",
-                          "value": 59
-                        },
-                        {
-                          "id": "noValue",
-                          "value": "-"
-                        }
-                      ]
-                    },
-                    {
-                      "matcher": {
-                        "id": "byName",
-                        "options": "btcReturn"
-                      },
-                      "properties": [
-                        {
-                          "id": "custom.width",
-                          "value": 99
-                        },
-                        {
-                          "id": "noValue",
-                          "value": "-"
-                        },
-                        {
-                          "id": "decimals",
-                          "value": 8
-                        },
-                        {
-                          "id": "custom.align",
-                          "value": "right"
-                        }
-                      ]
-                    },
-                    {
-                      "matcher": {
-                        "id": "byName",
-                        "options": "btcUsdReturn"
-                      },
-                      "properties": [
-                        {
-                          "id": "noValue",
-                          "value": "-"
-                        },
-                        {
-                          "id": "custom.width",
-                          "value": 110
-                        },
-                        {
-                          "id": "custom.align",
-                          "value": "right"
-                        }
-                      ]
-                    },
-                    {
-                      "matcher": {
-                        "id": "byName",
-                        "options": "usdReturn"
-                      },
-                      "properties": [
-                        {
-                          "id": "noValue",
-                          "value": "-"
-                        },
-                        {
-                          "id": "custom.width",
-                          "value": null
-                        }
-                      ]
-                    },
-                    {
-                      "matcher": {
-                        "id": "byName",
-                        "options": "direction"
-                      },
-                      "properties": [
-                        {
-                          "id": "custom.width",
-                          "value": 86
-                        }
-                      ]
-                    },
-                    {
-                      "matcher": {
-                        "id": "byName",
-                        "options": "totalReturn"
-                      },
-                      "properties": [
-                        {
-                          "id": "custom.width",
-                          "value": 92
-                        },
-                        {
-                          "id": "noValue",
-                          "value": "-"
-                        }
-                      ]
-                    },
-                    {
-                      "matcher": {
-                        "id": "byName",
-                        "options": "uuid"
-                      },
-                      "properties": [
-                        {
-                          "id": "custom.width",
-                          "value": 139
-                        }
-                      ]
-                    },
-                    {
-                      "matcher": {
-                        "id": "byName",
-                        "options": "status"
-                      },
-                      "properties": [
-                        {
-                          "id": "custom.width",
-                          "value": 100
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "gridPos": {
-                  "h": 6,
-                  "w": 20,
-                  "x": 4,
-                  "y": 24
-                },
-                "id": 44,
-                "options": {
-                  "showHeader": true,
-                  "sortBy": [
-                    {
-                      "desc": true,
-                      "displayName": "createdAt"
-                    }
-                  ]
-                },
-                "pluginVersion": "7.3.5",
-                "targets": [
-                  {
-                    "format": "table",
-                    "group": [],
-                    "metricColumn": "none",
-                    "rawQuery": true,
-                    "rawSql": "  select\n  \"uuid\",\n  \"createdAt\",\n  \"endedAt\",\n  \"status\",\n  \"direction\",\n  case when \"buyPrice\" <> '0' then \"buyPrice\" end as \"buyPrice\",\n  case when \"sellPrice\" <> '0' then \"sellPrice\" end as \"sellPrice\",\n  case when \"revPrice\" <> '0' then \"revPrice\" end as \"revPrice\",\n  case when \"buyQty\" <> '0' then \"buyQty\" end as \"buyQty\",\n  case when \"sellQty\" <> '0' then \"sellQty\" end as \"sellQty\",\n  case when \"revQty\" <> '0' then \"revQty\" end as \"revQty\",\n  case when \"buyFilled\" <> '0' then \"buyFilled\" end as \"buyFilled\",\n  case when \"sellFilled\" <> '0' then \"sellFilled\" end as \"sellFilled\",\n  case when \"revFilled\" <> '0' then \"revFilled\" end as \"revFilled\",\n  case when \"btcReturn\"<> '0' then (\"btcReturn\")::varchar else '' end as \"btcReturn\",\n  case when (\"btcReturn\" * \"firstPrice\") <> '0' then ((\"btcReturn\" * \"firstPrice\"))::varchar else '' end as \"btcUsdReturn\",\n  case when \"usdReturn\" <> '0' then \"usdReturn\" end as \"usdReturn\",\n  case when \"fees\" <> '0' then \"fees\" end as \"fees\",\n  case when (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees <> 0 then (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees end as \"totalReturn\"\nfrom (\nselect \n  *,\n  CASE \n    WHEN \"status\" = 'SUCCESS' then \"buyFilled\" - \"sellFilled\"\n    WHEN \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then \"revFilled\" - \"buyFilled\" - \"sellFilled\"\n    WHEN \"status\" = 'REVERSED' and \"direction\" = 'UP' then \"buyFilled\" - \"sellFilled\" - \"revFilled\"\n  end as \"btcReturn\",\n  CASE \n    WHEN \"status\" = 'SUCCESS' then \"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\"\n    WHEN \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then \"firstPrice\" * \"firstFilled\" - \"revPrice\" * \"revFilled\"\n    WHEN \"status\" = 'REVERSED' and \"direction\" = 'UP' then\"revPrice\" * \"revFilled\" - \"firstPrice\" * \"firstFilled\"\n  end as \"usdReturn\"\nfrom\n  (\n  SELECT \n  uuid,\n  data->>'createdAt' as \"createdAt\", \n  CASE WHEN data->>'endedAt' <> '0001-01-01T00:00:00Z' THEN data->>'endedAt' END as \"endedAt\",\n  'UP' as \"direction\",\n  data->>'status' as \"status\",\n  (data->'firstRequest'->>'price')::decimal as \"firstPrice\",\n  (data->'firstOrder'->>'filled')::decimal as \"firstFilled\",\n  (data->'secondRequest'->>'price')::decimal as \"secondPrice\",\n  (data->'secondOrder'->>'filled')::decimal as \"secondFilled\",\n  (data->'firstRequest'->>'price')::decimal as \"buyPrice\", \n  (data->'firstRequest'->>'quantity')::decimal as \"buyQty\",\n  case when data->'firstOrder'->>'filled' = '0' then 0 else (data->'firstOrder'->>'filled')::decimal end as \"buyFilled\", \n  case when data->'firstOrder'->>'status' <> '' then data->'firstOrder'->>'status'end as \"buyStatus\",\n  (data->'secondRequest'->>'price')::decimal as \"sellPrice\", \n  (data->'secondRequest'->>'quantity')::decimal as \"sellQty\", \n  case when data->'secondOrder'->>'filled' = '0' then 0 else (data->'secondOrder'->>'filled')::decimal end as \"sellFilled\", \n  data->'secondOrder'->>'status' as \"sellStatus\",\n  case when data->'reversalOrder'->'request'->>'price' = '0' then 0 else (data->'reversalOrder'->'request'->>'price')::decimal end as \"revPrice\", \n  case when data->'reversalOrder'->'request'->>'quantity' = '0' then 0 else (data->'reversalOrder'->'request'->>'quantity')::decimal end as \"revQty\", \n  case when data->'reversalOrder'->>'filled' = '0' then 0 else (data->'reversalOrder'->>'filled')::decimal end as \"revFilled\", \n  data->'reversalOrder'->>'status' as \"revStatus\",\n  (data->'firstOrder'->>'fees')::decimal + (data->'secondOrder'->>'fees')::decimal + (data->'reversalOrder'->>'fees')::decimal as \"fees\"\nFROM \n  orderpairs \nWHERE\n  data->>'direction' = 'UP'\n  \nUNION ALL\n\nSELECT \n  uuid,\n  data->>'createdAt' as \"createdAt\", \n  CASE WHEN data->>'endedAt' = '0001-01-01T00:00:00Z' THEN '' ELSE data->>'endedAt' END as \"endedAt\",\n  'DOWN' as \"direction\",\n  data->>'status' as \"status\",\n  (data->'firstRequest'->>'price')::decimal as \"firstPrice\",\n  (data->'firstOrder'->>'filled')::decimal as \"firstFilled\",\n  (data->'secondRequest'->>'price')::decimal as \"secondPrice\",\n  (data->'secondOrder'->>'filled')::decimal as \"secondFilled\",\n  (data->'secondRequest'->>'price')::decimal as \"buyPrice\", \n  (data->'secondRequest'->>'quantity')::decimal as \"buyQty\", \n  case when data->'secondOrder'->>'filled' = '0' then 0 else (data->'secondOrder'->>'filled')::decimal end as \"buyFilled\", \n  data->'secondOrder'->>'status' as \"buyStatus\",\n  (data->'firstRequest'->>'price')::decimal as \"sellPrice\", \n  (data->'firstRequest'->>'quantity')::decimal as \"sellQty\", \n  case when data->'firstOrder'->>'filled' = '0' then 0 else (data->'firstOrder'->>'filled')::decimal end as \"sellFilled\", \n  data->'firstOrder'->>'status' as \"sellStatus\",\n  case when data->'reversalOrder'->'request'->>'price' = '0' then 0 else (data->'reversalOrder'->'request'->>'price')::decimal end as \"revPrice\", \n  case when data->'reversalOrder'->'request'->>'quantity' = '0' then 0 else (data->'reversalOrder'->'request'->>'quantity')::decimal end as \"revQty\", \n  case when data->'reversalOrder'->>'filled' = '0' then 0 else (data->'reversalOrder'->>'filled')::decimal end as \"revFilled\", \n  data->'reversalOrder'->>'status' as \"revStatus\",\n  (data->'firstOrder'->>'fees')::decimal + (data->'secondOrder'->>'fees')::decimal + (data->'reversalOrder'->>'fees')::decimal as \"fees\"\nFROM \n  orderpairs \nWHERE\n  data->>'direction' = 'DOWN'\n) as pairs\n\nORDER BY\n  pairs.\"createdAt\"\n) as pairReturns\n\nWHERE  $__timeFilter(GREATEST(\"createdAt\", \"endedAt\"))",
-                    "refId": "A",
-                    "select": [
-                      [
-                        {
-                          "params": [
-                            "value"
-                          ],
-                          "type": "column"
-                        }
-                      ]
-                    ],
-                    "timeColumn": "time",
-                    "where": [
-                      {
-                        "name": "$__timeFilter",
-                        "params": [],
-                        "type": "macro"
-                      }
-                    ]
-                  }
-                ],
-                "timeFrom": null,
-                "timeShift": null,
-                "title": "All Pairs",
-                "type": "table"
-              },
-              {
-                "datasource": null,
-                "fieldConfig": {
-                  "defaults": {
-                    "custom": {
-                      "align": null
-                    },
-                    "mappings": [],
-                    "thresholds": {
-                      "mode": "absolute",
-                      "steps": [
-                        {
-                          "color": "super-light-blue",
-                          "value": null
-                        }
-                      ]
-                    }
-                  },
-                  "overrides": [
-                    {
-                      "matcher": {
-                        "id": "byName",
-                        "options": "uuid"
-                      },
-                      "properties": [
-                        {
-                          "id": "custom.width",
-                          "value": 340
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "gridPos": {
-                  "h": 6,
-                  "w": 4,
-                  "x": 0,
-                  "y": 30
                 },
                 "id": 17,
                 "options": {
@@ -2822,7 +2458,7 @@ grafana:
                   "h": 6,
                   "w": 20,
                   "x": 4,
-                  "y": 30
+                  "y": 24
                 },
                 "id": 45,
                 "options": {
@@ -2841,7 +2477,7 @@ grafana:
                     "group": [],
                     "metricColumn": "none",
                     "rawQuery": true,
-                    "rawSql": "  select\n  \"uuid\",\n  \"createdAt\",\n  \"endedAt\",\n  \"status\",\n  \"direction\",\n  case when \"buyPrice\" <> '0' then \"buyPrice\" end as \"buyPrice\",\n  case when \"sellPrice\" <> '0' then \"sellPrice\" end as \"sellPrice\",\n  case when \"revPrice\" <> '0' then \"revPrice\" end as \"revPrice\",\n  case when \"buyQty\" <> '0' then \"buyQty\" end as \"buyQty\",\n  case when \"sellQty\" <> '0' then \"sellQty\" end as \"sellQty\",\n  case when \"revQty\" <> '0' then \"revQty\" end as \"revQty\",\n  case when \"buyFilled\" <> '0' then \"buyFilled\" end as \"buyFilled\",\n  case when \"sellFilled\" <> '0' then \"sellFilled\" end as \"sellFilled\",\n  case when \"revFilled\" <> '0' then \"revFilled\" end as \"revFilled\",\n  case when \"btcReturn\"<> '0' then (\"btcReturn\")::varchar else '' end as \"btcReturn\",\n  case when (\"btcReturn\" * \"firstPrice\") <> '0' then ((\"btcReturn\" * \"firstPrice\"))::varchar else '' end as \"btcUsdReturn\",\n  case when \"usdReturn\" <> '0' then \"usdReturn\" end as \"usdReturn\",\n  case when \"fees\" <> '0' then \"fees\" end as \"fees\",\n  case when (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees <> 0 then (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees end as \"totalReturn\"\nfrom (\nselect \n  *,\n  CASE \n    WHEN \"status\" = 'SUCCESS' then \"buyFilled\" - \"sellFilled\"\n    WHEN \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then \"revFilled\" - \"buyFilled\" - \"sellFilled\"\n    WHEN \"status\" = 'REVERSED' and \"direction\" = 'UP' then \"buyFilled\" - \"sellFilled\" - \"revFilled\"\n  end as \"btcReturn\",\n  CASE \n    WHEN \"status\" = 'SUCCESS' then \"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\"\n    WHEN \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then \"firstPrice\" * \"firstFilled\" - \"revPrice\" * \"revFilled\"\n    WHEN \"status\" = 'REVERSED' and \"direction\" = 'UP' then\"revPrice\" * \"revFilled\" - \"firstPrice\" * \"firstFilled\"\n  end as \"usdReturn\"\nfrom\n  (\n  SELECT \n  uuid,\n  data->>'createdAt' as \"createdAt\", \n  CASE WHEN data->>'endedAt' <> '0001-01-01T00:00:00Z' THEN data->>'endedAt' END as \"endedAt\",\n  'UP' as \"direction\",\n  data->>'status' as \"status\",\n  (data->'firstRequest'->>'price')::decimal as \"firstPrice\",\n  (data->'firstOrder'->>'filled')::decimal as \"firstFilled\",\n  (data->'secondRequest'->>'price')::decimal as \"secondPrice\",\n  (data->'secondOrder'->>'filled')::decimal as \"secondFilled\",\n  (data->'firstRequest'->>'price')::decimal as \"buyPrice\", \n  (data->'firstRequest'->>'quantity')::decimal as \"buyQty\",\n  case when data->'firstOrder'->>'filled' = '0' then 0 else (data->'firstOrder'->>'filled')::decimal end as \"buyFilled\", \n  case when data->'firstOrder'->>'status' <> '' then data->'firstOrder'->>'status'end as \"buyStatus\",\n  (data->'secondRequest'->>'price')::decimal as \"sellPrice\", \n  (data->'secondRequest'->>'quantity')::decimal as \"sellQty\", \n  case when data->'secondOrder'->>'filled' = '0' then 0 else (data->'secondOrder'->>'filled')::decimal end as \"sellFilled\", \n  data->'secondOrder'->>'status' as \"sellStatus\",\n  case when data->'reversalOrder'->'request'->>'price' = '0' then 0 else (data->'reversalOrder'->'request'->>'price')::decimal end as \"revPrice\", \n  case when data->'reversalOrder'->'request'->>'quantity' = '0' then 0 else (data->'reversalOrder'->'request'->>'quantity')::decimal end as \"revQty\", \n  case when data->'reversalOrder'->>'filled' = '0' then 0 else (data->'reversalOrder'->>'filled')::decimal end as \"revFilled\", \n  data->'reversalOrder'->>'status' as \"revStatus\",\n  (data->'firstOrder'->>'fees')::decimal + (data->'secondOrder'->>'fees')::decimal + (data->'reversalOrder'->>'fees')::decimal as \"fees\"\nFROM \n  orderpairs \nWHERE\n  data->>'direction' = 'UP'\n  \nUNION ALL\n\nSELECT \n  uuid,\n  data->>'createdAt' as \"createdAt\", \n  CASE WHEN data->>'endedAt' = '0001-01-01T00:00:00Z' THEN '' ELSE data->>'endedAt' END as \"endedAt\",\n  'DOWN' as \"direction\",\n  data->>'status' as \"status\",\n  (data->'firstRequest'->>'price')::decimal as \"firstPrice\",\n  (data->'firstOrder'->>'filled')::decimal as \"firstFilled\",\n  (data->'secondRequest'->>'price')::decimal as \"secondPrice\",\n  (data->'secondOrder'->>'filled')::decimal as \"secondFilled\",\n  (data->'secondRequest'->>'price')::decimal as \"buyPrice\", \n  (data->'secondRequest'->>'quantity')::decimal as \"buyQty\", \n  case when data->'secondOrder'->>'filled' = '0' then 0 else (data->'secondOrder'->>'filled')::decimal end as \"buyFilled\", \n  data->'secondOrder'->>'status' as \"buyStatus\",\n  (data->'firstRequest'->>'price')::decimal as \"sellPrice\", \n  (data->'firstRequest'->>'quantity')::decimal as \"sellQty\", \n  case when data->'firstOrder'->>'filled' = '0' then 0 else (data->'firstOrder'->>'filled')::decimal end as \"sellFilled\", \n  data->'firstOrder'->>'status' as \"sellStatus\",\n  case when data->'reversalOrder'->'request'->>'price' = '0' then 0 else (data->'reversalOrder'->'request'->>'price')::decimal end as \"revPrice\", \n  case when data->'reversalOrder'->'request'->>'quantity' = '0' then 0 else (data->'reversalOrder'->'request'->>'quantity')::decimal end as \"revQty\", \n  case when data->'reversalOrder'->>'filled' = '0' then 0 else (data->'reversalOrder'->>'filled')::decimal end as \"revFilled\", \n  data->'reversalOrder'->>'status' as \"revStatus\",\n  (data->'firstOrder'->>'fees')::decimal + (data->'secondOrder'->>'fees')::decimal + (data->'reversalOrder'->>'fees')::decimal as \"fees\"\nFROM \n  orderpairs \nWHERE\n  data->>'direction' = 'DOWN'\n) as pairs\n\nORDER BY\n  pairs.\"createdAt\"\n) as pairReturns\n\nWHERE \"status\" = 'CANCELED' AND $__timeFilter(GREATEST(\"createdAt\", \"endedAt\"))",
+                    "rawSql": "select\n    \"uuid\",\n    \"createdAt\",\n    \"endedAt\",\n    \"direction\",\n    case when \"buyPrice\" <> '0' then \"buyPrice\" end as \"buyPrice\",\n    case when \"sellPrice\" <> '0' then \"sellPrice\" end as \"sellPrice\",\n    case when \"revPrice\" <> '0' then \"revPrice\" end as \"revPrice\",\n    case when \"buyQty\" <> '0' then \"buyQty\" end as \"buyQty\",\n    case when \"sellQty\" <> '0' then \"sellQty\" end as \"sellQty\",\n    case when \"revFunds\" <> '0' then \"revFunds\" end as \"revFunds\",\n    case when \"buyFilled\" <> '0' then \"buyFilled\" end as \"buyFilled\",\n    case when \"sellFilled\" <> '0' then \"sellFilled\" end as \"sellFilled\",\n    case when \"revFilled\" <> '0' then \"revFilled\" end as \"revFilled\",\n    case when \"btcReturn\"<> '0' then \"btcReturn\" end as \"btcReturn\",\n    case when (\"btcReturn\" * \"firstPrice\") <> '0' then (\"btcReturn\" * \"firstPrice\") end as \"btcUsdReturn\",\n    case when \"usdReturn\" <> '0' then \"usdReturn\" end as \"usdReturn\",\n    case when \"fees\" <> '0' then \"fees\" end as \"fees\",\n    case when (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees <> 0 then (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees end as \"totalReturn\"\nfrom (\n    select\n        *,\n        case \n            when \"status\" = 'SUCCESS' then \"buyFilled\" - \"sellFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then \"revFilled\" - \"buyFilled\" - \"sellFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'UP' then \"buyFilled\" - \"sellFilled\" - \"revFilled\"\n            else 0\n        end as \"btcReturn\",\n        case \n            when \"status\" = 'SUCCESS' then \"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then (\"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\") - \"revPrice\" * \"revFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'UP' then (\"revPrice\" * \"revFilled\") - ABS(\"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\")\n            else 0\n        end as \"usdReturn\"\n    from (\n        select\n            *,\n            case when \"direction\" = 'UP' then \"firstStatus\" else \"secondStatus\" end as \"buyStatus\",\n            case when \"direction\" = 'UP' then \"firstPrice\" else \"secondPrice\" end as \"buyPrice\",\n            case when \"direction\" = 'UP' then \"firstQty\" else \"secondQty\" end as \"buyQty\",\n            case when \"direction\" = 'UP' then \"firstFilled\" else \"secondFilled\" end as \"buyFilled\",\n            case when \"direction\" = 'UP' then \"firstFees\" else \"secondFees\" end as \"buyFees\",\n            \n            case when \"direction\" = 'DOWN' then \"firstStatus\" else \"secondStatus\" end as \"sellStatus\",\n            case when \"direction\" = 'DOWN' then \"firstPrice\" else \"secondPrice\" end as \"sellPrice\",\n            case when \"direction\" = 'DOWN' then \"firstQty\" else \"secondQty\" end as \"sellQty\",\n            case when \"direction\" = 'DOWN' then \"firstFilled\" else \"secondFilled\" end as \"sellFilled\",\n            case when \"direction\" = 'DOWN' then \"firstFees\" else \"secondFees\" end as \"sellFees\",\n            \"firstFees\" + \"secondFees\" + \"revFees\" as \"fees\"\n        from (\n            select \n                uuid,\n                data->>'createdAt' as \"createdAt\", \n                case when data->>'endedAt' = '0001-01-01T00:00:00Z' then '' else data->>'endedAt' end as \"endedAt\",\n                data->>'direction' as \"direction\",\n                data->>'status' as \"status\",\n                data->'firstOrder'->>'status' as \"firstStatus\",\n                data->'secondOrder'->>'status' as \"secondStatus\",\n                data->'reversalOrder'->>'status' as \"revStatus\",\n                (data->'firstRequest'->>'price')::decimal as \"firstPrice\",\n                (data->'secondRequest'->>'price')::decimal as \"secondPrice\",\n                (data->'reversalOrder'->'request'->>'price')::decimal as \"revPrice\",\n                (data->'firstRequest'->>'quantity')::decimal as \"firstQty\",\n                (data->'secondRequest'->>'quantity')::decimal as \"secondQty\",\n                (data->'reversalRequest'->>'funds')::decimal as \"revFunds\",\n                (data->'firstOrder'->>'filled')::decimal as \"firstFilled\",\n                (data->'secondOrder'->>'filled')::decimal as \"secondFilled\",\n                (data->'reversalOrder'->>'filled')::decimal as \"revFilled\",\n                (data->'reversalOrder'->>'fees')::decimal as \"revFees\",\n                (data->'secondOrder'->>'fees')::decimal as \"secondFees\",\n                (data->'firstOrder'->>'fees')::decimal as \"firstFees\"\n            from \n                orderpairs \n        ) as pairs\n    ) as \"pairsWithReturns\"\n) as pairReturns\n\nWHERE \"status\" = 'CANCELED'\nAND $__timeFilter(GREATEST(\"createdAt\", \"endedAt\"))",
                     "refId": "A",
                     "select": [
                       [
@@ -2909,7 +2545,7 @@ grafana:
                   "h": 6,
                   "w": 4,
                   "x": 0,
-                  "y": 36
+                  "y": 30
                 },
                 "id": 15,
                 "options": {
@@ -3258,7 +2894,7 @@ grafana:
                       "properties": [
                         {
                           "id": "custom.width",
-                          "value": 86
+                          "value": 78
                         }
                       ]
                     },
@@ -3286,7 +2922,7 @@ grafana:
                       "properties": [
                         {
                           "id": "custom.width",
-                          "value": 355
+                          "value": 299
                         }
                       ]
                     },
@@ -3320,7 +2956,7 @@ grafana:
                   "h": 6,
                   "w": 20,
                   "x": 4,
-                  "y": 36
+                  "y": 30
                 },
                 "id": 46,
                 "options": {
@@ -3339,7 +2975,7 @@ grafana:
                     "group": [],
                     "metricColumn": "none",
                     "rawQuery": true,
-                    "rawSql": "  select\n  \"uuid\",\n  \"createdAt\",\n  \"endedAt\",\n  \"status\",\n  \"statusDetails\",\n  \"direction\",\n  case when \"buyPrice\" <> '0' then \"buyPrice\" end as \"buyPrice\",\n  case when \"sellPrice\" <> '0' then \"sellPrice\" end as \"sellPrice\",\n  case when \"revPrice\" <> '0' then \"revPrice\" end as \"revPrice\",\n  case when \"buyQty\" <> '0' then \"buyQty\" end as \"buyQty\",\n  case when \"sellQty\" <> '0' then \"sellQty\" end as \"sellQty\",\n  case when \"revQty\" <> '0' then \"revQty\" end as \"revQty\",\n  case when \"buyFilled\" <> '0' then \"buyFilled\" end as \"buyFilled\",\n  case when \"sellFilled\" <> '0' then \"sellFilled\" end as \"sellFilled\",\n  case when \"revFilled\" <> '0' then \"revFilled\" end as \"revFilled\",\n  case when \"btcReturn\"<> '0' then (\"btcReturn\")::varchar else '' end as \"btcReturn\",\n  case when (\"btcReturn\" * \"firstPrice\") <> '0' then ((\"btcReturn\" * \"firstPrice\"))::varchar else '' end as \"btcUsdReturn\",\n  case when \"usdReturn\" <> '0' then \"usdReturn\" end as \"usdReturn\",\n  case when \"fees\" <> '0' then \"fees\" end as \"fees\",\n  case when (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees <> 0 then (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees end as \"totalReturn\"\nfrom (\nselect \n  *,\n  CASE \n    WHEN \"status\" = 'SUCCESS' then \"buyFilled\" - \"sellFilled\"\n    WHEN \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then \"revFilled\" - \"buyFilled\" - \"sellFilled\"\n    WHEN \"status\" = 'REVERSED' and \"direction\" = 'UP' then \"buyFilled\" - \"sellFilled\" - \"revFilled\"\n  end as \"btcReturn\",\n  CASE \n    WHEN \"status\" = 'SUCCESS' then \"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\"\n    WHEN \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then \"firstPrice\" * \"firstFilled\" - \"revPrice\" * \"revFilled\"\n    WHEN \"status\" = 'REVERSED' and \"direction\" = 'UP' then\"revPrice\" * \"revFilled\" - \"firstPrice\" * \"firstFilled\"\n  end as \"usdReturn\"\nfrom\n  (\n  SELECT \n  uuid,\n  data->>'createdAt' as \"createdAt\", \n  CASE WHEN data->>'endedAt' <> '0001-01-01T00:00:00Z' THEN data->>'endedAt' END as \"endedAt\",\n  'UP' as \"direction\",\n  data->>'status' as \"status\",\n  data->>'statusDetails' as \"statusDetails\",\n  (data->'firstRequest'->>'price')::decimal as \"firstPrice\",\n  (data->'firstOrder'->>'filled')::decimal as \"firstFilled\",\n  (data->'secondRequest'->>'price')::decimal as \"secondPrice\",\n  (data->'secondOrder'->>'filled')::decimal as \"secondFilled\",\n  (data->'firstRequest'->>'price')::decimal as \"buyPrice\", \n  (data->'firstRequest'->>'quantity')::decimal as \"buyQty\",\n  case when data->'firstOrder'->>'filled' = '0' then 0 else (data->'firstOrder'->>'filled')::decimal end as \"buyFilled\", \n  case when data->'firstOrder'->>'status' <> '' then data->'firstOrder'->>'status'end as \"buyStatus\",\n  (data->'secondRequest'->>'price')::decimal as \"sellPrice\", \n  (data->'secondRequest'->>'quantity')::decimal as \"sellQty\", \n  case when data->'secondOrder'->>'filled' = '0' then 0 else (data->'secondOrder'->>'filled')::decimal end as \"sellFilled\", \n  data->'secondOrder'->>'status' as \"sellStatus\",\n  case when data->'reversalOrder'->'request'->>'price' = '0' then 0 else (data->'reversalOrder'->'request'->>'price')::decimal end as \"revPrice\", \n  case when data->'reversalOrder'->'request'->>'quantity' = '0' then 0 else (data->'reversalOrder'->'request'->>'quantity')::decimal end as \"revQty\", \n  case when data->'reversalOrder'->>'filled' = '0' then 0 else (data->'reversalOrder'->>'filled')::decimal end as \"revFilled\", \n  data->'reversalOrder'->>'status' as \"revStatus\",\n  (data->'firstOrder'->>'fees')::decimal + (data->'secondOrder'->>'fees')::decimal + (data->'reversalOrder'->>'fees')::decimal as \"fees\"\nFROM \n  orderpairs \nWHERE\n  data->>'direction' = 'UP'\n  \nUNION ALL\n\nSELECT \n  uuid,\n  data->>'createdAt' as \"createdAt\", \n  CASE WHEN data->>'endedAt' = '0001-01-01T00:00:00Z' THEN '' ELSE data->>'endedAt' END as \"endedAt\",\n  'DOWN' as \"direction\",\n  data->>'status' as \"status\",\n  data->>'statusDetails' as \"statusDetails\",\n  (data->'firstRequest'->>'price')::decimal as \"firstPrice\",\n  (data->'firstOrder'->>'filled')::decimal as \"firstFilled\",\n  (data->'secondRequest'->>'price')::decimal as \"secondPrice\",\n  (data->'secondOrder'->>'filled')::decimal as \"secondFilled\",\n  (data->'secondRequest'->>'price')::decimal as \"buyPrice\", \n  (data->'secondRequest'->>'quantity')::decimal as \"buyQty\", \n  case when data->'secondOrder'->>'filled' = '0' then 0 else (data->'secondOrder'->>'filled')::decimal end as \"buyFilled\", \n  data->'secondOrder'->>'status' as \"buyStatus\",\n  (data->'firstRequest'->>'price')::decimal as \"sellPrice\", \n  (data->'firstRequest'->>'quantity')::decimal as \"sellQty\", \n  case when data->'firstOrder'->>'filled' = '0' then 0 else (data->'firstOrder'->>'filled')::decimal end as \"sellFilled\", \n  data->'firstOrder'->>'status' as \"sellStatus\",\n  case when data->'reversalOrder'->'request'->>'price' = '0' then 0 else (data->'reversalOrder'->'request'->>'price')::decimal end as \"revPrice\", \n  case when data->'reversalOrder'->'request'->>'quantity' = '0' then 0 else (data->'reversalOrder'->'request'->>'quantity')::decimal end as \"revQty\", \n  case when data->'reversalOrder'->>'filled' = '0' then 0 else (data->'reversalOrder'->>'filled')::decimal end as \"revFilled\", \n  data->'reversalOrder'->>'status' as \"revStatus\",\n  (data->'firstOrder'->>'fees')::decimal + (data->'secondOrder'->>'fees')::decimal + (data->'reversalOrder'->>'fees')::decimal as \"fees\"\nFROM \n  orderpairs \nWHERE\n  data->>'direction' = 'DOWN'\n) as pairs\n\nORDER BY\n  pairs.\"createdAt\"\n) as pairReturns\n\nWHERE \"status\" = 'BROKEN' AND $__timeFilter(GREATEST(\"createdAt\", \"endedAt\"))",
+                    "rawSql": "select\n    \"uuid\",\n    \"createdAt\",\n    \"endedAt\",\n    \"statusDetails\",\n    \"direction\",\n    case when \"buyPrice\" <> '0' then \"buyPrice\" end as \"buyPrice\",\n    case when \"sellPrice\" <> '0' then \"sellPrice\" end as \"sellPrice\",\n    case when \"revPrice\" <> '0' then \"revPrice\" end as \"revPrice\",\n    case when \"buyQty\" <> '0' then \"buyQty\" end as \"buyQty\",\n    case when \"sellQty\" <> '0' then \"sellQty\" end as \"sellQty\",\n    case when \"revFunds\" <> '0' then \"revFunds\" end as \"revFunds\",\n    case when \"buyFilled\" <> '0' then \"buyFilled\" end as \"buyFilled\",\n    case when \"sellFilled\" <> '0' then \"sellFilled\" end as \"sellFilled\",\n    case when \"revFilled\" <> '0' then \"revFilled\" end as \"revFilled\",\n    case when \"btcReturn\"<> '0' then \"btcReturn\" end as \"btcReturn\",\n    case when (\"btcReturn\" * \"firstPrice\") <> '0' then (\"btcReturn\" * \"firstPrice\") end as \"btcUsdReturn\",\n    case when \"usdReturn\" <> '0' then \"usdReturn\" end as \"usdReturn\",\n    case when \"fees\" <> '0' then \"fees\" end as \"fees\",\n    case when (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees <> 0 then (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees end as \"totalReturn\"\nfrom (\n    select\n        *,\n        case \n            when \"status\" = 'SUCCESS' then \"buyFilled\" - \"sellFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then \"revFilled\" - \"buyFilled\" - \"sellFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'UP' then \"buyFilled\" - \"sellFilled\" - \"revFilled\"\n            else 0\n        end as \"btcReturn\",\n        case \n            when \"status\" = 'SUCCESS' then \"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then (\"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\") - \"revPrice\" * \"revFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'UP' then (\"revPrice\" * \"revFilled\") - ABS(\"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\")\n            else 0\n        end as \"usdReturn\"\n    from (\n        select\n            *,\n            case when \"direction\" = 'UP' then \"firstStatus\" else \"secondStatus\" end as \"buyStatus\",\n            case when \"direction\" = 'UP' then \"firstPrice\" else \"secondPrice\" end as \"buyPrice\",\n            case when \"direction\" = 'UP' then \"firstQty\" else \"secondQty\" end as \"buyQty\",\n            case when \"direction\" = 'UP' then \"firstFilled\" else \"secondFilled\" end as \"buyFilled\",\n            case when \"direction\" = 'UP' then \"firstFees\" else \"secondFees\" end as \"buyFees\",\n            \n            case when \"direction\" = 'DOWN' then \"firstStatus\" else \"secondStatus\" end as \"sellStatus\",\n            case when \"direction\" = 'DOWN' then \"firstPrice\" else \"secondPrice\" end as \"sellPrice\",\n            case when \"direction\" = 'DOWN' then \"firstQty\" else \"secondQty\" end as \"sellQty\",\n            case when \"direction\" = 'DOWN' then \"firstFilled\" else \"secondFilled\" end as \"sellFilled\",\n            case when \"direction\" = 'DOWN' then \"firstFees\" else \"secondFees\" end as \"sellFees\",\n            \"firstFees\" + \"secondFees\" + \"revFees\" as \"fees\"\n        from (\n            select \n                uuid,\n                data->>'createdAt' as \"createdAt\", \n                case when data->>'endedAt' = '0001-01-01T00:00:00Z' then '' else data->>'endedAt' end as \"endedAt\",\n                data->>'direction' as \"direction\",\n                data->>'status' as \"status\",\n                data->>'statusDetails' as \"statusDetails\",\n                \n                data->'firstOrder'->>'status' as \"firstStatus\",\n                data->'secondOrder'->>'status' as \"secondStatus\",\n                data->'reversalOrder'->>'status' as \"revStatus\",\n                (data->'firstRequest'->>'price')::decimal as \"firstPrice\",\n                (data->'secondRequest'->>'price')::decimal as \"secondPrice\",\n                (data->'reversalOrder'->'request'->>'price')::decimal as \"revPrice\",\n                (data->'firstRequest'->>'quantity')::decimal as \"firstQty\",\n                (data->'secondRequest'->>'quantity')::decimal as \"secondQty\",\n                (data->'reversalRequest'->>'funds')::decimal as \"revFunds\",\n                (data->'firstOrder'->>'filled')::decimal as \"firstFilled\",\n                (data->'secondOrder'->>'filled')::decimal as \"secondFilled\",\n                (data->'reversalOrder'->>'filled')::decimal as \"revFilled\",\n                (data->'reversalOrder'->>'fees')::decimal as \"revFees\",\n                (data->'secondOrder'->>'fees')::decimal as \"secondFees\",\n                (data->'firstOrder'->>'fees')::decimal as \"firstFees\"\n            from \n                orderpairs \n        ) as pairs\n    ) as \"pairsWithReturns\"\n) as pairReturns\n\nWHERE \"status\" = 'BROKEN'\nAND $__timeFilter(GREATEST(\"createdAt\", \"endedAt\"))",
                     "refId": "A",
                     "select": [
                       [
@@ -3407,7 +3043,7 @@ grafana:
                   "h": 6,
                   "w": 4,
                   "x": 0,
-                  "y": 42
+                  "y": 36
                 },
                 "id": 2,
                 "options": {
@@ -3818,7 +3454,7 @@ grafana:
                   "h": 6,
                   "w": 20,
                   "x": 4,
-                  "y": 42
+                  "y": 36
                 },
                 "id": 47,
                 "options": {
@@ -3837,7 +3473,7 @@ grafana:
                     "group": [],
                     "metricColumn": "none",
                     "rawQuery": true,
-                    "rawSql": "  select\n  \"uuid\",\n  \"createdAt\",\n  \"endedAt\",\n  \"status\",\n  \"statusDetails\",\n  \"direction\",\n  case when \"buyPrice\" <> '0' then \"buyPrice\" end as \"buyPrice\",\n  case when \"sellPrice\" <> '0' then \"sellPrice\" end as \"sellPrice\",\n  case when \"revPrice\" <> '0' then \"revPrice\" end as \"revPrice\",\n  case when \"buyQty\" <> '0' then \"buyQty\" end as \"buyQty\",\n  case when \"sellQty\" <> '0' then \"sellQty\" end as \"sellQty\",\n  case when \"revQty\" <> '0' then \"revQty\" end as \"revQty\",\n  case when \"buyFilled\" <> '0' then \"buyFilled\" end as \"buyFilled\",\n  case when \"sellFilled\" <> '0' then \"sellFilled\" end as \"sellFilled\",\n  case when \"revFilled\" <> '0' then \"revFilled\" end as \"revFilled\",\n  case when \"btcReturn\"<> '0' then (\"btcReturn\")::varchar else '' end as \"btcReturn\",\n  case when (\"btcReturn\" * \"firstPrice\") <> '0' then ((\"btcReturn\" * \"firstPrice\"))::varchar else '' end as \"btcUsdReturn\",\n  case when \"usdReturn\" <> '0' then \"usdReturn\" end as \"usdReturn\",\n  case when \"fees\" <> '0' then \"fees\" end as \"fees\",\n  case when (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees <> 0 then (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees end as \"totalReturn\"\nfrom (\nselect \n  *,\n  CASE \n    WHEN \"status\" = 'SUCCESS' then \"buyFilled\" - \"sellFilled\"\n    WHEN \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then \"revFilled\" - \"buyFilled\" - \"sellFilled\"\n    WHEN \"status\" = 'REVERSED' and \"direction\" = 'UP' then \"buyFilled\" - \"sellFilled\" - \"revFilled\"\n  end as \"btcReturn\",\n  CASE \n    WHEN \"status\" = 'SUCCESS' then \"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\"\n    WHEN \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then \"firstPrice\" * \"firstFilled\" - \"revPrice\" * \"revFilled\"\n    WHEN \"status\" = 'REVERSED' and \"direction\" = 'UP' then\"revPrice\" * \"revFilled\" - \"firstPrice\" * \"firstFilled\"\n  end as \"usdReturn\"\nfrom\n  (\n  SELECT \n  uuid,\n  data->>'statusDetails' as \"statusDetails\",\n  data->>'createdAt' as \"createdAt\", \n  CASE WHEN data->>'endedAt' <> '0001-01-01T00:00:00Z' THEN data->>'endedAt' END as \"endedAt\",\n  'UP' as \"direction\",\n  data->>'status' as \"status\",\n  (data->'firstRequest'->>'price')::decimal as \"firstPrice\",\n  (data->'firstOrder'->>'filled')::decimal as \"firstFilled\",\n  (data->'secondRequest'->>'price')::decimal as \"secondPrice\",\n  (data->'secondOrder'->>'filled')::decimal as \"secondFilled\",\n  (data->'firstRequest'->>'price')::decimal as \"buyPrice\", \n  (data->'firstRequest'->>'quantity')::decimal as \"buyQty\",\n  case when data->'firstOrder'->>'filled' = '0' then 0 else (data->'firstOrder'->>'filled')::decimal end as \"buyFilled\", \n  case when data->'firstOrder'->>'status' <> '' then data->'firstOrder'->>'status'end as \"buyStatus\",\n  (data->'secondRequest'->>'price')::decimal as \"sellPrice\", \n  (data->'secondRequest'->>'quantity')::decimal as \"sellQty\", \n  case when data->'secondOrder'->>'filled' = '0' then 0 else (data->'secondOrder'->>'filled')::decimal end as \"sellFilled\", \n  data->'secondOrder'->>'status' as \"sellStatus\",\n  case when data->'reversalOrder'->'request'->>'price' = '0' then 0 else (data->'reversalOrder'->'request'->>'price')::decimal end as \"revPrice\", \n  case when data->'reversalOrder'->'request'->>'quantity' = '0' then 0 else (data->'reversalOrder'->'request'->>'quantity')::decimal end as \"revQty\", \n  case when data->'reversalOrder'->>'filled' = '0' then 0 else (data->'reversalOrder'->>'filled')::decimal end as \"revFilled\", \n  data->'reversalOrder'->>'status' as \"revStatus\",\n  (data->'firstOrder'->>'fees')::decimal + (data->'secondOrder'->>'fees')::decimal + (data->'reversalOrder'->>'fees')::decimal as \"fees\"\nFROM \n  orderpairs \nWHERE\n  data->>'direction' = 'UP'\n  \nUNION ALL\n\nSELECT \n  uuid,\n  data->>'statusDetails' as \"statusDetails\",\n  data->>'createdAt' as \"createdAt\", \n  CASE WHEN data->>'endedAt' = '0001-01-01T00:00:00Z' THEN '' ELSE data->>'endedAt' END as \"endedAt\",\n  'DOWN' as \"direction\",\n  data->>'status' as \"status\",\n  (data->'firstRequest'->>'price')::decimal as \"firstPrice\",\n  (data->'firstOrder'->>'filled')::decimal as \"firstFilled\",\n  (data->'secondRequest'->>'price')::decimal as \"secondPrice\",\n  (data->'secondOrder'->>'filled')::decimal as \"secondFilled\",\n  (data->'secondRequest'->>'price')::decimal as \"buyPrice\", \n  (data->'secondRequest'->>'quantity')::decimal as \"buyQty\", \n  case when data->'secondOrder'->>'filled' = '0' then 0 else (data->'secondOrder'->>'filled')::decimal end as \"buyFilled\", \n  data->'secondOrder'->>'status' as \"buyStatus\",\n  (data->'firstRequest'->>'price')::decimal as \"sellPrice\", \n  (data->'firstRequest'->>'quantity')::decimal as \"sellQty\", \n  case when data->'firstOrder'->>'filled' = '0' then 0 else (data->'firstOrder'->>'filled')::decimal end as \"sellFilled\", \n  data->'firstOrder'->>'status' as \"sellStatus\",\n  case when data->'reversalOrder'->'request'->>'price' = '0' then 0 else (data->'reversalOrder'->'request'->>'price')::decimal end as \"revPrice\", \n  case when data->'reversalOrder'->'request'->>'quantity' = '0' then 0 else (data->'reversalOrder'->'request'->>'quantity')::decimal end as \"revQty\", \n  case when data->'reversalOrder'->>'filled' = '0' then 0 else (data->'reversalOrder'->>'filled')::decimal end as \"revFilled\", \n  data->'reversalOrder'->>'status' as \"revStatus\",\n  (data->'firstOrder'->>'fees')::decimal + (data->'secondOrder'->>'fees')::decimal + (data->'reversalOrder'->>'fees')::decimal as \"fees\"\nFROM \n  orderpairs \nWHERE\n  data->>'direction' = 'DOWN'\n) as pairs\n\nORDER BY\n  pairs.\"createdAt\"\n) as pairReturns\n\nWHERE \"status\" = 'FAILED' AND $__timeFilter(GREATEST(\"createdAt\", \"endedAt\"))",
+                    "rawSql": "select\n    \"uuid\",\n    \"createdAt\",\n    \"endedAt\",\n    \"statusDetails\",\n    \"direction\",\n    case when \"buyPrice\" <> '0' then \"buyPrice\" end as \"buyPrice\",\n    case when \"sellPrice\" <> '0' then \"sellPrice\" end as \"sellPrice\",\n    case when \"revPrice\" <> '0' then \"revPrice\" end as \"revPrice\",\n    case when \"buyQty\" <> '0' then \"buyQty\" end as \"buyQty\",\n    case when \"sellQty\" <> '0' then \"sellQty\" end as \"sellQty\",\n    case when \"revFunds\" <> '0' then \"revFunds\" end as \"revFunds\",\n    case when \"buyFilled\" <> '0' then \"buyFilled\" end as \"buyFilled\",\n    case when \"sellFilled\" <> '0' then \"sellFilled\" end as \"sellFilled\",\n    case when \"revFilled\" <> '0' then \"revFilled\" end as \"revFilled\",\n    case when \"btcReturn\"<> '0' then \"btcReturn\" end as \"btcReturn\",\n    case when (\"btcReturn\" * \"firstPrice\") <> '0' then (\"btcReturn\" * \"firstPrice\") end as \"btcUsdReturn\",\n    case when \"usdReturn\" <> '0' then \"usdReturn\" end as \"usdReturn\",\n    case when \"fees\" <> '0' then \"fees\" end as \"fees\",\n    case when (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees <> 0 then (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees end as \"totalReturn\"\nfrom (\n    select\n        *,\n        case \n            when \"status\" = 'SUCCESS' then \"buyFilled\" - \"sellFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then \"revFilled\" - \"buyFilled\" - \"sellFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'UP' then \"buyFilled\" - \"sellFilled\" - \"revFilled\"\n            else 0\n        end as \"btcReturn\",\n        case \n            when \"status\" = 'SUCCESS' then \"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then (\"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\") - \"revPrice\" * \"revFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'UP' then (\"revPrice\" * \"revFilled\") - ABS(\"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\")\n            else 0\n        end as \"usdReturn\"\n    from (\n        select\n            *,\n            case when \"direction\" = 'UP' then \"firstStatus\" else \"secondStatus\" end as \"buyStatus\",\n            case when \"direction\" = 'UP' then \"firstPrice\" else \"secondPrice\" end as \"buyPrice\",\n            case when \"direction\" = 'UP' then \"firstQty\" else \"secondQty\" end as \"buyQty\",\n            case when \"direction\" = 'UP' then \"firstFilled\" else \"secondFilled\" end as \"buyFilled\",\n            case when \"direction\" = 'UP' then \"firstFees\" else \"secondFees\" end as \"buyFees\",\n            \n            case when \"direction\" = 'DOWN' then \"firstStatus\" else \"secondStatus\" end as \"sellStatus\",\n            case when \"direction\" = 'DOWN' then \"firstPrice\" else \"secondPrice\" end as \"sellPrice\",\n            case when \"direction\" = 'DOWN' then \"firstQty\" else \"secondQty\" end as \"sellQty\",\n            case when \"direction\" = 'DOWN' then \"firstFilled\" else \"secondFilled\" end as \"sellFilled\",\n            case when \"direction\" = 'DOWN' then \"firstFees\" else \"secondFees\" end as \"sellFees\",\n            \"firstFees\" + \"secondFees\" + \"revFees\" as \"fees\"\n        from (\n            select \n                uuid,\n                data->>'createdAt' as \"createdAt\", \n                case when data->>'endedAt' = '0001-01-01T00:00:00Z' then '' else data->>'endedAt' end as \"endedAt\",\n                data->>'direction' as \"direction\",\n                data->>'status' as \"status\",\n                data->>'statusDetails' as \"statusDetails\",\n                \n                data->'firstOrder'->>'status' as \"firstStatus\",\n                data->'secondOrder'->>'status' as \"secondStatus\",\n                data->'reversalOrder'->>'status' as \"revStatus\",\n                (data->'firstRequest'->>'price')::decimal as \"firstPrice\",\n                (data->'secondRequest'->>'price')::decimal as \"secondPrice\",\n                (data->'reversalOrder'->'request'->>'price')::decimal as \"revPrice\",\n                (data->'firstRequest'->>'quantity')::decimal as \"firstQty\",\n                (data->'secondRequest'->>'quantity')::decimal as \"secondQty\",\n                (data->'reversalRequest'->>'funds')::decimal as \"revFunds\",\n                (data->'firstOrder'->>'filled')::decimal as \"firstFilled\",\n                (data->'secondOrder'->>'filled')::decimal as \"secondFilled\",\n                (data->'reversalOrder'->>'filled')::decimal as \"revFilled\",\n                (data->'reversalOrder'->>'fees')::decimal as \"revFees\",\n                (data->'secondOrder'->>'fees')::decimal as \"secondFees\",\n                (data->'firstOrder'->>'fees')::decimal as \"firstFees\"\n            from \n                orderpairs \n        ) as pairs\n    ) as \"pairsWithReturns\"\n) as pairReturns\n\nWHERE \"status\" = 'FAILED'\nAND $__timeFilter(GREATEST(\"createdAt\", \"endedAt\"))",
                     "refId": "A",
                     "select": [
                       [
@@ -3901,9 +3537,9 @@ grafana:
                   "h": 6,
                   "w": 4,
                   "x": 0,
-                  "y": 48
+                  "y": 42
                 },
-                "id": 11,
+                "id": 4,
                 "options": {
                   "colorMode": "value",
                   "graphMode": "none",
@@ -3925,7 +3561,7 @@ grafana:
                     "group": [],
                     "metricColumn": "none",
                     "rawQuery": true,
-                    "rawSql": "SELECT\n  count(1) as orders\nfrom  orderpairs\nWHERE\n  (data->>'done')::boolean = TRUE\nand\n  $__timeFilter(data->>'createdAt')",
+                    "rawSql": "SELECT\n  count(1) as \"Total Orders\"\nfrom\n  orderpairs\nwhere\n  $__timeFilter(data->>'createdAt')",
                     "refId": "A",
                     "select": [
                       [
@@ -3949,8 +3585,414 @@ grafana:
                 ],
                 "timeFrom": null,
                 "timeShift": null,
-                "title": "Done Pairs",
+                "title": "All Pairs",
                 "type": "stat"
+              },
+              {
+                "datasource": null,
+                "fieldConfig": {
+                  "defaults": {
+                    "custom": {
+                      "align": null,
+                      "displayMode": "auto",
+                      "filterable": false
+                    },
+                    "decimals": 2,
+                    "mappings": [],
+                    "thresholds": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "green",
+                          "value": null
+                        },
+                        {
+                          "color": "red",
+                          "value": 80
+                        }
+                      ]
+                    }
+                  },
+                  "overrides": [
+                    {
+                      "matcher": {
+                        "id": "byName",
+                        "options": "createdAt"
+                      },
+                      "properties": [
+                        {
+                          "id": "custom.width",
+                          "value": 239
+                        }
+                      ]
+                    },
+                    {
+                      "matcher": {
+                        "id": "byName",
+                        "options": "endedAt"
+                      },
+                      "properties": [
+                        {
+                          "id": "custom.width",
+                          "value": 241
+                        }
+                      ]
+                    },
+                    {
+                      "matcher": {
+                        "id": "byName",
+                        "options": "buyPrice"
+                      },
+                      "properties": [
+                        {
+                          "id": "custom.width",
+                          "value": 86
+                        }
+                      ]
+                    },
+                    {
+                      "matcher": {
+                        "id": "byName",
+                        "options": "buyQty"
+                      },
+                      "properties": [
+                        {
+                          "id": "custom.width",
+                          "value": 99
+                        },
+                        {
+                          "id": "decimals",
+                          "value": 8
+                        }
+                      ]
+                    },
+                    {
+                      "matcher": {
+                        "id": "byName",
+                        "options": "buyFilled"
+                      },
+                      "properties": [
+                        {
+                          "id": "custom.width",
+                          "value": 104
+                        },
+                        {
+                          "id": "decimals",
+                          "value": 8
+                        },
+                        {
+                          "id": "noValue",
+                          "value": "-"
+                        }
+                      ]
+                    },
+                    {
+                      "matcher": {
+                        "id": "byName",
+                        "options": "sellPrice"
+                      },
+                      "properties": [
+                        {
+                          "id": "custom.width",
+                          "value": 75
+                        }
+                      ]
+                    },
+                    {
+                      "matcher": {
+                        "id": "byName",
+                        "options": "sellQty"
+                      },
+                      "properties": [
+                        {
+                          "id": "custom.width",
+                          "value": 98
+                        },
+                        {
+                          "id": "decimals",
+                          "value": 8
+                        }
+                      ]
+                    },
+                    {
+                      "matcher": {
+                        "id": "byName",
+                        "options": "sellFilled"
+                      },
+                      "properties": [
+                        {
+                          "id": "custom.width",
+                          "value": 98
+                        },
+                        {
+                          "id": "decimals",
+                          "value": 8
+                        },
+                        {
+                          "id": "noValue",
+                          "value": "-"
+                        }
+                      ]
+                    },
+                    {
+                      "matcher": {
+                        "id": "byName",
+                        "options": "revPrice"
+                      },
+                      "properties": [
+                        {
+                          "id": "custom.width",
+                          "value": 76
+                        },
+                        {
+                          "id": "noValue",
+                          "value": "-"
+                        }
+                      ]
+                    },
+                    {
+                      "matcher": {
+                        "id": "byName",
+                        "options": "revQty"
+                      },
+                      "properties": [
+                        {
+                          "id": "custom.width",
+                          "value": 95
+                        },
+                        {
+                          "id": "decimals",
+                          "value": 8
+                        },
+                        {
+                          "id": "noValue",
+                          "value": "-"
+                        }
+                      ]
+                    },
+                    {
+                      "matcher": {
+                        "id": "byName",
+                        "options": "revFilled"
+                      },
+                      "properties": [
+                        {
+                          "id": "custom.width",
+                          "value": 93
+                        },
+                        {
+                          "id": "decimals",
+                          "value": 8
+                        },
+                        {
+                          "id": "noValue",
+                          "value": "-"
+                        }
+                      ]
+                    },
+                    {
+                      "matcher": {
+                        "id": "byName",
+                        "options": "revStatus"
+                      },
+                      "properties": [
+                        {
+                          "id": "custom.width",
+                          "value": 77
+                        }
+                      ]
+                    },
+                    {
+                      "matcher": {
+                        "id": "byName",
+                        "options": "fees"
+                      },
+                      "properties": [
+                        {
+                          "id": "custom.width",
+                          "value": 59
+                        },
+                        {
+                          "id": "noValue",
+                          "value": "-"
+                        }
+                      ]
+                    },
+                    {
+                      "matcher": {
+                        "id": "byName",
+                        "options": "btcReturn"
+                      },
+                      "properties": [
+                        {
+                          "id": "custom.width",
+                          "value": 99
+                        },
+                        {
+                          "id": "noValue",
+                          "value": "-"
+                        },
+                        {
+                          "id": "decimals",
+                          "value": 8
+                        },
+                        {
+                          "id": "custom.align",
+                          "value": "right"
+                        }
+                      ]
+                    },
+                    {
+                      "matcher": {
+                        "id": "byName",
+                        "options": "btcUsdReturn"
+                      },
+                      "properties": [
+                        {
+                          "id": "noValue",
+                          "value": "-"
+                        },
+                        {
+                          "id": "custom.width",
+                          "value": 110
+                        },
+                        {
+                          "id": "custom.align",
+                          "value": "right"
+                        }
+                      ]
+                    },
+                    {
+                      "matcher": {
+                        "id": "byName",
+                        "options": "usdReturn"
+                      },
+                      "properties": [
+                        {
+                          "id": "noValue",
+                          "value": "-"
+                        },
+                        {
+                          "id": "custom.width",
+                          "value": 103
+                        }
+                      ]
+                    },
+                    {
+                      "matcher": {
+                        "id": "byName",
+                        "options": "direction"
+                      },
+                      "properties": [
+                        {
+                          "id": "custom.width",
+                          "value": 86
+                        }
+                      ]
+                    },
+                    {
+                      "matcher": {
+                        "id": "byName",
+                        "options": "totalReturn"
+                      },
+                      "properties": [
+                        {
+                          "id": "custom.width",
+                          "value": 92
+                        },
+                        {
+                          "id": "noValue",
+                          "value": "-"
+                        }
+                      ]
+                    },
+                    {
+                      "matcher": {
+                        "id": "byName",
+                        "options": "uuid"
+                      },
+                      "properties": [
+                        {
+                          "id": "custom.width",
+                          "value": 288
+                        }
+                      ]
+                    },
+                    {
+                      "matcher": {
+                        "id": "byName",
+                        "options": "status"
+                      },
+                      "properties": [
+                        {
+                          "id": "custom.width",
+                          "value": 100
+                        }
+                      ]
+                    },
+                    {
+                      "matcher": {
+                        "id": "byName",
+                        "options": "revFunds"
+                      },
+                      "properties": [
+                        {
+                          "id": "custom.width",
+                          "value": 102
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "gridPos": {
+                  "h": 6,
+                  "w": 20,
+                  "x": 4,
+                  "y": 42
+                },
+                "id": 44,
+                "options": {
+                  "showHeader": true,
+                  "sortBy": [
+                    {
+                      "desc": true,
+                      "displayName": "createdAt"
+                    }
+                  ]
+                },
+                "pluginVersion": "7.3.5",
+                "targets": [
+                  {
+                    "format": "table",
+                    "group": [],
+                    "metricColumn": "none",
+                    "rawQuery": true,
+                    "rawSql": "select\n    \"uuid\",\n    \"createdAt\",\n    \"endedAt\",\n    \"status\",\n    \"direction\",\n    case when \"buyPrice\" <> '0' then \"buyPrice\" end as \"buyPrice\",\n    case when \"sellPrice\" <> '0' then \"sellPrice\" end as \"sellPrice\",\n    case when \"revPrice\" <> '0' then \"revPrice\" end as \"revPrice\",\n    case when \"buyQty\" <> '0' then \"buyQty\" end as \"buyQty\",\n    case when \"sellQty\" <> '0' then \"sellQty\" end as \"sellQty\",\n    case when \"revFunds\" <> '0' then \"revFunds\" end as \"revFunds\",\n    case when \"buyFilled\" <> '0' then \"buyFilled\" end as \"buyFilled\",\n    case when \"sellFilled\" <> '0' then \"sellFilled\" end as \"sellFilled\",\n    case when \"revFilled\" <> '0' then \"revFilled\" end as \"revFilled\",\n    case when \"btcReturn\"<> '0' then \"btcReturn\" end as \"btcReturn\",\n    case when (\"btcReturn\" * \"firstPrice\") <> '0' then (\"btcReturn\" * \"firstPrice\") end as \"btcUsdReturn\",\n    case when \"usdReturn\" <> '0' then \"usdReturn\" end as \"usdReturn\",\n    case when \"fees\" <> '0' then \"fees\" end as \"fees\",\n    case when (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees <> 0 then (\"usdReturn\") + (\"btcReturn\" * \"firstPrice\") - fees end as \"totalReturn\"\nfrom (\n    select\n        *,\n        case \n            when \"status\" = 'SUCCESS' then \"buyFilled\" - \"sellFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then \"revFilled\" - \"buyFilled\" - \"sellFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'UP' then \"buyFilled\" - \"sellFilled\" - \"revFilled\"\n            else 0\n        end as \"btcReturn\",\n        case \n            when \"status\" = 'SUCCESS' then \"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'DOWN' then (\"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\") - \"revPrice\" * \"revFilled\"\n            when \"status\" = 'REVERSED' and \"direction\" = 'UP' then (\"revPrice\" * \"revFilled\") - ABS(\"sellPrice\" * \"sellFilled\" - \"buyPrice\" * \"buyFilled\")\n            else 0\n        end as \"usdReturn\"\n    from (\n        select\n            *,\n            case when \"direction\" = 'UP' then \"firstStatus\" else \"secondStatus\" end as \"buyStatus\",\n            case when \"direction\" = 'UP' then \"firstPrice\" else \"secondPrice\" end as \"buyPrice\",\n            case when \"direction\" = 'UP' then \"firstQty\" else \"secondQty\" end as \"buyQty\",\n            case when \"direction\" = 'UP' then \"firstFilled\" else \"secondFilled\" end as \"buyFilled\",\n            case when \"direction\" = 'UP' then \"firstFees\" else \"secondFees\" end as \"buyFees\",\n            \n            case when \"direction\" = 'DOWN' then \"firstStatus\" else \"secondStatus\" end as \"sellStatus\",\n            case when \"direction\" = 'DOWN' then \"firstPrice\" else \"secondPrice\" end as \"sellPrice\",\n            case when \"direction\" = 'DOWN' then \"firstQty\" else \"secondQty\" end as \"sellQty\",\n            case when \"direction\" = 'DOWN' then \"firstFilled\" else \"secondFilled\" end as \"sellFilled\",\n            case when \"direction\" = 'DOWN' then \"firstFees\" else \"secondFees\" end as \"sellFees\",\n            \"firstFees\" + \"secondFees\" + \"revFees\" as \"fees\"\n        from (\n            select \n                uuid,\n                data->>'createdAt' as \"createdAt\", \n                case when data->>'endedAt' = '0001-01-01T00:00:00Z' then '' else data->>'endedAt' end as \"endedAt\",\n                data->>'direction' as \"direction\",\n                data->>'status' as \"status\",\n                data->'firstOrder'->>'status' as \"firstStatus\",\n                data->'secondOrder'->>'status' as \"secondStatus\",\n                data->'reversalOrder'->>'status' as \"revStatus\",\n                (data->'firstRequest'->>'price')::decimal as \"firstPrice\",\n                (data->'secondRequest'->>'price')::decimal as \"secondPrice\",\n                (data->'reversalOrder'->'request'->>'price')::decimal as \"revPrice\",\n                (data->'firstRequest'->>'quantity')::decimal as \"firstQty\",\n                (data->'secondRequest'->>'quantity')::decimal as \"secondQty\",\n                (data->'reversalRequest'->>'funds')::decimal as \"revFunds\",\n                (data->'firstOrder'->>'filled')::decimal as \"firstFilled\",\n                (data->'secondOrder'->>'filled')::decimal as \"secondFilled\",\n                (data->'reversalOrder'->>'filled')::decimal as \"revFilled\",\n                (data->'reversalOrder'->>'fees')::decimal as \"revFees\",\n                (data->'secondOrder'->>'fees')::decimal as \"secondFees\",\n                (data->'firstOrder'->>'fees')::decimal as \"firstFees\"\n            from \n                orderpairs \n        ) as pairs\n    ) as \"pairsWithReturns\"\n) as pairReturns\n\nWHERE $__timeFilter(GREATEST(\"createdAt\", \"endedAt\"))",
+                    "refId": "A",
+                    "select": [
+                      [
+                        {
+                          "params": [
+                            "value"
+                          ],
+                          "type": "column"
+                        }
+                      ]
+                    ],
+                    "timeColumn": "time",
+                    "where": [
+                      {
+                        "name": "$__timeFilter",
+                        "params": [],
+                        "type": "macro"
+                      }
+                    ]
+                  }
+                ],
+                "timeFrom": null,
+                "timeShift": null,
+                "title": "All Pairs",
+                "type": "table"
               }
             ],
             "refresh": "5s",
