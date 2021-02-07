@@ -768,11 +768,11 @@ func (o *OrderPair) buildReversalRequest() error {
 	one := decimal.NewFromInt(1)
 	// Build the request
 	if remains.IsPositive() {
-		funds = remains.Div(one.Sub(rates.TakerRate())).RoundBank(int32(o.svc.market.QuoteCurrency().Precision()))
+		funds = remains.Div(rates.TakerRate().Add(one)).RoundBank(int32(o.svc.market.QuoteCurrency().Precision()))
 		req = order.NewRequest(o.svc.market, order.Market, order.Buy, decimal.Zero, decimal.Zero, funds, false)
 	} else {
-		funds = remains.Neg().Div(rates.TakerRate().Add(one)).RoundBank(int32(o.svc.market.QuoteCurrency().Precision()))
-		req = order.NewRequest(o.svc.market, order.Market, order.Sell, decimal.Zero, decimal.Zero, funds, false)
+		funds = remains.Div(one.Add(rates.TakerRate())).RoundBank(int32(o.svc.market.QuoteCurrency().Precision()))
+		req = order.NewRequest(o.svc.market, order.Market, order.Sell, decimal.Zero, decimal.Zero, funds.Abs(), false)
 	}
 
 	// Add to pair
