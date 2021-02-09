@@ -49,7 +49,7 @@ func NewServer(port string) error {
 	})
 
 	// Start up a coinbase provider
-	provider := coinbase.New(killSwitch, client, 6, 10)
+	provider := coinbase.New(killSwitch, client, 5, 10)
 
 	// Get an instance of the trader
 	trader = currencytrader.New(provider)
