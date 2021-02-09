@@ -21,6 +21,7 @@ type MoneytreeClient interface {
 	PlacePair(ctx context.Context, in *PlacePairRequest, opts ...grpc.CallOption) (*PlacePairResponse, error)
 	GetOpenPairs(ctx context.Context, in *NullRequest, opts ...grpc.CallOption) (*PairCollection, error)
 	GetCandles(ctx context.Context, in *GetCandlesRequest, opts ...grpc.CallOption) (*CandleCollection, error)
+	RefreshPair(ctx context.Context, in *PairRequest, opts ...grpc.CallOption) (*Pair, error)
 }
 
 type moneytreeClient struct {
@@ -58,6 +59,15 @@ func (c *moneytreeClient) GetCandles(ctx context.Context, in *GetCandlesRequest,
 	return out, nil
 }
 
+func (c *moneytreeClient) RefreshPair(ctx context.Context, in *PairRequest, opts ...grpc.CallOption) (*Pair, error) {
+	out := new(Pair)
+	err := c.cc.Invoke(ctx, "/moneytree.Moneytree/RefreshPair", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MoneytreeServer is the server API for Moneytree service.
 // All implementations must embed UnimplementedMoneytreeServer
 // for forward compatibility
@@ -66,6 +76,7 @@ type MoneytreeServer interface {
 	PlacePair(context.Context, *PlacePairRequest) (*PlacePairResponse, error)
 	GetOpenPairs(context.Context, *NullRequest) (*PairCollection, error)
 	GetCandles(context.Context, *GetCandlesRequest) (*CandleCollection, error)
+	RefreshPair(context.Context, *PairRequest) (*Pair, error)
 	mustEmbedUnimplementedMoneytreeServer()
 }
 
@@ -81,6 +92,9 @@ func (UnimplementedMoneytreeServer) GetOpenPairs(context.Context, *NullRequest) 
 }
 func (UnimplementedMoneytreeServer) GetCandles(context.Context, *GetCandlesRequest) (*CandleCollection, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetCandles not implemented")
+}
+func (UnimplementedMoneytreeServer) RefreshPair(context.Context, *PairRequest) (*Pair, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RefreshPair not implemented")
 }
 func (UnimplementedMoneytreeServer) mustEmbedUnimplementedMoneytreeServer() {}
 
@@ -149,6 +163,24 @@ func _Moneytree_GetCandles_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Moneytree_RefreshPair_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PairRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MoneytreeServer).RefreshPair(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/moneytree.Moneytree/RefreshPair",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MoneytreeServer).RefreshPair(ctx, req.(*PairRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _Moneytree_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "moneytree.Moneytree",
 	HandlerType: (*MoneytreeServer)(nil),
@@ -164,6 +196,10 @@ var _Moneytree_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetCandles",
 			Handler:    _Moneytree_GetCandles_Handler,
+		},
+		{
+			MethodName: "RefreshPair",
+			Handler:    _Moneytree_RefreshPair_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

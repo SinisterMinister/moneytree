@@ -11,6 +11,11 @@ service Moneytree {
     rpc PlacePair (PlacePairRequest) returns (PlacePairResponse);
     rpc GetOpenPairs (NullRequest) returns (PairCollection);
     rpc GetCandles(GetCandlesRequest) returns (CandleCollection);
+    rpc RefreshPair (PairRequest) returns (Pair);
+}
+
+message PairRequest {
+    string uuid = 1;
 }
 
 message NullRequest {}

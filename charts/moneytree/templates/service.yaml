@@ -4,6 +4,10 @@ metadata:
   name: {{ include "moneytree.fullname" . }}
   labels:
     {{- include "moneytree.labels" . | nindent 4 }}
+{{- with .Values.moneytree.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+{{- end }}
 spec:
   type: {{ .Values.moneytree.service.type }}
   {{- if and (eq .Values.moneytree.service.type "ClusterIP") (.Values.moneytree.service.clusterIP) }}

@@ -266,6 +266,34 @@ func (s *Server) GetOpenPairs(ctx context.Context, in *proto.NullRequest) (*prot
 	}, nil
 }
 
+func (s *Server) RefreshPair(ctx context.Context, in *proto.PairRequest) (*proto.Pair, error) {
+	// Load the pair from the database
+	op, err := s.pairSvc.Load(in.Uuid)
+	if err != nil {
+		return nil, err
+	}
+
+	// Refresh the orders
+	if op.FirstOrder() != nil {
+		op.FirstOrder().Refresh()
+	}
+	if op.SecondOrder() != nil {
+		op.SecondOrder().Refresh()
+	}
+	if op.ReversalOrder() != nil {
+		op.ReversalOrder().Refresh()
+	}
+
+	// Save the refreshed order
+	err = op.Save()
+	if err != nil {
+		return nil, err
+	}
+
+	// Return the pair
+	return createProtoPair(op), nil
+}
+
 func (s *Server) init(trader types.Trader, market types.Market) (err error) {
 	err = s.connectToDatabase()
 	if err != nil {

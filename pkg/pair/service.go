@@ -182,7 +182,9 @@ func (svc *Service) Load(id string) (pair *OrderPair, err error) {
 	dao := OrderPairDAO{}
 	err = svc.db.QueryRow("SELECT data FROM orderpairs WHERE uuid = $1;", id).Scan(&dao)
 	if err != nil {
-		if err != sql.ErrNoRows {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("pair %s was not found in the database", id)
+		} else {
 			return nil, fmt.Errorf("could not load order pair from database: %w", err)
 		}
 	}
