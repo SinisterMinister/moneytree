@@ -312,8 +312,8 @@ func (o *OrderPair) execute() {
 		o.setStatus(Failed)
 		o.setStatusDetails(err)
 		o.setExecErr(err)
-		close(o.done)
-		close(o.ready)
+		o.markAsDone()
+		o.markAsReady()
 		o.setEndedAt()
 
 		// Save the pair
@@ -325,7 +325,7 @@ func (o *OrderPair) execute() {
 	}
 
 	// Mark the pair as ready
-	close(o.ready)
+	o.markAsReady()
 	o.setStatus(Open)
 
 	// Save the pair
@@ -354,7 +354,7 @@ func (o *OrderPair) execute() {
 				o.setStatus(Broken)
 				o.setStatusDetails(err)
 				o.setEndedAt()
-				close(o.done)
+				o.markAsDone()
 
 				// Save the pair
 				err = o.Save()
@@ -376,7 +376,7 @@ func (o *OrderPair) execute() {
 				o.setStatus(Broken)
 				o.setStatusDetails(err)
 				o.setEndedAt()
-				close(o.done)
+				o.markAsDone()
 
 				// Save the pair
 				err = o.Save()
@@ -410,7 +410,7 @@ func (o *OrderPair) execute() {
 		}
 
 		o.setEndedAt()
-		close(o.done)
+		o.markAsDone()
 
 		// Save the pair
 		err = o.Save()
@@ -432,7 +432,7 @@ func (o *OrderPair) execute() {
 		o.setStatus(Broken)
 		o.setStatusDetails(err)
 		o.setEndedAt()
-		close(o.done)
+		o.markAsDone()
 
 		// Save the pair
 		err = o.Save()
@@ -468,7 +468,7 @@ func (o *OrderPair) execute() {
 				o.setStatus(Broken)
 				o.setStatusDetails(err)
 				o.setEndedAt()
-				close(o.done)
+				o.markAsDone()
 
 				// Save the pair
 				err = o.Save()
@@ -490,7 +490,7 @@ func (o *OrderPair) execute() {
 				o.setStatus(Broken)
 				o.setStatusDetails(err)
 				o.setEndedAt()
-				close(o.done)
+				o.markAsDone()
 
 				// Save the pair
 				err = o.Save()
@@ -525,7 +525,7 @@ func (o *OrderPair) execute() {
 	}
 
 	o.setEndedAt()
-	close(o.done)
+	o.markAsDone()
 
 	// Save the pair
 	err = o.Save()
@@ -732,6 +732,28 @@ func (o *OrderPair) recalculateSecondOrderSizeFromFilled() {
 	o.mtx.Lock()
 	o.secondRequest = order.NewRequestFromDTO(o.svc.market, dto)
 	o.mtx.Unlock()
+}
+
+func (o *OrderPair) markAsDone() {
+	o.mtx.RLock()
+	defer o.mtx.RUnlock()
+
+	select {
+	case <-o.done:
+	default:
+		close(o.done)
+	}
+}
+
+func (o *OrderPair) markAsReady() {
+	o.mtx.RLock()
+	defer o.mtx.RUnlock()
+
+	select {
+	case <-o.ready:
+	default:
+		close(o.ready)
+	}
 }
 
 func (o *OrderPair) buildReversalRequest() error {
