@@ -267,6 +267,7 @@ func (s *Server) GetOpenPairs(ctx context.Context, in *proto.NullRequest) (*prot
 }
 
 func (s *Server) RefreshPair(ctx context.Context, in *proto.PairRequest) (*proto.Pair, error) {
+	log.Infof("received get refresh pair request for %s", in.Uuid)
 	// Load the pair from the database
 	op, err := s.pairSvc.Load(in.Uuid)
 	if err != nil {
