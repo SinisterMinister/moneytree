@@ -145,8 +145,8 @@ grafana:
             "editable": true,
             "gnetId": null,
             "graphTooltip": 0,
-            "id": 3,
-            "iteration": 1613290945272,
+            "id": 2,
+            "iteration": 1613296393507,
             "links": [],
             "panels": [
               {
@@ -296,6 +296,7 @@ grafana:
                 "dashLength": 10,
                 "dashes": false,
                 "datasource": null,
+                "decimals": 0,
                 "fieldConfig": {
                   "defaults": {
                     "custom": {
@@ -455,6 +456,7 @@ grafana:
                 "dashLength": 10,
                 "dashes": false,
                 "datasource": null,
+                "decimals": 0,
                 "fieldConfig": {
                   "defaults": {
                     "custom": {
@@ -704,8 +706,8 @@ grafana:
                   "auto_min": "1m",
                   "current": {
                     "selected": false,
-                    "text": "6h",
-                    "value": "6h"
+                    "text": "1h",
+                    "value": "1h"
                   },
                   "error": null,
                   "hide": 0,
@@ -733,12 +735,12 @@ grafana:
                       "value": "30m"
                     },
                     {
-                      "selected": false,
+                      "selected": true,
                       "text": "1h",
                       "value": "1h"
                     },
                     {
-                      "selected": true,
+                      "selected": false,
                       "text": "6h",
                       "value": "6h"
                     },
