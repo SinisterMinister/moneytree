@@ -145,7 +145,7 @@ grafana:
             "editable": true,
             "gnetId": null,
             "graphTooltip": 0,
-            "iteration": 1613359189698,
+            "iteration": 1613367499535,
             "links": [],
             "panels": [
               {
@@ -331,308 +331,6 @@ grafana:
                 "dashLength": 10,
                 "dashes": false,
                 "datasource": null,
-                "fieldConfig": {
-                  "defaults": {
-                    "custom": {}
-                  },
-                  "overrides": []
-                },
-                "fill": 2,
-                "fillGradient": 0,
-                "gridPos": {
-                  "h": 9,
-                  "w": 12,
-                  "x": 12,
-                  "y": 0
-                },
-                "hiddenSeries": false,
-                "id": 4,
-                "legend": {
-                  "avg": false,
-                  "current": false,
-                  "max": false,
-                  "min": false,
-                  "show": true,
-                  "total": false,
-                  "values": false
-                },
-                "lines": false,
-                "linewidth": 1,
-                "nullPointMode": "null as zero",
-                "options": {
-                  "alertThreshold": true
-                },
-                "percentage": false,
-                "pluginVersion": "7.3.5",
-                "pointradius": 2,
-                "points": false,
-                "renderer": "flot",
-                "seriesOverrides": [],
-                "spaceLength": 10,
-                "stack": true,
-                "steppedLine": true,
-                "targets": [
-                  {
-                    "format": "table",
-                    "group": [],
-                    "metricColumn": "none",
-                    "rawQuery": true,
-                    "rawSql": "with o as ( -- Get the overlapping counts for each time range\n\tselect \n\t\tt2.\"startDt\", \n\t\tt2.\"endDt\", \n\t\tcount(1) c\n\tfrom ( -- Setup the time ranges\n\t\tselect\n\t\t\tlag(t.dt) over (order by t.dt) as \"startDt\", \n\t\t\tt.dt as \"endDt\"\n\t\tfrom ( -- Get the create and end times from the pairs\n\t\t\tselect\n\t\t\t\t(data->>'createdAt')::timestamp as \"dt\"\n\t\t\tfrom \n\t\t\t\torderpairs\n\t\t\twhere\n\t\t\t\t$__timeFilter(data->>'createdAt') or data->>'endedAt' in ('0001-01-01T00:00:00Z', '')\n\t\t\tUNION ALL\n\t\t\tselect\n\t\t\t\tcase\n\t\t\t\t\twhen data->>'endedAt' = '0001-01-01T00:00:00Z' then LOCALTIMESTAMP\n\t\t\t\t\twhen data->>'endedAt' = '' then LOCALTIMESTAMP\n\t\t\t\t\telse (data->>'endedAt')::timestamp\n\t\t\t\tend as \"dt\"\n\t\t\tfrom\n\t\t\t\torderpairs\n\t\t\twhere\n\t\t\t\t$__timeFilter(data->>'createdAt') or data->>'endedAt' in ('0001-01-01T00:00:00Z', '')\n\t\t) t\n\t) t2\n\tjoin (\n\t\tselect\n\t\t\tuuid,\n\t\t\t(data->>'createdAt')::timestamp as \"createdAt\",\n\t\t\tcase\n\t\t\t\twhen data->>'endedAt' = '0001-01-01T00:00:00Z' then LOCALTIMESTAMP\n\t\t\t\twhen data->>'endedAt' = '' then LOCALTIMESTAMP\n\t\t\t\telse (data->>'endedAt')::timestamp\n\t\t\tend as \"endedAt\",\n\t\t\tdata->>'direction' as \"direction\",\n\t\t\tdata->>'status' as \"status\"\n\t\tfrom\n\t\t\torderpairs\n\t\twhere\n\t\t\t($__timeFilter(data->>'createdAt') or data->>'endedAt' in ('0001-01-01T00:00:00Z', ''))\n\t\t\tand data->>'direction' = 'DOWN'\n\t\t) as pairs\n\ton t2.\"startDt\" < pairs.\"endedAt\" and t2.\"endDt\" > pairs.\"createdAt\"\n\tgroup by t2.\"startDt\", t2.\"endDt\"\n),\ntimetbl as (\n  select\n    *\n  from (\n  \tselect distinct\n  \t\tlag(t.dt) over (order by t.dt) as \"startTime\",\n  \t\tt.dt as \"endTime\"\n  \tfrom (\n  \t\tselect distinct\n  \t\t\tto_timestamp($__timeGroup(ts, $interval)) as dt\n  \t\tfrom\n  \t\t\tgenerate_series($__timeFrom(), $__timeTo(), INTERVAL '1 minute') ts\n  \t) as t\n  \torder by\n  \t\"startTime\"\n  ) as times\n  where\n    \"startTime\" is not null\n)\n-- Get the counts for each time slot\nselect\n\ttimetbl.\"startTime\" as time,\n\tmax(c) as down\nfrom\n\to\njoin\n  timetbl\non\n\to.\"startDt\" < timetbl.\"endTime\" and o.\"endDt\" > timetbl.\"startTime\"\ngroup by\n\ttimetbl.\"startTime\"\norder by\n\ttime",
-                    "refId": "A",
-                    "select": [
-                      [
-                        {
-                          "params": [
-                            "value"
-                          ],
-                          "type": "column"
-                        }
-                      ]
-                    ],
-                    "timeColumn": "time",
-                    "where": [
-                      {
-                        "name": "$__timeFilter",
-                        "params": [],
-                        "type": "macro"
-                      }
-                    ]
-                  },
-                  {
-                    "format": "table",
-                    "group": [],
-                    "metricColumn": "none",
-                    "rawQuery": true,
-                    "rawSql": "with o as ( -- Get the overlapping counts for each time range\n\tselect \n\t\tt2.\"startDt\", \n\t\tt2.\"endDt\", \n\t\tcount(1) c\n\tfrom ( -- Setup the time ranges\n\t\tselect\n\t\t\tlag(t.dt) over (order by t.dt) as \"startDt\", \n\t\t\tt.dt as \"endDt\"\n\t\tfrom ( -- Get the create and end times from the pairs\n\t\t\tselect\n\t\t\t\t(data->>'createdAt')::timestamp as \"dt\"\n\t\t\tfrom \n\t\t\t\torderpairs\n\t\t\twhere\n\t\t\t\t$__timeFilter(data->>'createdAt') or data->>'endedAt' in ('0001-01-01T00:00:00Z', '')\n\t\t\tUNION ALL\n\t\t\tselect\n\t\t\t\tcase\n\t\t\t\t\twhen data->>'endedAt' = '0001-01-01T00:00:00Z' then LOCALTIMESTAMP\n\t\t\t\t\twhen data->>'endedAt' = '' then LOCALTIMESTAMP\n\t\t\t\t\telse (data->>'endedAt')::timestamp\n\t\t\t\tend as \"dt\"\n\t\t\tfrom\n\t\t\t\torderpairs\n\t\t\twhere\n\t\t\t\t$__timeFilter(data->>'createdAt') or data->>'endedAt' in ('0001-01-01T00:00:00Z', '')\n\t\t) t\n\t) t2\n\tjoin (\n\t\tselect\n\t\t\tuuid,\n\t\t\t(data->>'createdAt')::timestamp as \"createdAt\",\n\t\t\tcase\n\t\t\t\twhen data->>'endedAt' = '0001-01-01T00:00:00Z' then LOCALTIMESTAMP\n\t\t\t\twhen data->>'endedAt' = '' then LOCALTIMESTAMP\n\t\t\t\telse (data->>'endedAt')::timestamp\n\t\t\tend as \"endedAt\",\n\t\t\tdata->>'direction' as \"direction\",\n\t\t\tdata->>'status' as \"status\"\n\t\tfrom\n\t\t\torderpairs\n\t\twhere\n\t\t\t($__timeFilter(data->>'createdAt') or data->>'endedAt' in ('0001-01-01T00:00:00Z', ''))\n\t\t\tand data->>'direction' = 'UP'\n\t\t) as pairs\n\ton t2.\"startDt\" < pairs.\"endedAt\" and t2.\"endDt\" > pairs.\"createdAt\"\n\tgroup by t2.\"startDt\", t2.\"endDt\"\n),\ntimetbl as (\n  select\n    *\n  from (\n  \tselect distinct\n  \t\tlag(t.dt) over (order by t.dt) as \"startTime\",\n  \t\tt.dt as \"endTime\"\n  \tfrom (\n  \t\tselect distinct\n  \t\t\tto_timestamp($__timeGroup(ts, $interval)) as dt\n  \t\tfrom\n  \t\t\tgenerate_series($__timeFrom(), $__timeTo(), INTERVAL '1 minute') ts\n  \t) as t\n  \torder by\n  \t\"startTime\"\n  ) as times\n  where\n    \"startTime\" is not null\n)\n-- Get the counts for each time slot\nselect\n\ttimetbl.\"startTime\" as time,\n\tmax(c) as up\nfrom\n\to\njoin\n  timetbl\non\n\to.\"startDt\" < timetbl.\"endTime\" and o.\"endDt\" > timetbl.\"startTime\"\ngroup by\n\ttimetbl.\"startTime\"\norder by\n\ttime",
-                    "refId": "B",
-                    "select": [
-                      [
-                        {
-                          "params": [
-                            "value"
-                          ],
-                          "type": "column"
-                        }
-                      ]
-                    ],
-                    "timeColumn": "time",
-                    "where": [
-                      {
-                        "name": "$__timeFilter",
-                        "params": [],
-                        "type": "macro"
-                      }
-                    ]
-                  }
-                ],
-                "thresholds": [],
-                "timeFrom": null,
-                "timeRegions": [],
-                "timeShift": null,
-                "title": "Open Pairs",
-                "tooltip": {
-                  "shared": true,
-                  "sort": 0,
-                  "value_type": "individual"
-                },
-                "type": "graph",
-                "xaxis": {
-                  "buckets": null,
-                  "mode": "time",
-                  "name": null,
-                  "show": true,
-                  "values": []
-                },
-                "yaxes": [
-                  {
-                    "format": "short",
-                    "label": null,
-                    "logBase": 1,
-                    "max": null,
-                    "min": null,
-                    "show": true
-                  },
-                  {
-                    "format": "short",
-                    "label": null,
-                    "logBase": 1,
-                    "max": null,
-                    "min": null,
-                    "show": true
-                  }
-                ],
-                "yaxis": {
-                  "align": false,
-                  "alignLevel": null
-                }
-              },
-              {
-                "aliasColors": {},
-                "bars": true,
-                "dashLength": 10,
-                "dashes": false,
-                "datasource": null,
-                "fieldConfig": {
-                  "defaults": {
-                    "custom": {
-                      "align": null,
-                      "filterable": false
-                    },
-                    "mappings": [],
-                    "thresholds": {
-                      "mode": "absolute",
-                      "steps": [
-                        {
-                          "color": "green",
-                          "value": null
-                        },
-                        {
-                          "color": "red",
-                          "value": 80
-                        }
-                      ]
-                    }
-                  },
-                  "overrides": []
-                },
-                "fill": 1,
-                "fillGradient": 0,
-                "gridPos": {
-                  "h": 9,
-                  "w": 12,
-                  "x": 0,
-                  "y": 9
-                },
-                "hiddenSeries": false,
-                "id": 2,
-                "interval": "",
-                "legend": {
-                  "avg": false,
-                  "current": false,
-                  "max": false,
-                  "min": false,
-                  "show": true,
-                  "total": false,
-                  "values": false
-                },
-                "lines": false,
-                "linewidth": 1,
-                "nullPointMode": "null as zero",
-                "options": {
-                  "alertThreshold": true
-                },
-                "percentage": false,
-                "pluginVersion": "7.3.5",
-                "pointradius": 2,
-                "points": false,
-                "renderer": "flot",
-                "seriesOverrides": [],
-                "spaceLength": 10,
-                "stack": true,
-                "steppedLine": false,
-                "targets": [
-                  {
-                    "format": "time_series",
-                    "group": [],
-                    "hide": false,
-                    "metricColumn": "none",
-                    "rawQuery": true,
-                    "rawSql": "with pairs as (\n\tselect \n\t\tuuid,\n\t\t(data->>'createdAt')::timestamp as \"createdAt\",\n\t\tcase \n\t\t\twhen data->>'endedAt' = '0001-01-01T00:00:00Z' then LOCALTIMESTAMP\n\t\t\twhen data->>'endedAt' = '' then LOCALTIMESTAMP\n\t\t\telse (data->>'endedAt')::timestamp\n\t\tend as \"endedAt\",\n\t\tdata->>'direction' as \"direction\",\n\t\tdata->>'status' as \"status\"\n\tfrom \n\t\torderpairs\n\twhere\n\t\t$__timeFilter(data->>'createdAt')\n  and data->>'direction'  = 'UP'\n),\ntimetbl as (\n  select\n    *\n  from (\n  \tselect distinct\n  \t\tlag(t.dt) over (order by t.dt) as \"startTime\",\n  \t\tt.dt as \"endTime\"\n  \tfrom (\n  \t\tselect distinct\n  \t\t\tto_timestamp($__timeGroup(ts, $interval)) as dt\n  \t\tfrom\n  \t\t\tgenerate_series($__timeFrom(), $__timeTo(), INTERVAL '1 minute') ts\n  \t) as t\n  \torder by\n  \t\"startTime\"\n  ) as times\n  where\n    \"startTime\" is not null\n)\nselect\n  count(uuid) as up,\n  timetbl.\"startTime\" as time\n  \nfrom timetbl\nleft join pairs\nON\n   timetbl.\"startTime\" <= pairs.\"createdAt\" and timetbl.\"endTime\" >= pairs.\"createdAt\"\ngroup by timetbl.\"startTime\", timetbl.\"endTime\"\norder by timetbl.\"startTime\"",
-                    "refId": "A",
-                    "select": [
-                      [
-                        {
-                          "params": [
-                            "value"
-                          ],
-                          "type": "column"
-                        }
-                      ]
-                    ],
-                    "timeColumn": "time",
-                    "where": [
-                      {
-                        "name": "$__timeFilter",
-                        "params": [],
-                        "type": "macro"
-                      }
-                    ]
-                  },
-                  {
-                    "format": "time_series",
-                    "group": [],
-                    "hide": false,
-                    "metricColumn": "none",
-                    "rawQuery": true,
-                    "rawSql": "with pairs as (\n\tselect \n\t\tuuid,\n\t\t(data->>'createdAt')::timestamp as \"createdAt\",\n\t\tcase \n\t\t\twhen data->>'endedAt' = '0001-01-01T00:00:00Z' then LOCALTIMESTAMP\n\t\t\twhen data->>'endedAt' = '' then LOCALTIMESTAMP\n\t\t\telse (data->>'endedAt')::timestamp\n\t\tend as \"endedAt\",\n\t\tdata->>'direction' as \"direction\",\n\t\tdata->>'status' as \"status\"\n\tfrom \n\t\torderpairs\n\twhere\n\t\t$__timeFilter(data->>'createdAt')\n  and data->>'direction'  = 'DOWN'\n),\ntimetbl as (\n  select\n    *\n  from (\n  \tselect distinct\n  \t\tlag(t.dt) over (order by t.dt) as \"startTime\",\n  \t\tt.dt as \"endTime\"\n  \tfrom (\n  \t\tselect distinct\n  \t\t\tto_timestamp($__timeGroup(ts, $interval)) as dt\n  \t\tfrom\n  \t\t\tgenerate_series($__timeFrom(), $__timeTo(), INTERVAL '1 minute') ts\n  \t) as t\n  \torder by\n  \t\"startTime\"\n  ) as times\n  where\n    \"startTime\" is not null\n)\nselect\n  count(uuid) as down,\n  timetbl.\"startTime\" as \"time\"\nfrom timetbl\nleft join pairs\nON\n    pairs.\"createdAt\" > timetbl.\"startTime\" and pairs.\"createdAt\" < timetbl.\"endTime\"\ngroup by timetbl.\"startTime\", \"endTime\"\norder by timetbl.\"startTime\"",
-                    "refId": "B",
-                    "select": [
-                      [
-                        {
-                          "params": [
-                            "value"
-                          ],
-                          "type": "column"
-                        }
-                      ]
-                    ],
-                    "timeColumn": "time",
-                    "where": [
-                      {
-                        "name": "$__timeFilter",
-                        "params": [],
-                        "type": "macro"
-                      }
-                    ]
-                  }
-                ],
-                "thresholds": [],
-                "timeFrom": null,
-                "timeRegions": [],
-                "timeShift": null,
-                "title": "Pairs Placed",
-                "tooltip": {
-                  "shared": true,
-                  "sort": 2,
-                  "value_type": "individual"
-                },
-                "type": "graph",
-                "xaxis": {
-                  "buckets": null,
-                  "mode": "time",
-                  "name": null,
-                  "show": true,
-                  "values": []
-                },
-                "yaxes": [
-                  {
-                    "format": "short",
-                    "label": null,
-                    "logBase": 1,
-                    "max": null,
-                    "min": null,
-                    "show": true
-                  },
-                  {
-                    "format": "short",
-                    "label": null,
-                    "logBase": 1,
-                    "max": null,
-                    "min": null,
-                    "show": true
-                  }
-                ],
-                "yaxis": {
-                  "align": false,
-                  "alignLevel": null
-                }
-              },
-              {
-                "aliasColors": {},
-                "bars": true,
-                "dashLength": 10,
-                "dashes": false,
-                "datasource": null,
                 "decimals": 0,
                 "fieldConfig": {
                   "defaults": {
@@ -663,7 +361,7 @@ grafana:
                   "h": 9,
                   "w": 12,
                   "x": 12,
-                  "y": 9
+                  "y": 0
                 },
                 "hiddenSeries": false,
                 "id": 5,
@@ -688,7 +386,37 @@ grafana:
                 "pointradius": 2,
                 "points": false,
                 "renderer": "flot",
-                "seriesOverrides": [],
+                "seriesOverrides": [
+                  {
+                    "$$hashKey": "object:89",
+                    "alias": "failed",
+                    "color": "#FF7383",
+                    "zindex": -2
+                  },
+                  {
+                    "$$hashKey": "object:99",
+                    "alias": "success",
+                    "color": "#56A64B",
+                    "zindex": 1
+                  },
+                  {
+                    "$$hashKey": "object:111",
+                    "alias": "canceled",
+                    "color": "#F2CC0C"
+                  },
+                  {
+                    "$$hashKey": "object:122",
+                    "alias": "reversed",
+                    "color": "#C4162A",
+                    "zindex": -3
+                  },
+                  {
+                    "$$hashKey": "object:167",
+                    "alias": "broken",
+                    "color": "#A352CC",
+                    "zindex": 3
+                  }
+                ],
                 "spaceLength": 10,
                 "stack": true,
                 "steppedLine": true,
@@ -835,7 +563,333 @@ grafana:
                 "timeShift": null,
                 "title": "Completed Pairs",
                 "tooltip": {
-                  "shared": false,
+                  "shared": true,
+                  "sort": 2,
+                  "value_type": "individual"
+                },
+                "type": "graph",
+                "xaxis": {
+                  "buckets": null,
+                  "mode": "time",
+                  "name": null,
+                  "show": true,
+                  "values": []
+                },
+                "yaxes": [
+                  {
+                    "format": "short",
+                    "label": null,
+                    "logBase": 1,
+                    "max": null,
+                    "min": null,
+                    "show": true
+                  },
+                  {
+                    "format": "short",
+                    "label": null,
+                    "logBase": 1,
+                    "max": null,
+                    "min": null,
+                    "show": true
+                  }
+                ],
+                "yaxis": {
+                  "align": false,
+                  "alignLevel": null
+                }
+              },
+              {
+                "aliasColors": {},
+                "bars": true,
+                "dashLength": 10,
+                "dashes": false,
+                "datasource": null,
+                "fieldConfig": {
+                  "defaults": {
+                    "custom": {
+                      "align": null,
+                      "filterable": false
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "green",
+                          "value": null
+                        },
+                        {
+                          "color": "red",
+                          "value": 80
+                        }
+                      ]
+                    }
+                  },
+                  "overrides": []
+                },
+                "fill": 1,
+                "fillGradient": 0,
+                "gridPos": {
+                  "h": 9,
+                  "w": 12,
+                  "x": 0,
+                  "y": 9
+                },
+                "hiddenSeries": false,
+                "id": 2,
+                "interval": "",
+                "legend": {
+                  "avg": false,
+                  "current": false,
+                  "max": false,
+                  "min": false,
+                  "show": true,
+                  "total": false,
+                  "values": false
+                },
+                "lines": false,
+                "linewidth": 1,
+                "nullPointMode": "null as zero",
+                "options": {
+                  "alertThreshold": true
+                },
+                "percentage": false,
+                "pluginVersion": "7.3.5",
+                "pointradius": 2,
+                "points": false,
+                "renderer": "flot",
+                "seriesOverrides": [
+                  {
+                    "$$hashKey": "object:409",
+                    "alias": "up",
+                    "color": "#FFCB7D",
+                    "zindex": 1
+                  },
+                  {
+                    "$$hashKey": "object:417",
+                    "alias": "down",
+                    "color": "#FA6400"
+                  }
+                ],
+                "spaceLength": 10,
+                "stack": true,
+                "steppedLine": false,
+                "targets": [
+                  {
+                    "format": "time_series",
+                    "group": [],
+                    "hide": false,
+                    "metricColumn": "none",
+                    "rawQuery": true,
+                    "rawSql": "with pairs as (\n\tselect \n\t\tuuid,\n\t\t(data->>'createdAt')::timestamp as \"createdAt\",\n\t\tcase \n\t\t\twhen data->>'endedAt' = '0001-01-01T00:00:00Z' then LOCALTIMESTAMP\n\t\t\twhen data->>'endedAt' = '' then LOCALTIMESTAMP\n\t\t\telse (data->>'endedAt')::timestamp\n\t\tend as \"endedAt\",\n\t\tdata->>'direction' as \"direction\",\n\t\tdata->>'status' as \"status\"\n\tfrom \n\t\torderpairs\n\twhere\n\t\t$__timeFilter(data->>'createdAt')\n  and data->>'direction'  = 'UP'\n),\ntimetbl as (\n  select\n    *\n  from (\n  \tselect distinct\n  \t\tlag(t.dt) over (order by t.dt) as \"startTime\",\n  \t\tt.dt as \"endTime\"\n  \tfrom (\n  \t\tselect distinct\n  \t\t\tto_timestamp($__timeGroup(ts, $interval)) as dt\n  \t\tfrom\n  \t\t\tgenerate_series($__timeFrom(), $__timeTo(), INTERVAL '1 minute') ts\n  \t) as t\n  \torder by\n  \t\"startTime\"\n  ) as times\n  where\n    \"startTime\" is not null\n)\nselect\n  count(uuid) as up,\n  timetbl.\"startTime\" as time\n  \nfrom timetbl\nleft join pairs\nON\n   timetbl.\"startTime\" <= pairs.\"createdAt\" and timetbl.\"endTime\" >= pairs.\"createdAt\"\ngroup by timetbl.\"startTime\", timetbl.\"endTime\"\norder by timetbl.\"startTime\"",
+                    "refId": "A",
+                    "select": [
+                      [
+                        {
+                          "params": [
+                            "value"
+                          ],
+                          "type": "column"
+                        }
+                      ]
+                    ],
+                    "timeColumn": "time",
+                    "where": [
+                      {
+                        "name": "$__timeFilter",
+                        "params": [],
+                        "type": "macro"
+                      }
+                    ]
+                  },
+                  {
+                    "format": "time_series",
+                    "group": [],
+                    "hide": false,
+                    "metricColumn": "none",
+                    "rawQuery": true,
+                    "rawSql": "with pairs as (\n\tselect \n\t\tuuid,\n\t\t(data->>'createdAt')::timestamp as \"createdAt\",\n\t\tcase \n\t\t\twhen data->>'endedAt' = '0001-01-01T00:00:00Z' then LOCALTIMESTAMP\n\t\t\twhen data->>'endedAt' = '' then LOCALTIMESTAMP\n\t\t\telse (data->>'endedAt')::timestamp\n\t\tend as \"endedAt\",\n\t\tdata->>'direction' as \"direction\",\n\t\tdata->>'status' as \"status\"\n\tfrom \n\t\torderpairs\n\twhere\n\t\t$__timeFilter(data->>'createdAt')\n  and data->>'direction'  = 'DOWN'\n),\ntimetbl as (\n  select\n    *\n  from (\n  \tselect distinct\n  \t\tlag(t.dt) over (order by t.dt) as \"startTime\",\n  \t\tt.dt as \"endTime\"\n  \tfrom (\n  \t\tselect distinct\n  \t\t\tto_timestamp($__timeGroup(ts, $interval)) as dt\n  \t\tfrom\n  \t\t\tgenerate_series($__timeFrom(), $__timeTo(), INTERVAL '1 minute') ts\n  \t) as t\n  \torder by\n  \t\"startTime\"\n  ) as times\n  where\n    \"startTime\" is not null\n)\nselect\n  count(uuid) as down,\n  timetbl.\"startTime\" as \"time\"\nfrom timetbl\nleft join pairs\nON\n    pairs.\"createdAt\" > timetbl.\"startTime\" and pairs.\"createdAt\" < timetbl.\"endTime\"\ngroup by timetbl.\"startTime\", \"endTime\"\norder by timetbl.\"startTime\"",
+                    "refId": "B",
+                    "select": [
+                      [
+                        {
+                          "params": [
+                            "value"
+                          ],
+                          "type": "column"
+                        }
+                      ]
+                    ],
+                    "timeColumn": "time",
+                    "where": [
+                      {
+                        "name": "$__timeFilter",
+                        "params": [],
+                        "type": "macro"
+                      }
+                    ]
+                  }
+                ],
+                "thresholds": [],
+                "timeFrom": null,
+                "timeRegions": [],
+                "timeShift": null,
+                "title": "Pairs Placed",
+                "tooltip": {
+                  "shared": true,
+                  "sort": 2,
+                  "value_type": "individual"
+                },
+                "type": "graph",
+                "xaxis": {
+                  "buckets": null,
+                  "mode": "time",
+                  "name": null,
+                  "show": true,
+                  "values": []
+                },
+                "yaxes": [
+                  {
+                    "format": "short",
+                    "label": null,
+                    "logBase": 1,
+                    "max": null,
+                    "min": null,
+                    "show": true
+                  },
+                  {
+                    "format": "short",
+                    "label": null,
+                    "logBase": 1,
+                    "max": null,
+                    "min": null,
+                    "show": true
+                  }
+                ],
+                "yaxis": {
+                  "align": false,
+                  "alignLevel": null
+                }
+              },
+              {
+                "aliasColors": {},
+                "bars": true,
+                "dashLength": 10,
+                "dashes": false,
+                "datasource": null,
+                "fieldConfig": {
+                  "defaults": {
+                    "custom": {}
+                  },
+                  "overrides": []
+                },
+                "fill": 2,
+                "fillGradient": 0,
+                "gridPos": {
+                  "h": 9,
+                  "w": 12,
+                  "x": 12,
+                  "y": 9
+                },
+                "hiddenSeries": false,
+                "id": 4,
+                "legend": {
+                  "avg": false,
+                  "current": false,
+                  "max": false,
+                  "min": false,
+                  "show": true,
+                  "total": false,
+                  "values": false
+                },
+                "lines": false,
+                "linewidth": 1,
+                "nullPointMode": "null as zero",
+                "options": {
+                  "alertThreshold": true
+                },
+                "percentage": false,
+                "pluginVersion": "7.3.5",
+                "pointradius": 2,
+                "points": false,
+                "renderer": "flot",
+                "seriesOverrides": [
+                  {
+                    "$$hashKey": "object:325",
+                    "alias": "down",
+                    "color": "#FA6400"
+                  },
+                  {
+                    "$$hashKey": "object:333",
+                    "alias": "up",
+                    "color": "#FFCB7D",
+                    "zindex": 1
+                  }
+                ],
+                "spaceLength": 10,
+                "stack": true,
+                "steppedLine": true,
+                "targets": [
+                  {
+                    "format": "table",
+                    "group": [],
+                    "metricColumn": "none",
+                    "rawQuery": true,
+                    "rawSql": "with o as ( -- Get the overlapping counts for each time range\n\tselect \n\t\tt2.\"startDt\", \n\t\tt2.\"endDt\", \n\t\tcount(1) c\n\tfrom ( -- Setup the time ranges\n\t\tselect\n\t\t\tlag(t.dt) over (order by t.dt) as \"startDt\", \n\t\t\tt.dt as \"endDt\"\n\t\tfrom ( -- Get the create and end times from the pairs\n\t\t\tselect\n\t\t\t\t(data->>'createdAt')::timestamp as \"dt\"\n\t\t\tfrom \n\t\t\t\torderpairs\n\t\t\twhere\n\t\t\t\t$__timeFilter(data->>'createdAt') or data->>'endedAt' in ('0001-01-01T00:00:00Z', '')\n\t\t\tUNION ALL\n\t\t\tselect\n\t\t\t\tcase\n\t\t\t\t\twhen data->>'endedAt' = '0001-01-01T00:00:00Z' then LOCALTIMESTAMP\n\t\t\t\t\twhen data->>'endedAt' = '' then LOCALTIMESTAMP\n\t\t\t\t\telse (data->>'endedAt')::timestamp\n\t\t\t\tend as \"dt\"\n\t\t\tfrom\n\t\t\t\torderpairs\n\t\t\twhere\n\t\t\t\t$__timeFilter(data->>'createdAt') or data->>'endedAt' in ('0001-01-01T00:00:00Z', '')\n\t\t) t\n\t) t2\n\tjoin (\n\t\tselect\n\t\t\tuuid,\n\t\t\t(data->>'createdAt')::timestamp as \"createdAt\",\n\t\t\tcase\n\t\t\t\twhen data->>'endedAt' = '0001-01-01T00:00:00Z' then LOCALTIMESTAMP\n\t\t\t\twhen data->>'endedAt' = '' then LOCALTIMESTAMP\n\t\t\t\telse (data->>'endedAt')::timestamp\n\t\t\tend as \"endedAt\",\n\t\t\tdata->>'direction' as \"direction\",\n\t\t\tdata->>'status' as \"status\"\n\t\tfrom\n\t\t\torderpairs\n\t\twhere\n\t\t\t($__timeFilter(data->>'createdAt') or data->>'endedAt' in ('0001-01-01T00:00:00Z', ''))\n\t\t\tand data->>'direction' = 'DOWN'\n\t\t) as pairs\n\ton t2.\"startDt\" < pairs.\"endedAt\" and t2.\"endDt\" > pairs.\"createdAt\"\n\tgroup by t2.\"startDt\", t2.\"endDt\"\n),\ntimetbl as (\n  select\n    *\n  from (\n  \tselect distinct\n  \t\tlag(t.dt) over (order by t.dt) as \"startTime\",\n  \t\tt.dt as \"endTime\"\n  \tfrom (\n  \t\tselect distinct\n  \t\t\tto_timestamp($__timeGroup(ts, $interval)) as dt\n  \t\tfrom\n  \t\t\tgenerate_series($__timeFrom(), $__timeTo(), INTERVAL '1 minute') ts\n  \t) as t\n  \torder by\n  \t\"startTime\"\n  ) as times\n  where\n    \"startTime\" is not null\n)\n-- Get the counts for each time slot\nselect\n\ttimetbl.\"startTime\" as time,\n\tmax(c) as down\nfrom\n\to\njoin\n  timetbl\non\n\to.\"startDt\" < timetbl.\"endTime\" and o.\"endDt\" > timetbl.\"startTime\"\ngroup by\n\ttimetbl.\"startTime\"\norder by\n\ttime",
+                    "refId": "A",
+                    "select": [
+                      [
+                        {
+                          "params": [
+                            "value"
+                          ],
+                          "type": "column"
+                        }
+                      ]
+                    ],
+                    "timeColumn": "time",
+                    "where": [
+                      {
+                        "name": "$__timeFilter",
+                        "params": [],
+                        "type": "macro"
+                      }
+                    ]
+                  },
+                  {
+                    "format": "table",
+                    "group": [],
+                    "metricColumn": "none",
+                    "rawQuery": true,
+                    "rawSql": "with o as ( -- Get the overlapping counts for each time range\n\tselect \n\t\tt2.\"startDt\", \n\t\tt2.\"endDt\", \n\t\tcount(1) c\n\tfrom ( -- Setup the time ranges\n\t\tselect\n\t\t\tlag(t.dt) over (order by t.dt) as \"startDt\", \n\t\t\tt.dt as \"endDt\"\n\t\tfrom ( -- Get the create and end times from the pairs\n\t\t\tselect\n\t\t\t\t(data->>'createdAt')::timestamp as \"dt\"\n\t\t\tfrom \n\t\t\t\torderpairs\n\t\t\twhere\n\t\t\t\t$__timeFilter(data->>'createdAt') or data->>'endedAt' in ('0001-01-01T00:00:00Z', '')\n\t\t\tUNION ALL\n\t\t\tselect\n\t\t\t\tcase\n\t\t\t\t\twhen data->>'endedAt' = '0001-01-01T00:00:00Z' then LOCALTIMESTAMP\n\t\t\t\t\twhen data->>'endedAt' = '' then LOCALTIMESTAMP\n\t\t\t\t\telse (data->>'endedAt')::timestamp\n\t\t\t\tend as \"dt\"\n\t\t\tfrom\n\t\t\t\torderpairs\n\t\t\twhere\n\t\t\t\t$__timeFilter(data->>'createdAt') or data->>'endedAt' in ('0001-01-01T00:00:00Z', '')\n\t\t) t\n\t) t2\n\tjoin (\n\t\tselect\n\t\t\tuuid,\n\t\t\t(data->>'createdAt')::timestamp as \"createdAt\",\n\t\t\tcase\n\t\t\t\twhen data->>'endedAt' = '0001-01-01T00:00:00Z' then LOCALTIMESTAMP\n\t\t\t\twhen data->>'endedAt' = '' then LOCALTIMESTAMP\n\t\t\t\telse (data->>'endedAt')::timestamp\n\t\t\tend as \"endedAt\",\n\t\t\tdata->>'direction' as \"direction\",\n\t\t\tdata->>'status' as \"status\"\n\t\tfrom\n\t\t\torderpairs\n\t\twhere\n\t\t\t($__timeFilter(data->>'createdAt') or data->>'endedAt' in ('0001-01-01T00:00:00Z', ''))\n\t\t\tand data->>'direction' = 'UP'\n\t\t) as pairs\n\ton t2.\"startDt\" < pairs.\"endedAt\" and t2.\"endDt\" > pairs.\"createdAt\"\n\tgroup by t2.\"startDt\", t2.\"endDt\"\n),\ntimetbl as (\n  select\n    *\n  from (\n  \tselect distinct\n  \t\tlag(t.dt) over (order by t.dt) as \"startTime\",\n  \t\tt.dt as \"endTime\"\n  \tfrom (\n  \t\tselect distinct\n  \t\t\tto_timestamp($__timeGroup(ts, $interval)) as dt\n  \t\tfrom\n  \t\t\tgenerate_series($__timeFrom(), $__timeTo(), INTERVAL '1 minute') ts\n  \t) as t\n  \torder by\n  \t\"startTime\"\n  ) as times\n  where\n    \"startTime\" is not null\n)\n-- Get the counts for each time slot\nselect\n\ttimetbl.\"startTime\" as time,\n\tmax(c) as up\nfrom\n\to\njoin\n  timetbl\non\n\to.\"startDt\" < timetbl.\"endTime\" and o.\"endDt\" > timetbl.\"startTime\"\ngroup by\n\ttimetbl.\"startTime\"\norder by\n\ttime",
+                    "refId": "B",
+                    "select": [
+                      [
+                        {
+                          "params": [
+                            "value"
+                          ],
+                          "type": "column"
+                        }
+                      ]
+                    ],
+                    "timeColumn": "time",
+                    "where": [
+                      {
+                        "name": "$__timeFilter",
+                        "params": [],
+                        "type": "macro"
+                      }
+                    ]
+                  }
+                ],
+                "thresholds": [],
+                "timeFrom": null,
+                "timeRegions": [],
+                "timeShift": null,
+                "title": "Open Pairs",
+                "tooltip": {
+                  "shared": true,
                   "sort": 0,
                   "value_type": "individual"
                 },
