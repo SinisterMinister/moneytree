@@ -145,7 +145,7 @@ grafana:
             "editable": true,
             "gnetId": null,
             "graphTooltip": 0,
-            "iteration": 1613369579946,
+            "iteration": 1613375267965,
             "links": [],
             "panels": [
               {
@@ -682,7 +682,7 @@ grafana:
                     "hide": false,
                     "metricColumn": "none",
                     "rawQuery": true,
-                    "rawSql": "with pairs as (\n\tselect \n\t\tuuid,\n\t\t(data->>'createdAt')::timestamp as \"createdAt\",\n\t\tcase \n\t\t\twhen data->>'endedAt' = '0001-01-01T00:00:00Z' then LOCALTIMESTAMP\n\t\t\twhen data->>'endedAt' = '' then LOCALTIMESTAMP\n\t\t\telse (data->>'endedAt')::timestamp\n\t\tend as \"endedAt\",\n\t\tdata->>'direction' as \"direction\",\n\t\tdata->>'status' as \"status\"\n\tfrom \n\t\torderpairs\n\twhere\n\t\t$__timeFilter(data->>'createdAt')\n  and data->>'direction'  = 'DOWN'\n),\ntimetbl as (\n  select\n    *\n  from (\n  \tselect distinct\n  \t\tlag(t.dt) over (order by t.dt) as \"startTime\",\n  \t\tt.dt as \"endTime\"\n  \tfrom (\n  \t\tselect distinct\n  \t\t\tto_timestamp($__timeGroup(ts, $interval)) as dt\n  \t\tfrom\n  \t\t\tgenerate_series($__timeFrom(), $__timeTo(), INTERVAL '1 minute') ts\n  \t) as t\n  \torder by\n  \t\"startTime\"\n  ) as times\n  where\n    \"startTime\" is not null\n)\nselect\n  count(uuid) as down,\n  timetbl.\"startTime\" as time\n  \nfrom timetbl\nleft join pairs\nON\n   timetbl.\"startTime\" <= pairs.\"createdAt\" and timetbl.\"endTime\" >= pairs.\"createdAt\"\ngroup by timetbl.\"startTime\", timetbl.\"endTime\"\norder by timetbl.\"startTime\"",
+                    "rawSql": "with pairs as (\n\tselect \n\t\tuuid,\n\t\t(data->>'createdAt')::timestamp as \"createdAt\",\n\t\tcase \n\t\t\twhen data->>'endedAt' = '0001-01-01T00:00:00Z' then LOCALTIMESTAMP\n\t\t\twhen data->>'endedAt' = '' then LOCALTIMESTAMP\n\t\t\telse (data->>'endedAt')::timestamp\n\t\tend as \"endedAt\",\n\t\tdata->>'direction' as \"direction\",\n\t\tdata->>'status' as \"status\"\n\tfrom \n\t\torderpairs\n\twhere\n\t\t$__timeFilter(data->>'createdAt')\n  and data->>'direction'  = 'DOWN'\n  and data->>'status' not in ('CANCELED', 'FAILED')\n),\ntimetbl as (\n  select\n    *\n  from (\n  \tselect distinct\n  \t\tlag(t.dt) over (order by t.dt) as \"startTime\",\n  \t\tt.dt as \"endTime\"\n  \tfrom (\n  \t\tselect distinct\n  \t\t\tto_timestamp($__timeGroup(ts, $interval)) as dt\n  \t\tfrom\n  \t\t\tgenerate_series($__timeFrom(), $__timeTo(), INTERVAL '1 minute') ts\n  \t) as t\n  \torder by\n  \t\"startTime\"\n  ) as times\n  where\n    \"startTime\" is not null\n)\nselect\n  count(uuid) as down,\n  timetbl.\"startTime\" as time\n  \nfrom timetbl\nleft join pairs\nON\n   timetbl.\"startTime\" <= pairs.\"createdAt\" and timetbl.\"endTime\" >= pairs.\"createdAt\"\ngroup by timetbl.\"startTime\", timetbl.\"endTime\"\norder by timetbl.\"startTime\"",
                     "refId": "A",
                     "select": [
                       [
@@ -709,7 +709,7 @@ grafana:
                     "hide": false,
                     "metricColumn": "none",
                     "rawQuery": true,
-                    "rawSql": "with pairs as (\n\tselect \n\t\tuuid,\n\t\t(data->>'createdAt')::timestamp as \"createdAt\",\n\t\tcase \n\t\t\twhen data->>'endedAt' = '0001-01-01T00:00:00Z' then LOCALTIMESTAMP\n\t\t\twhen data->>'endedAt' = '' then LOCALTIMESTAMP\n\t\t\telse (data->>'endedAt')::timestamp\n\t\tend as \"endedAt\",\n\t\tdata->>'direction' as \"direction\",\n\t\tdata->>'status' as \"status\"\n\tfrom \n\t\torderpairs\n\twhere\n\t\t$__timeFilter(data->>'createdAt')\n  and data->>'direction'  = 'UP'\n),\ntimetbl as (\n  select\n    *\n  from (\n  \tselect distinct\n  \t\tlag(t.dt) over (order by t.dt) as \"startTime\",\n  \t\tt.dt as \"endTime\"\n  \tfrom (\n  \t\tselect distinct\n  \t\t\tto_timestamp($__timeGroup(ts, $interval)) as dt\n  \t\tfrom\n  \t\t\tgenerate_series($__timeFrom(), $__timeTo(), INTERVAL '1 minute') ts\n  \t) as t\n  \torder by\n  \t\"startTime\"\n  ) as times\n  where\n    \"startTime\" is not null\n)\nselect\n  count(uuid) as up,\n  timetbl.\"startTime\" as \"time\"\nfrom timetbl\nleft join pairs\nON\n    pairs.\"createdAt\" > timetbl.\"startTime\" and pairs.\"createdAt\" < timetbl.\"endTime\"\ngroup by timetbl.\"startTime\", \"endTime\"\norder by timetbl.\"startTime\"",
+                    "rawSql": "with pairs as (\n\tselect \n\t\tuuid,\n\t\t(data->>'createdAt')::timestamp as \"createdAt\",\n\t\tcase \n\t\t\twhen data->>'endedAt' = '0001-01-01T00:00:00Z' then LOCALTIMESTAMP\n\t\t\twhen data->>'endedAt' = '' then LOCALTIMESTAMP\n\t\t\telse (data->>'endedAt')::timestamp\n\t\tend as \"endedAt\",\n\t\tdata->>'direction' as \"direction\",\n\t\tdata->>'status' as \"status\"\n\tfrom \n\t\torderpairs\n\twhere\n\t\t$__timeFilter(data->>'createdAt')\n  and data->>'direction'  = 'UP'\n  and data->>'status' not in ('CANCELED', 'FAILED')\n),\ntimetbl as (\n  select\n    *\n  from (\n  \tselect distinct\n  \t\tlag(t.dt) over (order by t.dt) as \"startTime\",\n  \t\tt.dt as \"endTime\"\n  \tfrom (\n  \t\tselect distinct\n  \t\t\tto_timestamp($__timeGroup(ts, $interval)) as dt\n  \t\tfrom\n  \t\t\tgenerate_series($__timeFrom(), $__timeTo(), INTERVAL '1 minute') ts\n  \t) as t\n  \torder by\n  \t\"startTime\"\n  ) as times\n  where\n    \"startTime\" is not null\n)\nselect\n  count(uuid) as up,\n  timetbl.\"startTime\" as \"time\"\nfrom timetbl\nleft join pairs\nON\n    pairs.\"createdAt\" > timetbl.\"startTime\" and pairs.\"createdAt\" < timetbl.\"endTime\"\ngroup by timetbl.\"startTime\", \"endTime\"\norder by timetbl.\"startTime\"",
                     "refId": "B",
                     "select": [
                       [
@@ -735,7 +735,7 @@ grafana:
                 "timeFrom": null,
                 "timeRegions": [],
                 "timeShift": null,
-                "title": "Pairs Placed",
+                "title": "Pairs Successfully Placed",
                 "tooltip": {
                   "shared": true,
                   "sort": 0,
@@ -943,7 +943,7 @@ grafana:
                   "auto_count": 30,
                   "auto_min": "1m",
                   "current": {
-                    "selected": false,
+                    "selected": true,
                     "text": "6h",
                     "value": "6h"
                   },
