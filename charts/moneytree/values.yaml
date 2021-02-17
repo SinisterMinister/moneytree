@@ -145,8 +145,7 @@ grafana:
             "editable": true,
             "gnetId": null,
             "graphTooltip": 0,
-            "id": 3,
-            "iteration": 1613377514810,
+            "iteration": 1613531829520,
             "links": [],
             "panels": [
               {
@@ -1079,10 +1078,12 @@ grafana:
                 "renderer": "flot",
                 "seriesOverrides": [
                   {
+                    "$$hashKey": "object:709",
                     "alias": "Gains",
                     "color": "#56A64B"
                   },
                   {
+                    "$$hashKey": "object:710",
                     "alias": "Losses",
                     "color": "#E02F44",
                     "transform": "negative-Y"
@@ -1151,7 +1152,7 @@ grafana:
                 "timeFrom": null,
                 "timeRegions": [],
                 "timeShift": null,
-                "title": "Returns",
+                "title": "Gains & Losses",
                 "tooltip": {
                   "shared": false,
                   "sort": 0,
@@ -1252,25 +1253,30 @@ grafana:
                 "renderer": "flot",
                 "seriesOverrides": [
                   {
+                    "$$hashKey": "object:793",
                     "alias": "failed",
                     "color": "#FF7383",
                     "zindex": -2
                   },
                   {
+                    "$$hashKey": "object:794",
                     "alias": "success",
                     "color": "#56A64B",
                     "zindex": 1
                   },
                   {
+                    "$$hashKey": "object:795",
                     "alias": "canceled",
                     "color": "#F2CC0C"
                   },
                   {
+                    "$$hashKey": "object:796",
                     "alias": "reversed",
                     "color": "#C4162A",
                     "zindex": -3
                   },
                   {
+                    "$$hashKey": "object:797",
                     "alias": "broken",
                     "color": "#A352CC",
                     "zindex": 3
@@ -1520,11 +1526,13 @@ grafana:
                 "renderer": "flot",
                 "seriesOverrides": [
                   {
+                    "$$hashKey": "object:511",
                     "alias": "up",
                     "color": "#FFCB7D",
                     "zindex": 1
                   },
                   {
+                    "$$hashKey": "object:512",
                     "alias": "down",
                     "color": "#FA6400",
                     "transform": "negative-Y"
@@ -1593,7 +1601,7 @@ grafana:
                 "timeFrom": null,
                 "timeRegions": [],
                 "timeShift": null,
-                "title": "Pairs Successfully Placed",
+                "title": "Placed Pairs",
                 "tooltip": {
                   "shared": true,
                   "sort": 0,
@@ -1639,9 +1647,39 @@ grafana:
                 "decimals": 0,
                 "fieldConfig": {
                   "defaults": {
-                    "custom": {}
+                    "custom": {
+                      "align": null,
+                      "filterable": false
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "green",
+                          "value": null
+                        },
+                        {
+                          "color": "red",
+                          "value": 80
+                        }
+                      ]
+                    }
                   },
-                  "overrides": []
+                  "overrides": [
+                    {
+                      "matcher": {
+                        "id": "byName",
+                        "options": "endedAt"
+                      },
+                      "properties": [
+                        {
+                          "id": "custom.width",
+                          "value": 269
+                        }
+                      ]
+                    }
+                  ]
                 },
                 "fill": 2,
                 "fillGradient": 0,
@@ -1675,11 +1713,13 @@ grafana:
                 "renderer": "flot",
                 "seriesOverrides": [
                   {
+                    "$$hashKey": "object:42",
                     "alias": "down",
                     "color": "#FA6400",
                     "transform": "negative-Y"
                   },
                   {
+                    "$$hashKey": "object:43",
                     "alias": "up",
                     "color": "#FFCB7D",
                     "zindex": 1
@@ -1690,11 +1730,12 @@ grafana:
                 "steppedLine": true,
                 "targets": [
                   {
-                    "format": "table",
+                    "format": "time_series",
                     "group": [],
+                    "hide": false,
                     "metricColumn": "none",
                     "rawQuery": true,
-                    "rawSql": "with o as ( -- Get the overlapping counts for each time range\n\tselect \n\t\tt2.\"startDt\", \n\t\tt2.\"endDt\", \n\t\tcount(1) c\n\tfrom ( -- Setup the time ranges\n\t\tselect\n\t\t\tlag(t.dt) over (order by t.dt) as \"startDt\", \n\t\t\tt.dt as \"endDt\"\n\t\tfrom ( -- Get the create and end times from the pairs\n\t\t\tselect\n\t\t\t\t(data->>'createdAt')::timestamp as \"dt\"\n\t\t\tfrom \n\t\t\t\torderpairs\n\t\t\twhere\n\t\t\t\t$__timeFilter(data->>'createdAt') or data->>'endedAt' in ('0001-01-01T00:00:00Z', '')\n\t\t\tUNION ALL\n\t\t\tselect\n\t\t\t\tcase\n\t\t\t\t\twhen data->>'endedAt' = '0001-01-01T00:00:00Z' then LOCALTIMESTAMP\n\t\t\t\t\twhen data->>'endedAt' = '' then LOCALTIMESTAMP\n\t\t\t\t\telse (data->>'endedAt')::timestamp\n\t\t\t\tend as \"dt\"\n\t\t\tfrom\n\t\t\t\torderpairs\n\t\t\twhere\n\t\t\t\t$__timeFilter(data->>'createdAt') or data->>'endedAt' in ('0001-01-01T00:00:00Z', '')\n\t\t) t\n\t) t2\n\tjoin (\n\t\tselect\n\t\t\tuuid,\n\t\t\t(data->>'createdAt')::timestamp as \"createdAt\",\n\t\t\tcase\n\t\t\t\twhen data->>'endedAt' = '0001-01-01T00:00:00Z' then LOCALTIMESTAMP\n\t\t\t\twhen data->>'endedAt' = '' then LOCALTIMESTAMP\n\t\t\t\telse (data->>'endedAt')::timestamp\n\t\t\tend as \"endedAt\",\n\t\t\tdata->>'direction' as \"direction\",\n\t\t\tdata->>'status' as \"status\"\n\t\tfrom\n\t\t\torderpairs\n\t\twhere\n\t\t\t($__timeFilter(data->>'createdAt') or data->>'endedAt' in ('0001-01-01T00:00:00Z', ''))\n\t\t\tand data->>'direction' = 'DOWN'\n\t\t) as pairs\n\ton t2.\"startDt\" < pairs.\"endedAt\" and t2.\"endDt\" > pairs.\"createdAt\"\n\tgroup by t2.\"startDt\", t2.\"endDt\"\n),\ntimetbl as (\n  select\n    *\n  from (\n  \tselect distinct\n  \t\tlag(t.dt) over (order by t.dt) as \"startTime\",\n  \t\tt.dt as \"endTime\"\n  \tfrom (\n  \t\tselect distinct\n  \t\t\tto_timestamp($__timeGroup(ts, $interval)) as dt\n  \t\tfrom\n  \t\t\tgenerate_series($__timeFrom(), $__timeTo(), INTERVAL '1 minute') ts\n  \t) as t\n  \torder by\n  \t\"startTime\"\n  ) as times\n  where\n    \"startTime\" is not null\n)\n-- Get the counts for each time slot\nselect\n\ttimetbl.\"startTime\" as time,\n\tmax(c) as down\nfrom\n\to\njoin\n  timetbl\non\n\to.\"startDt\" < timetbl.\"endTime\" and o.\"endDt\" > timetbl.\"startTime\"\ngroup by\n\ttimetbl.\"startTime\"\norder by\n\ttime",
+                    "rawSql": "with timetbl as (\n  select\n\t\"startTime\", \n\t\"endTime\",\n    tsrange(\"startTime\", \"endTime\") as \"tsrange\"\n  from (\n  \tselect distinct\n  \t\tlag(t.dt) over (order by t.dt) as \"startTime\",\n  \t\tt.dt as \"endTime\"\n  \tfrom (\n  \t\tselect\n  \t\t\tts::timestamp as dt\n  \t\tfrom\n  \t\t\tgenerate_series($__timeFrom(), $__timeTo(), INTERVAL '10 second') ts\n  \t) as t\n  \torder by\n  \t\"startTime\"\n  ) as times\n  where\n    \"startTime\" is not null\n), pairs as (\n\tselect\n\t\t\"uuid\",\n\t\t\"createdAt\",\n\t\t\"endedAt\",\n\t\t\"direction\",\n\t\t\"status\",\n\t\ttsrange(\"createdAt\", \"endedAt\") as \"tsrange\"\n\tfrom (\n\t\tselect\n\t\t\tuuid,\n\t\t\t(data->>'createdAt')::timestamp as \"createdAt\",\n\t\t\tcase\n\t\t\t\twhen data->>'endedAt' = '0001-01-01T00:00:00Z' then LOCALTIMESTAMP\n\t\t\t\twhen data->>'status' = 'OPEN' then LOCALTIMESTAMP\n\t\t\t\telse (data->>'endedAt')::timestamp\n\t\t\tend as \"endedAt\",\n\t\t\tdata->>'direction' as \"direction\",\n\t\t\tdata->>'status' as \"status\"\n\t\tfrom\n\t\t\torderpairs\n\t\twhere\n\t\t\tdata->>'status' in ('OPEN', 'SUCCESS', 'REVERSED', 'CANCELED')\n\t) as raw_pairs\n\twhere\n\t\ttsrange(\"createdAt\", \"endedAt\") && tsrange($__timeFrom(), $__timeTo())\n\tand\n\t\t\"direction\" = 'DOWN'\n)\nselect\n\t$__timeGroup(\"time\", $interval) as \"time\",\n\tmax(\"open\") as \"down\"\nfrom (\n\tselect\n\t\ttimetbl.\"startTime\" as \"time\",\n\t\tcount(pairs.uuid) as \"open\"\n\tfrom\n\t\ttimetbl\n\tleft join\n\t\tpairs\n\ton\n\t\ttimetbl.tsrange && pairs.tsrange\n\tgroup by \"time\"\n) as counts\ngroup by $__timeGroup(\"time\", $interval)\norder by $__timeGroup(\"time\", $interval)",
                     "refId": "A",
                     "select": [
                       [
@@ -1716,11 +1757,12 @@ grafana:
                     ]
                   },
                   {
-                    "format": "table",
+                    "format": "time_series",
                     "group": [],
+                    "hide": false,
                     "metricColumn": "none",
                     "rawQuery": true,
-                    "rawSql": "with o as ( -- Get the overlapping counts for each time range\n\tselect \n\t\tt2.\"startDt\", \n\t\tt2.\"endDt\", \n\t\tcount(1) c\n\tfrom ( -- Setup the time ranges\n\t\tselect\n\t\t\tlag(t.dt) over (order by t.dt) as \"startDt\", \n\t\t\tt.dt as \"endDt\"\n\t\tfrom ( -- Get the create and end times from the pairs\n\t\t\tselect\n\t\t\t\t(data->>'createdAt')::timestamp as \"dt\"\n\t\t\tfrom \n\t\t\t\torderpairs\n\t\t\twhere\n\t\t\t\t$__timeFilter(data->>'createdAt') or data->>'endedAt' in ('0001-01-01T00:00:00Z', '')\n\t\t\tUNION ALL\n\t\t\tselect\n\t\t\t\tcase\n\t\t\t\t\twhen data->>'endedAt' = '0001-01-01T00:00:00Z' then LOCALTIMESTAMP\n\t\t\t\t\twhen data->>'endedAt' = '' then LOCALTIMESTAMP\n\t\t\t\t\telse (data->>'endedAt')::timestamp\n\t\t\t\tend as \"dt\"\n\t\t\tfrom\n\t\t\t\torderpairs\n\t\t\twhere\n\t\t\t\t$__timeFilter(data->>'createdAt') or data->>'endedAt' in ('0001-01-01T00:00:00Z', '')\n\t\t) t\n\t) t2\n\tjoin (\n\t\tselect\n\t\t\tuuid,\n\t\t\t(data->>'createdAt')::timestamp as \"createdAt\",\n\t\t\tcase\n\t\t\t\twhen data->>'endedAt' = '0001-01-01T00:00:00Z' then LOCALTIMESTAMP\n\t\t\t\twhen data->>'endedAt' = '' then LOCALTIMESTAMP\n\t\t\t\telse (data->>'endedAt')::timestamp\n\t\t\tend as \"endedAt\",\n\t\t\tdata->>'direction' as \"direction\",\n\t\t\tdata->>'status' as \"status\"\n\t\tfrom\n\t\t\torderpairs\n\t\twhere\n\t\t\t($__timeFilter(data->>'createdAt') or data->>'endedAt' in ('0001-01-01T00:00:00Z', ''))\n\t\t\tand data->>'direction' = 'UP'\n\t\t) as pairs\n\ton t2.\"startDt\" < pairs.\"endedAt\" and t2.\"endDt\" > pairs.\"createdAt\"\n\tgroup by t2.\"startDt\", t2.\"endDt\"\n),\ntimetbl as (\n  select\n    *\n  from (\n  \tselect distinct\n  \t\tlag(t.dt) over (order by t.dt) as \"startTime\",\n  \t\tt.dt as \"endTime\"\n  \tfrom (\n  \t\tselect distinct\n  \t\t\tto_timestamp($__timeGroup(ts, $interval)) as dt\n  \t\tfrom\n  \t\t\tgenerate_series($__timeFrom(), $__timeTo(), INTERVAL '1 minute') ts\n  \t) as t\n  \torder by\n  \t\"startTime\"\n  ) as times\n  where\n    \"startTime\" is not null\n)\n-- Get the counts for each time slot\nselect\n\ttimetbl.\"startTime\" as time,\n\tmax(c) as up\nfrom\n\to\njoin\n  timetbl\non\n\to.\"startDt\" < timetbl.\"endTime\" and o.\"endDt\" > timetbl.\"startTime\"\ngroup by\n\ttimetbl.\"startTime\"\norder by\n\ttime",
+                    "rawSql": "with timetbl as (\n  select\n\t\"startTime\", \n\t\"endTime\",\n    tsrange(\"startTime\", \"endTime\") as \"tsrange\"\n  from (\n  \tselect distinct\n  \t\tlag(t.dt) over (order by t.dt) as \"startTime\",\n  \t\tt.dt as \"endTime\"\n  \tfrom (\n  \t\tselect\n  \t\t\tts::timestamp as dt\n  \t\tfrom\n  \t\t\tgenerate_series($__timeFrom(), $__timeTo(), INTERVAL '10 second') ts\n  \t) as t\n  \torder by\n  \t\"startTime\"\n  ) as times\n  where\n    \"startTime\" is not null\n), pairs as (\n\tselect\n\t\t\"uuid\",\n\t\t\"createdAt\",\n\t\t\"endedAt\",\n\t\t\"direction\",\n\t\t\"status\",\n\t\ttsrange(\"createdAt\", \"endedAt\") as \"tsrange\"\n\tfrom (\n\t\tselect\n\t\t\tuuid,\n\t\t\t(data->>'createdAt')::timestamp as \"createdAt\",\n\t\t\tcase\n\t\t\t\twhen data->>'endedAt' = '0001-01-01T00:00:00Z' then LOCALTIMESTAMP\n\t\t\t\twhen data->>'status' = 'OPEN' then LOCALTIMESTAMP\n\t\t\t\telse (data->>'endedAt')::timestamp\n\t\t\tend as \"endedAt\",\n\t\t\tdata->>'direction' as \"direction\",\n\t\t\tdata->>'status' as \"status\"\n\t\tfrom\n\t\t\torderpairs\n\t\twhere\n\t\t\tdata->>'status' in ('OPEN', 'SUCCESS', 'REVERSED', 'CANCELED')\n\t) as raw_pairs\n\twhere\n\t\ttsrange(\"createdAt\", \"endedAt\") && tsrange($__timeFrom(), $__timeTo())\n\tand\n\t\t\"direction\" = 'UP'\n)\nselect\n\t$__timeGroup(\"time\", $interval) as \"time\",\n\tmax(\"open\") as \"up\"\nfrom (\n\tselect\n\t\ttimetbl.\"startTime\" as \"time\",\n\t\tcount(pairs.uuid) as \"open\"\n\tfrom\n\t\ttimetbl\n\tleft join\n\t\tpairs\n\ton\n\t\ttimetbl.tsrange && pairs.tsrange\n\tgroup by \"time\"\n) as counts\ngroup by $__timeGroup(\"time\", $interval)\norder by $__timeGroup(\"time\", $interval)",
                     "refId": "B",
                     "select": [
                       [
@@ -1746,7 +1788,7 @@ grafana:
                 "timeFrom": null,
                 "timeRegions": [],
                 "timeShift": null,
-                "title": "Open Pairs",
+                "title": "Max Open Pairs",
                 "tooltip": {
                   "shared": true,
                   "sort": 0,
@@ -1795,7 +1837,7 @@ grafana:
                   "auto_count": 30,
                   "auto_min": "1m",
                   "current": {
-                    "selected": false,
+                    "selected": true,
                     "text": "6h",
                     "value": "6h"
                   },
@@ -1876,7 +1918,7 @@ grafana:
             "timezone": "",
             "title": "Moneytree - Metrics",
             "uid": "a5c4GYEGk",
-            "version": 8
+            "version": 1
           }
       pairs:
         json: |
