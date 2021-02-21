@@ -281,8 +281,8 @@ func (o *OrderPair) Cancel() (err error) {
 		<-o.SecondOrder().Done()
 	}
 
-	// Wait a sec just in case a reversal needs to happen
-	<-time.Tick(time.Second)
+	// Give the system some time to get consistent
+	<-time.Tick(time.Second * 5)
 
 	if o.ReversalOrder() != nil && !o.ReversalOrder().IsDone() {
 		log.Infof("%s: waiting on reversal order to close", o.UUID().String())
@@ -290,6 +290,71 @@ func (o *OrderPair) Cancel() (err error) {
 	}
 
 	return
+}
+
+func (o *OrderPair) Reverse() (err error) {
+	log.Errorf("%s: reversing pair", o.UUID().String())
+	o.setStatus(Reversed)
+	err = o.buildReversalRequest()
+	if err != nil {
+		log.WithError(err).Errorf("%s: could not build reverse request", o.UUID().String())
+		o.setStatus(Broken)
+		o.setStatusDetails(err)
+		o.setEndedAt()
+		o.markAsDone()
+
+		// Save the pair
+		err = o.Save()
+		if err != nil {
+			log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
+		}
+		return
+	}
+
+	// Save the pair
+	err = o.Save()
+	if err != nil {
+		log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
+	}
+
+	err = o.executeReversalRequest()
+	if err != nil {
+		log.WithError(err).Errorf("%s: could not reverse pair", o.UUID().String())
+		o.setStatus(Broken)
+		o.setStatusDetails(err)
+		o.setEndedAt()
+		o.markAsDone()
+
+		// Save the pair
+		err = o.Save()
+		if err != nil {
+			log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
+		}
+		return
+	}
+
+	// Save the pair
+	err = o.Save()
+	if err != nil {
+		log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
+	}
+
+	// Wait for the reversal order to complete
+	<-o.ReversalOrder().Done()
+	log.Infof("%s: reversal order complete", o.UUID().String())
+
+	// Give the system some time to get consistent
+	<-time.Tick(time.Second * 5)
+
+	// Load the reversal fees
+	o.ReversalOrder().Refresh()
+
+	// Save the pair
+	err = o.Save()
+	if err != nil {
+		log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
+	}
+	return nil
 }
 
 // ###########################
@@ -346,67 +411,8 @@ func (o *OrderPair) execute() {
 		}
 
 		if o.Status() == Canceled && o.FirstOrder() != nil && o.FirstOrder().Filled().GreaterThan(decimal.Zero) {
-			log.Errorf("%s: reversing pair", o.UUID().String())
-			o.setStatus(Reversed)
-			err = o.buildReversalRequest()
-			if err != nil {
-				log.WithError(err).Errorf("%s: could not build reverse request", o.UUID().String())
-				o.setStatus(Broken)
-				o.setStatusDetails(err)
-				o.setEndedAt()
-				o.markAsDone()
-
-				// Save the pair
-				err = o.Save()
-				if err != nil {
-					log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
-				}
-				return
-			}
-
-			// Save the pair
-			err = o.Save()
-			if err != nil {
-				log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
-			}
-
-			err = o.executeReversalRequest()
-			if err != nil {
-				log.WithError(err).Errorf("%s: could not reverse pair", o.UUID().String())
-				o.setStatus(Broken)
-				o.setStatusDetails(err)
-				o.setEndedAt()
-				o.markAsDone()
-
-				// Save the pair
-				err = o.Save()
-				if err != nil {
-					log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
-				}
-				return
-			}
-
-			// Save the pair
-			err = o.Save()
-			if err != nil {
-				log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
-			}
-
-			// Wait for the reversal order to complete
-			<-o.ReversalOrder().Done()
-			log.Infof("%s: reversal order complete", o.UUID().String())
-
-			// Give the system a second to get consistent
-			<-time.Tick(time.Second)
-
-			// Load the reversal fees
-			o.ReversalOrder().Refresh()
-
-			// Save the pair
-			err = o.Save()
-			if err != nil {
-				log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
-			}
+			o.Reverse()
+			return
 		}
 
 		o.setEndedAt()
@@ -461,66 +467,8 @@ func (o *OrderPair) execute() {
 
 		// Reverse the pair if the status has been set to reversed
 		if o.Status() == Reversed {
-			log.Warnf("%s: reversing pair", o.UUID().String())
-			err = o.buildReversalRequest()
-			if err != nil {
-				log.WithError(err).Errorf("%s: could not build reverse request", o.UUID().String())
-				o.setStatus(Broken)
-				o.setStatusDetails(err)
-				o.setEndedAt()
-				o.markAsDone()
-
-				// Save the pair
-				err = o.Save()
-				if err != nil {
-					log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
-				}
-				return
-			}
-
-			// Save the pair
-			err = o.Save()
-			if err != nil {
-				log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
-			}
-
-			err = o.executeReversalRequest()
-			if err != nil {
-				log.WithError(err).Errorf("%s: could not reverse pair", o.UUID().String())
-				o.setStatus(Broken)
-				o.setStatusDetails(err)
-				o.setEndedAt()
-				o.markAsDone()
-
-				// Save the pair
-				err = o.Save()
-				if err != nil {
-					log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
-				}
-				return
-			}
-
-			// Save the pair
-			err = o.Save()
-			if err != nil {
-				log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
-			}
-
-			// Wait for the reversal order to complete
-			<-o.ReversalOrder().Done()
-			log.Infof("%s: reversal order complete", o.UUID().String())
-
-			// Give the system a second to get consistent
-			<-time.Tick(time.Second)
-
-			// Get the fees
-			o.ReversalOrder().Refresh()
-
-			// Save the pair
-			err = o.Save()
-			if err != nil {
-				log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
-			}
+			o.Reverse()
+			return
 		}
 	}
 
@@ -584,8 +532,8 @@ func (o *OrderPair) handleFirstOrder() (err error) {
 	<-o.FirstOrder().Done()
 	log.Infof("%s: first order complete", o.UUID().String())
 
-	// Give the system a second to get consistent
-	<-time.Tick(time.Second)
+	// Give the system some time to get consistent
+	<-time.Tick(time.Second * 5)
 
 	// Refresh the order to make sure we have the fees
 	err = o.FirstOrder().Refresh()
@@ -656,8 +604,8 @@ func (o *OrderPair) handleSecondOrder() (err error) {
 	<-o.SecondOrder().Done()
 	log.Infof("%s: second order complete", o.UUID().String())
 
-	// Give the system a second to get consistent
-	<-time.Tick(time.Second)
+	// Give the system some time to get consistent
+	<-time.Tick(time.Second * 5)
 
 	// Refresh the order to get the fees
 	err = o.SecondOrder().Refresh()
