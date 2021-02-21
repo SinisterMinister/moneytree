@@ -221,7 +221,11 @@ func (svc *Service) LoadOpenPairs() (pairs []*OrderPair, err error) {
 		// Load the pair
 		pair, err := svc.NewFromDAO(dao)
 		if err != nil {
-			return nil, fmt.Errorf("could not load open order: %w", err)
+			log.WithError(err).Warnf("could not load open order %s; marking as broken", dao.Uuid)
+			dao.StatusDetails = err.Error()
+			dao.Status = Broken
+			svc.Save(dao)
+			continue
 		}
 		// Add to return
 		pairs = append(pairs, pair)
