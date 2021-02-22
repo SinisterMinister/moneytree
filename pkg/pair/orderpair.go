@@ -341,6 +341,8 @@ func (o *OrderPair) Reverse() (err error) {
 
 	// Wait for the reversal order to complete
 	<-o.ReversalOrder().Done()
+	o.setEndedAt()
+	o.markAsDone()
 	log.Infof("%s: reversal order complete", o.UUID().String())
 
 	// Give the system some time to get consistent
