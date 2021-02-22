@@ -421,6 +421,8 @@ github.com/sinisterminister/currencytrader v0.7.0 h1:H/vtIZ8gci8Syn0cfMlmWBDImJ3
 github.com/sinisterminister/currencytrader v0.7.0/go.mod h1:mFzDPJx6emmnhtV5Y8RQsyL9xh2ObanI4+efxJDCPwg=
 github.com/sinisterminister/currencytrader v0.7.2 h1:RlbfxPqDJsn254sFTmvV2ZDoWaVEfBCi4CON0clSi38=
 github.com/sinisterminister/currencytrader v0.7.2/go.mod h1:pP2QMZ39woVHV8H9ymGKA9hwVrRuUypepAS5gMSjKh0=
+github.com/sinisterminister/currencytrader v0.7.3 h1:c8Ft59gWazLS0e0v2CnluaCEdAW70pK2gA1f5oOPCz4=
+github.com/sinisterminister/currencytrader v0.7.3/go.mod h1:pP2QMZ39woVHV8H9ymGKA9hwVrRuUypepAS5gMSjKh0=
 github.com/sinisterminister/go-coinbasepro/v2 v2.0.6 h1:MaPs5tBuE4xdoa4a8B0VNwRINWmO/SuVN8opeTPhKcE=
 github.com/sinisterminister/go-coinbasepro/v2 v2.0.6/go.mod h1:KTu4NEDPfKxeH3RL6LTqtYwSNRyDEjlmVv984keo7L4=
 github.com/sinisterminister/go-coinbasepro/v2 v2.0.7/go.mod h1:KTu4NEDPfKxeH3RL6LTqtYwSNRyDEjlmVv984keo7L4=
@@ -725,6 +727,7 @@ gopkg.in/DATA-DOG/go-sqlmock.v1 v1.3.0/go.mod h1:OdE7CF6DbADk7lN8LIKRzRJTTZXIjtW
 gopkg.in/alecthomas/kingpin.v2 v2.2.6/go.mod h1:FMv+mEhP44yOT+4EoQTLFTRgOQ1FBLkstjWtayDeSgw=
 gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc/go.mod h1:m7x9LTH6d71AHyAX77c9yqWCCa3UKHcVEj9y7hAtKDk=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
+gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 h1:qIbj1fsPNlZgppZ+VLlY7N33q108Sa+fhmuc+sWQYwY=
 gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 h1:YR8cESwS4TdDjEe65xsg0ogRM/Nc3DYOhEAlW+xobZo=
 gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=

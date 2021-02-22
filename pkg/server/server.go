@@ -142,7 +142,7 @@ func (s *Server) PlacePair(ctx context.Context, in *proto.PlacePairRequest) (*pr
 
 	// Try to make room if we're placing a new order
 	if orderPair != openPair {
-		err = s.pairSvc.MakeRoom(pair.Direction(in.Direction))
+		err = s.pairSvc.MakeRoom(orderPair.FirstRequest().Price(), pair.Direction(in.Direction))
 		if err != nil {
 			return nil, err
 		}
