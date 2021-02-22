@@ -412,6 +412,8 @@ github.com/sinisterminister/currencytrader v0.6.0 h1:mShzJDE+s0YJ0guZRZ8hr2CkBxa
 github.com/sinisterminister/currencytrader v0.6.0/go.mod h1:mFzDPJx6emmnhtV5Y8RQsyL9xh2ObanI4+efxJDCPwg=
 github.com/sinisterminister/currencytrader v0.6.1 h1:d4pyCAR2tD1TEbe8EVmlQR+4zW+mTFUMld0def1xWG0=
 github.com/sinisterminister/currencytrader v0.6.1/go.mod h1:mFzDPJx6emmnhtV5Y8RQsyL9xh2ObanI4+efxJDCPwg=
+github.com/sinisterminister/currencytrader v0.7.0 h1:H/vtIZ8gci8Syn0cfMlmWBDImJ33/6BDmiHbb44Sw2I=
+github.com/sinisterminister/currencytrader v0.7.0/go.mod h1:mFzDPJx6emmnhtV5Y8RQsyL9xh2ObanI4+efxJDCPwg=
 github.com/sinisterminister/go-coinbasepro/v2 v2.0.6 h1:MaPs5tBuE4xdoa4a8B0VNwRINWmO/SuVN8opeTPhKcE=
 github.com/sinisterminister/go-coinbasepro/v2 v2.0.6/go.mod h1:KTu4NEDPfKxeH3RL6LTqtYwSNRyDEjlmVv984keo7L4=
 github.com/sinisterminister/go-coinbasepro/v2 v2.0.7/go.mod h1:KTu4NEDPfKxeH3RL6LTqtYwSNRyDEjlmVv984keo7L4=

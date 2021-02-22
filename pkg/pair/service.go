@@ -3,6 +3,7 @@ package pair
 import (
 	"database/sql"
 	"fmt"
+	"github.com/shopspring/decimal"
 	"sync"
 	"time"
 
@@ -268,7 +269,7 @@ func (svc *Service) GetCollidingOpenPair(newPair *OrderPair) (pair *OrderPair, e
 	return
 }
 
-func (svc *Service) MakeRoom(direction Direction) error {
+func (svc *Service) MakeRoom(startingPrice decimal.Decimal, direction Direction) error {
 	// Get open pairs for direction
 	pairs := []*OrderPair{}
 	openPairs, err := svc.LoadOpenPairs()
@@ -281,9 +282,20 @@ func (svc *Service) MakeRoom(direction Direction) error {
 		}
 	}
 
-	// If there are too many open, make room by canceling the newest pair to lose the least
-	for len(pairs) >= viper.GetInt("maxOpenPairs") {
-		// Find the oldest pair
+	// Get the max open pairs
+	max, err := svc.getMaxOpenPairs(startingPrice, direction)
+	if err != nil {
+		return fmt.Errorf("could not get max open pairs: %w", err)
+	}
+
+	// Bail if there's already enough room
+	if len(pairs) < max {
+		return nil
+	}
+
+	// Make room for new orders
+	for len(pairs)+1 >= max {
+		// Find the newest pair
 		newest := pairs[0]
 		var idx int
 		for i, pair := range pairs {
@@ -306,6 +318,15 @@ func (svc *Service) MakeRoom(direction Direction) error {
 
 		// Remove the pair from the slice
 		pairs = append(pairs[:idx], pairs[idx+1:]...)
+
+		// Wait for consistency
+		<-time.Tick(time.Second)
+
+		// Reset max
+		max, err = svc.getMaxOpenPairs(startingPrice, direction)
+		if err != nil {
+			return fmt.Errorf("could not get max open pairs: %w", err)
+		}
 	}
 
 	return nil
@@ -317,4 +338,58 @@ func (svc *Service) initializeDB() error {
 		return err
 	}
 	return nil
+}
+
+func (svc *Service) getMaxOpenPairs(price decimal.Decimal, direction Direction) (max int, err error) {
+	// Get the max order size from max number of open orders plus 1 to add a buffer
+	maxOpenPairs := viper.GetInt("maxOpenPairs")
+
+	// Get the number of pairs for direction
+	pairs := 0
+	openPairs, err := svc.LoadOpenPairs()
+	if err != nil {
+		return 0, fmt.Errorf("could not load open pairs to make room: %w", err)
+	}
+	for _, pair := range openPairs {
+		if pair.Direction() == direction && pair.Status() == Open {
+			pairs++
+		}
+	}
+
+	// return max if there are more pairs than should be
+	if maxOpenPairs < pairs {
+		return maxOpenPairs, nil
+	}
+
+	// Figure out the max based on how much balance is available
+	var size decimal.Decimal
+	it := 0
+	if direction == Upward {
+		for svc.market.MinFunds().GreaterThan(size) {
+			// Make sure we have enough money for the max order size
+			ratio := decimal.NewFromInt(int64(maxOpenPairs - pairs - it))
+			if ratio.LessThanOrEqual(decimal.Zero) {
+				break
+			}
+
+			quoteWallet := svc.market.QuoteCurrency().Wallet()
+			size = quoteWallet.Available().Div(price).Div(ratio)
+		}
+	} else {
+		for svc.market.MinQuantity().GreaterThan(size) {
+			// Make sure we have enough money for the max order size
+			ratio := decimal.NewFromInt(int64(maxOpenPairs - pairs - it))
+			if ratio.LessThanOrEqual(decimal.Zero) {
+				break
+			}
+
+			baseWallet := svc.market.BaseCurrency().Wallet()
+			size = baseWallet.Available().Div(ratio)
+		}
+	}
+
+	max = maxOpenPairs - it
+
+	// Start trying to determine
+	return
 }
