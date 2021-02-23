@@ -283,7 +283,7 @@ func (svc *Service) MakeRoom(startingPrice decimal.Decimal, direction Direction)
 	}
 
 	// Get the max open pairs
-	log.Info("getting max open pairs")
+	log.Debug("getting max open pairs")
 	max, err := svc.getMaxOpenPairs(startingPrice, direction)
 	if err != nil {
 		return fmt.Errorf("could not get max open pairs: %w", err)
@@ -295,7 +295,7 @@ func (svc *Service) MakeRoom(startingPrice decimal.Decimal, direction Direction)
 	}
 
 	// Make room for new orders
-	log.Infof("making room for new orders")
+	log.Debug("making room for new orders")
 	for len(pairs)+1 >= max {
 		// Find the newest pair
 		newest := pairs[0]
@@ -376,6 +376,7 @@ func (svc *Service) getMaxOpenPairs(price decimal.Decimal, direction Direction) 
 
 			quoteWallet := svc.market.QuoteCurrency().Wallet()
 			size = quoteWallet.Available().Div(price).Div(ratio)
+			log.Infof("min funds %s size %s", svc.market.MinFunds(), size)
 		}
 	} else {
 		for svc.market.MinQuantity().GreaterThan(size) {
@@ -387,6 +388,7 @@ func (svc *Service) getMaxOpenPairs(price decimal.Decimal, direction Direction) 
 
 			baseWallet := svc.market.BaseCurrency().Wallet()
 			size = baseWallet.Available().Div(ratio)
+			log.Infof("min qty %s size %s", svc.market.MinQuantity(), size)
 		}
 	}
 
