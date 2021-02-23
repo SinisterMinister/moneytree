@@ -283,6 +283,7 @@ func (svc *Service) MakeRoom(startingPrice decimal.Decimal, direction Direction)
 	}
 
 	// Get the max open pairs
+	log.Info("getting max open pairs")
 	max, err := svc.getMaxOpenPairs(startingPrice, direction)
 	if err != nil {
 		return fmt.Errorf("could not get max open pairs: %w", err)
