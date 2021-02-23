@@ -294,6 +294,7 @@ func (svc *Service) MakeRoom(startingPrice decimal.Decimal, direction Direction)
 	}
 
 	// Make room for new orders
+	log.Infof("making room for new orders")
 	for len(pairs)+1 >= max {
 		// Find the newest pair
 		newest := pairs[0]
