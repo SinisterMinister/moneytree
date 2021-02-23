@@ -390,7 +390,6 @@ func (svc *Service) getMaxOpenPairs(price decimal.Decimal, direction Direction) 
 	}
 
 	max = maxOpenPairs - it
-
-	// Start trying to determine
+	log.Infof("max open pairs %s", max)
 	return
 }
