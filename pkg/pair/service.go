@@ -377,7 +377,7 @@ func (svc *Service) getMaxOpenPairs(price decimal.Decimal, direction Direction) 
 				break
 			}
 			size = quoteWallet.Available().Div(price).Div(ratio)
-			log.Infof("min funds %s size %s", svc.market.MinQuantity(), size)
+			log.Debugf("min funds %s size %s", svc.market.MinQuantity(), size)
 		}
 	} else {
 		for svc.market.MinQuantity().GreaterThan(size) {
@@ -387,11 +387,11 @@ func (svc *Service) getMaxOpenPairs(price decimal.Decimal, direction Direction) 
 				break
 			}
 			size = baseWallet.Available().Div(ratio)
-			log.Infof("min qty %s size %s", svc.market.MinQuantity(), size)
+			log.Debugf("min qty %s size %s", svc.market.MinQuantity(), size)
 		}
 	}
 
 	max = maxOpenPairs - it
-	log.Infof("max open pairs %s", max)
+	log.Debugf("max open pairs %d", max)
 	return
 }
