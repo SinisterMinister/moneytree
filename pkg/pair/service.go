@@ -367,7 +367,7 @@ func (svc *Service) getMaxOpenPairs(price decimal.Decimal, direction Direction) 
 	var size decimal.Decimal
 	it := 0
 	if direction == Upward {
-		for svc.market.MinFunds().GreaterThan(size) {
+		for svc.market.MinQuantity().GreaterThan(size) {
 			// Make sure we have enough money for the max order size
 			ratio := decimal.NewFromInt(int64(maxOpenPairs - pairs - it))
 			if ratio.LessThanOrEqual(decimal.Zero) {
@@ -376,7 +376,7 @@ func (svc *Service) getMaxOpenPairs(price decimal.Decimal, direction Direction) 
 
 			quoteWallet := svc.market.QuoteCurrency().Wallet()
 			size = quoteWallet.Available().Div(price).Div(ratio)
-			log.Infof("min funds %s size %s", svc.market.MinFunds(), size)
+			log.Infof("min funds %s size %s", svc.market.MinQuantity(), size)
 		}
 	} else {
 		for svc.market.MinQuantity().GreaterThan(size) {
