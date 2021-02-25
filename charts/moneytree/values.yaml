@@ -17,9 +17,13 @@ moneytree:
   # Enable debug logging
   enableDebugLogs: false
   # Maximum number of orders that the system will keep open before rotating them
-  maxOpenPairs: 16
+  maxOpenPairs: 4
   # Percentage return to target
   targetReturn: 0.001
+  # Enable loss mitigator routines
+  enableLossMitigator: no
+  # Percentage of the second price to bail at
+  bailPercentage: 0.05
 
   coinbase:
     # Forces the app to use the sandbox

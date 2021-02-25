@@ -29,6 +29,9 @@ data:
     targetReturn: {{ .Values.moneytree.targetReturn }}
     forceMakerOrders: {{ .Values.moneytree.forceMakerOrders}}
 
+    enableLossMitigator: {{ .Values.moneytree.enableLossMitigator}}
+    bailPercentage: {{ .Values.moneytree.bailPercentage}}
+
     postgres:
       host: {{ .Release.Name }}-postgresql
       password: {{ .Values.moneytree.postgresql.password }}

@@ -456,6 +456,11 @@ func (o *OrderPair) execute() {
 		log.WithError(err).Errorf("%s: could not save the pair", o.UUID().String())
 	}
 
+	// Start the loss mitigator if necessary
+	if viper.GetBool("enableLossMitigator") {
+		go o.lossMitigator()
+	}
+
 	// Handle second order
 	err = o.handleSecondOrder()
 	if err != nil {
@@ -873,4 +878,42 @@ func (o *OrderPair) validate() error {
 	}
 
 	return nil
+}
+
+func(o *OrderPair) lossMitigator() {
+	// No need to do anything if the pair is already done
+	if o.IsDone() {
+		return
+	}
+
+	// Get a ticker and watch for the order to
+	ticker := o.svc.market.TickerStream(o.Done())
+	bailPercent := decimal.NewFromFloat(viper.GetFloat64("bailPercentage"))
+	for {
+		select {
+		case <-o.Done():
+			return
+		case tick := <-ticker:
+			if o.Direction() == Upward {
+				bailTarget := o.SecondRequest().Price().Sub(o.SecondRequest().Price().Mul(bailPercent))
+
+				// The price has dropped too much
+				if tick.Price().GreaterThan(bailTarget) {
+					// Cancel the pair
+					o.Cancel()
+					return
+				}
+			}
+			if o.Direction() == Downward {
+				bailTarget := o.SecondRequest().Price().Add(o.SecondRequest().Price().Mul(bailPercent))
+
+				// The price has risen too much
+				if tick.Price().GreaterThan(bailTarget) {
+					// Cancel the pair
+					o.Cancel()
+					return
+				}
+			}
+		}
+	}
 }
