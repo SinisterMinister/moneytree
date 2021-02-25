@@ -880,7 +880,7 @@ func (o *OrderPair) validate() error {
 	return nil
 }
 
-func(o *OrderPair) lossMitigator() {
+func (o *OrderPair) lossMitigator() {
 	// No need to do anything if the pair is already done
 	if o.IsDone() {
 		return
@@ -898,7 +898,7 @@ func(o *OrderPair) lossMitigator() {
 				bailTarget := o.SecondRequest().Price().Sub(o.SecondRequest().Price().Mul(bailPercent))
 
 				// The price has dropped too much
-				if tick.Price().GreaterThan(bailTarget) {
+				if tick.Price().LessThan(bailTarget) {
 					// Cancel the pair
 					o.Cancel()
 					return
