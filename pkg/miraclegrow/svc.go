@@ -59,8 +59,7 @@ func (svc *Service) MakeItGrow(stop <-chan bool) (err error) {
 
 func (svc *Service) startWatering() (err error) {
 	log.Infof("get all the open pairs")
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*15)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	pairs, err := svc.moneytree.GetOpenPairs(ctx, &proto.NullRequest{})
 	if err != nil {
@@ -119,7 +118,7 @@ func (svc *Service) startWatering() (err error) {
 func (svc *Service) placePair(direction pair.Direction) (err error) {
 	log.Infof("placing %s pair", direction)
 	// Place the pair based on the direction
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*15)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	response, err := svc.moneytree.PlacePair(ctx, &proto.PlacePairRequest{Direction: string(direction)})
 	if err != nil {

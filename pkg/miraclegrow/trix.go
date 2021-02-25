@@ -40,7 +40,7 @@ func (svc *Service) TrixR5Kids(stop <-chan bool) (err error) {
 }
 
 func (svc *Service) turnTrix() (err error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*15)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	pairs, err := svc.moneytree.GetOpenPairs(ctx, &proto.NullRequest{})
 	if err != nil {
