@@ -324,9 +324,6 @@ func (s *Server) startHealthcheckHandler() {
 	// Create a healthcheck.Handler
 	health := healthcheck.NewHandler()
 
-	// Our app is not happy if we've got more than 512 goroutines running.
-	health.AddLivenessCheck("goroutine-threshold", healthcheck.GoroutineCountCheck(512))
-
 	// Expose the /live and /ready endpoints over HTTP (on port 8086)
 	go http.ListenAndServe("0.0.0.0:8086", health)
 }
