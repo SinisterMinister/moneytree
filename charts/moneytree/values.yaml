@@ -142,7 +142,7 @@ grafana:
             "editable": true,
             "gnetId": null,
             "graphTooltip": 0,
-            "iteration": 1614235126597,
+            "iteration": 1614317736123,
             "links": [],
             "panels": [
               {
@@ -168,6 +168,7 @@ grafana:
                     },
                     "decimals": 2,
                     "mappings": [],
+                    "noValue": "0",
                     "thresholds": {
                       "mode": "absolute",
                       "steps": [
@@ -262,6 +263,7 @@ grafana:
                     },
                     "decimals": 2,
                     "mappings": [],
+                    "noValue": "0",
                     "thresholds": {
                       "mode": "absolute",
                       "steps": [
@@ -356,6 +358,7 @@ grafana:
                     },
                     "decimals": 2,
                     "mappings": [],
+                    "noValue": "0",
                     "thresholds": {
                       "mode": "absolute",
                       "steps": [
@@ -449,6 +452,7 @@ grafana:
                       "align": null
                     },
                     "mappings": [],
+                    "noValue": "0",
                     "thresholds": {
                       "mode": "absolute",
                       "steps": [
@@ -553,6 +557,7 @@ grafana:
                       "align": null
                     },
                     "mappings": [],
+                    "noValue": "0",
                     "thresholds": {
                       "mode": "absolute",
                       "steps": [
@@ -641,6 +646,7 @@ grafana:
                       "align": null
                     },
                     "mappings": [],
+                    "noValue": "0",
                     "thresholds": {
                       "mode": "absolute",
                       "steps": [
@@ -733,6 +739,7 @@ grafana:
                       "align": null
                     },
                     "mappings": [],
+                    "noValue": "0",
                     "thresholds": {
                       "mode": "absolute",
                       "steps": [
