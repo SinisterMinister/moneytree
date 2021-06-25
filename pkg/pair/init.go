@@ -20,4 +20,7 @@ func init() {
 
 	// Make sure fees are taken into account by default
 	viper.SetDefault("disableFees", false)
+
+	// Set the strategy used to make room for new orders
+	viper.SetDefault("makeRoomStrategy", "oldest")
 }

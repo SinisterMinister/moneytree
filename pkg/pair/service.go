@@ -3,9 +3,10 @@ package pair
 import (
 	"database/sql"
 	"fmt"
-	"github.com/shopspring/decimal"
 	"sync"
 	"time"
+
+	"github.com/shopspring/decimal"
 
 	"github.com/go-playground/log/v7"
 	uuid "github.com/satori/go.uuid"
@@ -296,39 +297,79 @@ func (svc *Service) MakeRoom(startingPrice decimal.Decimal, direction Direction)
 
 	// Make room for new orders
 	log.Debug("making room for new orders")
-	for len(pairs)+1 >= max {
-		// Find the newest pair
-		newest := pairs[0]
-		var idx int
-		for i, pair := range pairs {
-			if pair.CreatedAt().After(newest.CreatedAt()) {
-				newest = pair
-				idx = i
+	switch viper.GetString("makeRoomStrategy") {
+	case "newest":
+		for len(pairs)+1 >= max {
+			// Find the newest pair
+			newest := pairs[0]
+			var idx int
+			for i, pair := range pairs {
+				if pair.CreatedAt().After(newest.CreatedAt()) {
+					newest = pair
+					idx = i
+				}
 			}
-		}
 
-		// Cancel newest pair
-		if newest.Status() == Open {
-			log.Infof("%s: canceling pair to make room", newest.UUID().String())
-			err = newest.Cancel()
+			// Cancel newest pair
+			if newest.Status() == Open {
+				log.Infof("%s: canceling pair to make room", newest.UUID().String())
+				err = newest.Cancel()
+				if err != nil {
+					return fmt.Errorf("could not cancel newest pair to make room: %w", err)
+				}
+			}
+			// Wait for the pair to make room
+			<-newest.Done()
+
+			// Remove the pair from the slice
+			pairs = append(pairs[:idx], pairs[idx+1:]...)
+
+			// Wait for consistency
+			<-time.NewTicker(time.Second).C
+
+			// Reset max
+			max, err = svc.getMaxOpenPairs(startingPrice, direction)
 			if err != nil {
-				return fmt.Errorf("could not cancel newest pair to make room: %w", err)
+				return fmt.Errorf("could not get max open pairs: %w", err)
 			}
 		}
-		// Wait for the pair to make room
-		<-newest.Done()
+	case "oldest":
+		for len(pairs)+1 >= max {
+			// Find the oldest pair
+			oldest := pairs[0]
+			var idx int
+			for i, pair := range pairs {
+				if pair.CreatedAt().Before(oldest.CreatedAt()) {
+					oldest = pair
+					idx = i
+				}
+			}
 
-		// Remove the pair from the slice
-		pairs = append(pairs[:idx], pairs[idx+1:]...)
+			// Cancel oldest pair
+			if oldest.Status() == Open {
+				log.Infof("%s: canceling pair to make room", oldest.UUID().String())
+				err = oldest.Cancel()
+				if err != nil {
+					return fmt.Errorf("could not cancel oldest pair to make room: %w", err)
+				}
+			}
+			// Wait for the pair to make room
+			<-oldest.Done()
 
-		// Wait for consistency
-		<-time.Tick(time.Second)
+			// Remove the pair from the slice
+			pairs = append(pairs[:idx], pairs[idx+1:]...)
 
-		// Reset max
-		max, err = svc.getMaxOpenPairs(startingPrice, direction)
-		if err != nil {
-			return fmt.Errorf("could not get max open pairs: %w", err)
+			// Wait for consistency
+			<-time.NewTicker(time.Second).C
+
+			// Reset max
+			max, err = svc.getMaxOpenPairs(startingPrice, direction)
+			if err != nil {
+				return fmt.Errorf("could not get max open pairs: %w", err)
+			}
 		}
+	default:
+		return fmt.Errorf("unknown strategy '%s'", viper.GetString("makeRoomStrategy"))
 	}
 
 	return nil
