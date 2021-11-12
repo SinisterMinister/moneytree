@@ -612,7 +612,7 @@ func (o *OrderPair) handleSecondOrder() (err error) {
 	log.Infof("%s: second order complete", o.UUID().String())
 
 	// Give the system some time to get consistent
-	<-time.Tick(time.Second * 5)
+	<-time.NewTicker(time.Second * 5).C
 
 	// Refresh the order to get the fees
 	err = o.SecondOrder().Refresh()
